@@ -401,6 +401,21 @@ table.heatmap .hm-corner{min-width:60px}
 .estrow select{width:100%;min-width:0}
 @media(max-width:480px){.estrow{grid-template-columns:48px 1fr 1fr}}
 
+/* 경기 기록 상세 (행 펼침) */
+.mono{font-family:var(--mono)}
+.logrow{cursor:pointer}
+.logrow.open{background:var(--panel-2)}
+.logrow .caret{color:var(--tx-dim);width:20px}
+.logdetailrow td{background:var(--panel-2);padding:14px}
+.setdetail .bd-meta{display:flex;flex-wrap:wrap;gap:14px;align-items:center;font-size:13px;margin-bottom:10px}
+.setdetail .bd-meta b{color:var(--tx)}
+.bd-bans{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:4px}
+.bd-ban{font-size:13px;display:inline-flex;align-items:center;gap:6px}
+.bd-bans b{color:var(--tx)}
+.bd-lineups{display:flex;flex-direction:column;gap:8px}
+.loadbtn{font-family:inherit;font-size:12.5px;font-weight:700;color:var(--accent);background:rgba(25,227,192,.08);border:1px solid var(--accent-dim);border-radius:9px;padding:8px 14px;cursor:pointer}
+.loadbtn:hover{background:rgba(25,227,192,.16)}
+
 .state{text-align:center;padding:60px 20px;color:var(--tx-mid)}
 .state .spin{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;margin:0 auto 16px;animation:sp .8s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}

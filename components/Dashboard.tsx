@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import type { DataBundle } from "@/lib/types";
 import {
   renderMatchday, renderScout, renderBanAnalysis, renderMaps, renderLog,
-  renderScenario, renderPlayers, renderEstimator, setIcons,
+  renderScenario, renderPlayers, renderEstimator, setIcons, setToEstInput,
   type LogFilter, type EstInput, type BanUI,
 } from "@/lib/render";
 
@@ -56,6 +56,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
   const [mapsMode, setMapsMode] = useState("all");
   const [mapsTeam, setMapsTeam] = useState("ZANSIDE");
   const [logF, setLogF] = useState<LogFilter>({ z: "all", team: "", mode: "", map: "", date: "" });
+  const [logExpand, setLogExpand] = useState("");
   const [weakExpand, setWeakExpand] = useState("");
 
   // 선수
@@ -90,14 +91,14 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "home": return renderMatchday(D, weakExpand);
       case "scout": return renderScout(D, scoutTeam, weakExpand);
       case "players": return renderPlayers(D, { playerA, playerB, search: playerSearch, pickTeam, pickTeamB, heroExpand });
-      case "log": return renderLog(D, logF);
+      case "log": return renderLog(D, logF, logExpand);
       case "scenario": return renderScenario(D);
       case "ban": return renderBanAnalysis(D, { role: banRole, topN: banTopN, team: banTeam, banMap, banExpand } as BanUI);
       case "maps": return renderMaps(D, mapsMode, mapsTeam);
       case "estimator": return renderEstimator(D, est);
       default: return "";
     }
-  }, [D, tab, scoutTeam, weakExpand, playerA, playerB, playerSearch, pickTeam, pickTeamB, heroExpand, logF, banRole, banTopN, banTeam, banMap, banExpand, mapsMode, mapsTeam, est]);
+  }, [D, tab, scoutTeam, weakExpand, playerA, playerB, playerSearch, pickTeam, pickTeamB, heroExpand, logF, logExpand, banRole, banTopN, banTeam, banMap, banExpand, mapsMode, mapsTeam, est]);
 
   const toTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
   function go(id: TabId) { setMod("owcs"); setTab(id); toTop(); }
@@ -120,6 +121,8 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "ban-role": setBanRole(val as "all" | Role); break;
       case "ban-expand": setBanExpand((c) => (c === val ? "" : val)); break;
       case "weak-expand": setWeakExpand((c) => (c === val ? "" : val)); break;
+      case "log-expand": setLogExpand((c) => (c === val ? "" : val)); break;
+      case "load-sim": { const inp = setToEstInput(D, val); if (inp) { setEst(inp); go("estimator"); } break; }
       case "copy":
         navigator.clipboard?.writeText(val).then(() => {
           el.textContent = "복사됨"; el.classList.add("done");
@@ -159,6 +162,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "comp-player": setPlayerB(v); break;
       case "est-map": setEst((s) => ({ ...s, map: v })); break;
       case "est-oppteam": setEst((s) => ({ ...s, oppTeam: v, oppPlayers: ["", "", "", "", ""], oppHeroes: ["", "", "", "", ""] })); break;
+      case "est-load": if (v) { const inp = setToEstInput(D, v); if (inp) setEst(inp); } break;
     }
   }
 

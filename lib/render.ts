@@ -961,27 +961,32 @@ function heroDetail(D: DataBundle, p: Player, hero: string): string {
       }).join("")
     : nod("맵 기록이 없어요.");
 
-  const comps: Array<{ date: string; map: string; won: boolean; mates: Player["cells"][string][] | { player: string; hero: string }[] }> = [];
+  const fmtSc = (sc: SetRec["ws"]) => (sc ? (sc.kind === "dist" ? Math.round(sc.val) + "m" : String(sc.val)) : "·");
+  const comps: Array<{ date: string; map: string; opp: string; score: string; won: boolean; mates: { player: string; hero: string }[] }> = [];
   D.sets.forEach((s) => {
     const side = s.top === p.team ? s.picks.top : s.bottom === p.team ? s.picks.bottom : null;
     if (!side) return;
     const me = side.find((x) => x.player === p.name && x.hero === hero);
     if (!me) return;
     const mates = side.filter((x) => x !== me && (x.player || x.hero));
-    comps.push({ date: s.date, map: s.map, won: s.winner === p.team, mates });
+    const w = setWinner(s);
+    const won = w === p.team;
+    const mine = won ? s.ws : s.ls;
+    const theirs = won ? s.ls : s.ws;
+    comps.push({ date: s.date, map: s.map, opp: s.top === p.team ? s.bottom : s.top, score: `${fmtSc(mine)}-${fmtSc(theirs)}`, won, mates });
   });
   comps.sort((a, b) => (a.date < b.date ? 1 : -1));
   const compRows = comps.length
     ? comps.map((c) => {
-        const line = [{ player: p.name, hero }, ...(c.mates as { player: string; hero: string }[])]
+        const line = [{ player: p.name, hero }, ...c.mates]
           .map((m) => `<span class="lu-p">${heroIcon(m.hero || "")}<span>${esc(m.player || "?")}</span></span>`).join("");
-        return `<div class="hd-comp ${c.won ? "w" : "l"}"><div class="hd-comp-head"><span class="mini">${fmtDate(c.date)}</span> <b>${mk(c.map)}</b> <span class="${c.won ? "ww" : "ll"}">${c.won ? "승" : "패"}</span></div><div class="hd-line">${line}</div></div>`;
+        return `<div class="hd-comp ${c.won ? "w" : "l"}"><div class="hd-comp-head"><span class="mini">${fmtDate(c.date)}</span> <b>${mk(c.map)}</b> · 상대 ${esc(c.opp)} · <span class="mono">${c.score}</span> <span class="${c.won ? "ww" : "ll"}">${c.won ? "승" : "패"}</span></div><div class="hd-line">${line}</div></div>`;
       }).join("")
     : nod("함께한 조합 기록이 없어요.");
 
   return `<div class="herodetail-inner">
-    <div class="hd-col"><div class="sub-note">맵별 승률 <span class="mini">많이 쓴 순 · 3경기 미만은 표본&lt;3</span></div>${mapRows}</div>
-    <div class="hd-col"><div class="sub-note">함께한 조합 <span class="mini">같은 팀 5인 · 맵 · 승패</span></div><div class="hd-comps">${compRows}</div></div>
+    <div class="hd-col">${mapRows}</div>
+    <div class="hd-col"><div class="hd-comps">${compRows}</div></div>
   </div>`;
 }
 function heroTable(D: DataBundle, p: Player, heroExpand: string): string {
@@ -1251,6 +1256,8 @@ export function renderEstimator(D: DataBundle, e: EstInput): string {
   const maps = Object.keys(D.mapInfo).sort((a, b) => (D.mapInfo[a] || "").localeCompare(D.mapInfo[b] || "") || a.localeCompare(b));
   const mapSel = `<select data-act="est-map"><option value="" ${!e.map ? "selected" : ""}>— 맵 선택 —</option>${maps.map((m) => `<option value="${esc(m)}" ${m === e.map ? "selected" : ""}>${esc(mapKo(m))} (${MODE_KO[D.mapInfo[m]] || D.mapInfo[m]})</option>`).join("")}</select>`;
   const oppSel = `<select data-act="est-oppteam"><option value="" ${!e.oppTeam ? "selected" : ""}>— 상대 팀(선택) —</option>${D.teamNames.filter((n) => n !== D.us).map((n) => `<option value="${esc(n)}" ${n === e.oppTeam ? "selected" : ""}>${esc(n)}</option>`).join("")}</select>`;
+  const usSets = D.sets.filter((s) => s.top === D.us || s.bottom === D.us).slice().reverse();
+  const loadSel = `<select data-act="est-load"><option value="">— 불러올 ZANSIDE 경기 선택 —</option>${usSets.map((s) => { const opp = s.top === D.us ? s.bottom : s.top; return `<option value="${esc(setKey(s))}">${fmtDate(s.date)} vs ${esc(opp)} · ${esc(mapKo(s.map))}</option>`; }).join("")}</select>`;
 
   const r = h2hEstimate(D, e);
   let result: string;
@@ -1270,6 +1277,7 @@ export function renderEstimator(D: DataBundle, e: EstInput): string {
     <div class="panel">
       <h2>맞대결 시뮬레이션 <span class="count">학습 모델 아님 · 투명한 가중 합산</span></h2>
       <div class="sub-note">맵과 양 팀 구성(자리마다 선수+영웅)을 고르면 그 매치업의 <b>예상 승률</b>과 근거를 보여줘요. 덜 채우면 채운 만큼만 추정해요.</div>
+      <label class="estfield" style="max-width:420px;margin-bottom:10px"><span class="estlabel">과거 경기 불러오기 <span style="text-transform:none;letter-spacing:0">— 맵·양 팀 라인업을 한 번에 채워요</span></span>${loadSel}</label>
       <label class="estfield" style="max-width:360px;margin-bottom:14px"><span class="estlabel">맵 (모드 자동)</span>${mapSel}</label>
       <div class="grid2 h2h-inputs">
         <div class="h2h-side"><div class="h2h-h zan">ZANSIDE</div><div class="estrows">${estRows(D, "us", D.us, e.usPlayers, e.usHeroes)}</div></div>
