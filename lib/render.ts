@@ -561,7 +561,7 @@ export function renderScout(D: DataBundle, curScout: string, scoutTab: string): 
         <div class="panel"><h2>후밴 경향</h2><div class="bars">${countBars(T.secondBan, "ban")}</div></div>
       </div>
       <div class="panel">
-        <h2>ZANSIDE 상대 전적 (헤드투헤드) <span class="count">${D.sets.filter((s) => (s.top === D.us && s.bottom === curScout) || (s.top === curScout && s.bottom === D.us)).length}세트</span></h2>
+        <h2>ZANSIDE와 맞대결 전적 <span class="count">${D.sets.filter((s) => (s.top === D.us && s.bottom === curScout) || (s.top === curScout && s.bottom === D.us)).length}세트</span></h2>
         <div>${renderH2H(D, curScout)}</div>
       </div>`;
   } else {
@@ -953,7 +953,49 @@ export function setToEstInput(D: DataBundle, key: string): EstInput | null {
   const oppName = usTop ? s.bottom : s.top;
   const us = picksToSlots(usSide);
   const op = picksToSlots(opSide);
-  return { map: s.map, usPlayers: us.players, usHeroes: us.heroes, oppTeam: oppName, oppPlayers: op.players, oppHeroes: op.heroes };
+  return { map: s.map, usPlayers: us.players, usHeroes: us.heroes, oppTeam: oppName, oppPlayers: op.players, oppHeroes: op.heroes, srcKey: key };
+}
+// ZANSIDE 쪽만 불러오기 (그 경기에서 ZANSIDE 라인업)
+export function setToEstUs(D: DataBundle, key: string): Partial<EstInput> | null {
+  const s = findSetByKey(D, key);
+  if (!s) return null;
+  const usSide = s.top === D.us ? s.picks.top : s.bottom === D.us ? s.picks.bottom : null;
+  if (!usSide) return null;
+  const slots = picksToSlots(usSide);
+  return { map: s.map, usPlayers: slots.players, usHeroes: slots.heroes, srcKey: key };
+}
+// 상대 쪽만 불러오기 (그 경기에서 ZANSIDE 상대 라인업)
+export function setToEstOpp(D: DataBundle, key: string): Partial<EstInput> | null {
+  const s = findSetByKey(D, key);
+  if (!s) return null;
+  const usTop = s.top === D.us;
+  const oppSide = usTop ? s.picks.bottom : s.bottom === D.us ? s.picks.top : null;
+  if (!oppSide) return null;
+  const oppName = usTop ? s.bottom : s.top;
+  const slots = picksToSlots(oppSide);
+  return { map: s.map, oppTeam: oppName, oppPlayers: slots.players, oppHeroes: slots.heroes, srcKey: key };
+}
+// 백테스트: 과거 ZANSIDE 경기에 대해 모델 예측 vs 실제
+function backtestUs(D: DataBundle) {
+  const games = D.sets.filter((s) => (s.top === D.us || s.bottom === D.us) && s.winner);
+  const items: Array<{ key: string; date: string; opp: string; pct: number; won: boolean; hit: boolean }> = [];
+  games.forEach((s) => {
+    const key = setKey(s);
+    const u = setToEstUs(D, key);
+    const o = setToEstOpp(D, key);
+    if (!u || !o) return;
+    const e: EstInput = { map: u.map!, usPlayers: u.usPlayers!, usHeroes: u.usHeroes!, oppTeam: o.oppTeam!, oppPlayers: o.oppPlayers!, oppHeroes: o.oppHeroes!, srcKey: "" };
+    const est = h2hEstimate(D, e);
+    if (est.pct == null) return;
+    const won = s.winner === D.us;
+    const hit = est.pct > 50 === won;
+    items.push({ key, date: s.date, opp: s.top === D.us ? s.bottom : s.top, pct: est.pct, won, hit });
+  });
+  items.sort((a, b) => (a.date < b.date ? 1 : -1));
+  const n = items.length;
+  const hits = items.filter((i) => i.hit).length;
+  const brier = n ? items.reduce((a, i) => a + Math.pow(i.pct / 100 - (i.won ? 1 : 0), 2), 0) / n : 0;
+  return { n, hits, brier, items };
 }
 
 export function renderLog(D: DataBundle, f: LogFilter, logExpand: string): string {
@@ -1347,6 +1389,7 @@ export interface EstInput {
   oppTeam: string;
   oppPlayers: string[];
   oppHeroes: string[];
+  srcKey: string; // 불러온 과거 경기 키 (예측 검증용). 수동 편집 시 비움.
 }
 const EST_SLOTS: Array<{ role: "DPS" | "Tank" | "Support"; label: string }> = [
   { role: "DPS", label: "딜러 1" }, { role: "DPS", label: "딜러 2" }, { role: "Tank", label: "탱커" },
