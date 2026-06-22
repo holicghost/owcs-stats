@@ -9,6 +9,7 @@ import type {
 } from "./types";
 import { PLAYER_NAME_FIX, PLAYER_CANON, TEAM_NAME_FIX } from "./aliases";
 import { validateSets, crossIssues } from "./validate";
+import { SWAP_DATA_RAW } from "./swapData";
 
 // ===== 파싱 헬퍼 =====
 function norm(s: unknown): string {
@@ -52,6 +53,64 @@ function readPicks(r: string[], slots: Array<[number, number, string]>): Pick[] 
   return slots
     .map(([ni, hi, role]) => ({ role, player: norm(r[ni]), hero: canonHero(r[hi]) }))
     .filter((p) => p.player || p.hero);
+}
+
+// ===== 교체(변경 영웅) 데이터 병합 =====
+// 시트 메모(43열)가 비어 있어, 사용자 제공 교체 정보를 (날짜·팀·맵·선수) 키로 세트 메모에 주입한다.
+// 결과·픽·밴은 시트 그대로. 여기서는 "오프닝 이후 교체"만 보강(라인업=오프닝+교체, 픽률 교체포함 집계).
+function monthDay(d: string): string {
+  const iso = (d || "").match(/\d{4}\D(\d{1,2})\D(\d{1,2})/);
+  if (iso) return `${+iso[1]}/${+iso[2]}`;
+  const md = (d || "").match(/(\d{1,2})\D+(\d{1,2})/);
+  return md ? `${+md[1]}/${+md[2]}` : "";
+}
+const keyTeam = (t: string) => norm(t).toLowerCase();
+const keyMap = (m: string) => norm(m).toLowerCase();
+const keyPlayer = (p: string) => norm(p).toLowerCase().replace(/0/g, "o");
+interface SwapBlock { players: Record<string, string[]> }
+let SWAP_INDEX: Record<string, SwapBlock> | null = null;
+function parseSwapData(): Record<string, SwapBlock> {
+  const out: Record<string, SwapBlock> = {};
+  let md = "", curMap = "", curTeam = "";
+  SWAP_DATA_RAW.split(/\r?\n/).forEach((raw) => {
+    const line = raw.trim();
+    if (!line) return;
+    let m: RegExpMatchArray | null;
+    if ((m = line.match(/^■\s*(\d{1,2})\/(\d{1,2})/))) { md = `${+m[1]}/${+m[2]}`; curMap = ""; curTeam = ""; return; }
+    if ((m = line.match(/^·\s*(.+)$/))) { curMap = m[1].trim(); curTeam = ""; return; }
+    if ((m = line.match(/^\[(.+)\]$/))) { curTeam = m[1].trim(); return; }
+    if ((m = line.match(/^(.+?)\((?:딜러|탱커|서포터)\)\s*:\s*(.+)$/))) {
+      if (!md || !curMap || !curTeam) return;
+      const player = m[1].trim();
+      const chain = m[2].split(/→|->/).map((x) => x.trim()).filter(Boolean).map((h) => canonHero(h));
+      if (!player || !chain.length) return;
+      const k = `${md}|${keyTeam(curTeam)}|${keyMap(curMap)}`;
+      (out[k] = out[k] || { players: {} }).players[keyPlayer(player)] = chain;
+    }
+  });
+  return out;
+}
+function attachSwaps(sets: SetRec[]): { sets: number; lines: number } {
+  if (!SWAP_INDEX) SWAP_INDEX = parseSwapData();
+  let matchedSets = 0, lines = 0;
+  sets.forEach((s) => {
+    if (s.memo) return; // 시트에 메모가 있으면 보존
+    const md = monthDay(s.date);
+    if (!md || !s.map) return;
+    const out: string[] = [];
+    ([[s.top, s.picks.top], [s.bottom, s.picks.bottom]] as Array<[string, Pick[]]>).forEach(([team, picks]) => {
+      const blk = SWAP_INDEX![`${md}|${keyTeam(team)}|${keyMap(s.map)}`];
+      if (!blk) return;
+      picks.forEach((p) => {
+        const chain = blk.players[keyPlayer(p.player)];
+        if (!chain || chain.length < 2) return;
+        const swaps = chain.slice(1); // 오프닝 제외 — 라인업은 오프닝 픽 + 교체로 그린다
+        if (swaps.length) { out.push(`${p.player}: ${swaps.join(", ")}`); lines++; }
+      });
+    });
+    if (out.length) { s.memo = out.join("\n"); matchedSets++; }
+  });
+  return { sets: matchedSets, lines };
 }
 
 // ===== 시트별 파서 (명세 4.1 / 4.4 / 4.5) =====
@@ -440,6 +499,7 @@ export async function getData(): Promise<DataBundle> {
   const schedule = parseBracket(brkTxt);
   canonicalizePlayers(parsed); // 23.5 — 파생 전에 선수명 통일
   canonicalizeTeams(parsed, standings, schedule); // 28.1
+  attachSwaps(parsed); // 교체(변경 영웅) 데이터 병합 — 팀·선수명 정규화 후에 매칭
 
   // 28.5 검수: 치명적 오류 행은 통계에서 제외
   const { clean: sets, issues: rowIssues, dropped } = validateSets(parsed);

@@ -24,6 +24,13 @@ h1 .thin{font-weight:300;color:var(--tx-mid)}
 .refresh:hover{border-color:var(--accent-dim);color:var(--tx)}
 .refresh:disabled{opacity:.6;cursor:default}
 .refresh svg{width:13px;height:13px}
+.refresh:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.dstatus{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px}
+.dstatus::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.dstatus.success{color:var(--accent);background:rgba(25,227,192,.1)}
+.dstatus.loading{color:var(--gold);background:rgba(231,170,60,.1)}
+.dstatus.stale{color:var(--gold);background:rgba(231,170,60,.12)}
+.dstatus.error{color:var(--warn);background:rgba(255,93,115,.12)}
 
 nav.tabs{position:sticky;top:0;z-index:10;display:flex;gap:3px;padding:12px 0;background:linear-gradient(var(--bg) 72%,transparent);margin-bottom:6px;overflow-x:auto;scrollbar-width:none}
 nav.tabs::-webkit-scrollbar{display:none}
@@ -172,6 +179,10 @@ select:focus{outline:2px solid var(--accent-dim);outline-offset:1px}
 /* roster */
 .roster{display:flex;flex-wrap:wrap;gap:8px}
 .rcard{background:var(--panel-2);border:1px solid var(--line-soft);border-radius:10px;padding:10px 14px;min-width:108px}
+.rcard-btn{font-family:inherit;text-align:left;cursor:pointer;color:inherit;transition:border-color .12s,background .12s}
+.rcard-btn:hover{border-color:var(--accent-dim);background:var(--panel-3)}
+.rcard-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.rcard-btn .rgo{color:var(--accent);font-weight:700}
 .rcard .rn{font-size:14.5px;font-weight:700}
 .rcard .rr{font-family:var(--mono);font-size:10.5px;color:var(--tx-dim);margin-top:2px}
 

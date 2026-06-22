@@ -103,7 +103,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
   const html = useMemo(() => {
     setIcons(D.heroIcons);
     switch (tab) {
-      case "scout": return renderScout(D, scoutTeam, scoutTab, { agg: deepAgg, sort: deepSort, smp: deepSmp, banExpand: deepBanExpand });
+      case "scout": return renderScout(D, scoutTeam, scoutTab, { agg: deepAgg, sort: deepSort, smp: deepSmp, banExpand: deepBanExpand }, weakExpand);
       case "players": return renderPlayers(D, { playerA, playerB, search: playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel });
       case "log": return renderLog(D, logF, logExpand, logSort);
       case "ban": return renderBanAnalysis(D, { role: banRole, topN: banTopN, team: banTeam, banMap, banExpand } as BanUI);
@@ -111,7 +111,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "estimator": return renderEstimator(D, est);
       default: return "";
     }
-  }, [D, tab, scoutTeam, scoutTab, deepAgg, deepSort, deepSmp, deepBanExpand, playerA, playerB, playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel, logF, logExpand, logSort, banRole, banTopN, banTeam, banMap, banExpand, mapsMode, mapsTeam, est]);
+  }, [D, tab, scoutTeam, scoutTab, deepAgg, deepSort, deepSmp, deepBanExpand, weakExpand, playerA, playerB, playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel, logF, logExpand, logSort, banRole, banTopN, banTeam, banMap, banExpand, mapsMode, mapsTeam, est]);
 
   const zansideHtml = useMemo(() => {
     setIcons(D.heroIcons);
@@ -246,9 +246,15 @@ export default function Dashboard({ data }: { data: DataBundle }) {
           <span className="dot" />
           <span>{D.sets.length} 맵 · {D.series.length} 시리즈</span>
           <span className="dot" />
-          <span>{updated ? `마지막 업데이트 ${updated}` : "불러오는 중"}</span>
-          <button className="refresh" onClick={refresh} disabled={refreshing}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" /></svg>
+          <span>{updated ? `업데이트 ${updated}` : "데이터 기준 OWCS 공식 경기"}</span>
+          <span className="dot" />
+          {(() => {
+            const status = refreshing ? "loading" : D.health.error ? "error" : D.health.warn ? "stale" : "success";
+            const label = { loading: "불러오는 중", success: "데이터 정상", error: `데이터 오류 ${D.health.error}`, stale: `업데이트 지연 ${D.health.warn}` }[status];
+            return <span className={`dstatus ${status}`} role="status">{label}</span>;
+          })()}
+          <button className="refresh" onClick={refresh} disabled={refreshing} aria-label="데이터 새로고침">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" /></svg>
             {refreshing ? "갱신 중…" : "새로고침"}
           </button>
         </div>
