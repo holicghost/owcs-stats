@@ -9,6 +9,7 @@ import {
 } from "@/lib/render";
 
 type Role = "Tank" | "DPS" | "Support";
+type ScoutTab = "summary" | "games" | "deep";
 
 // OWCS 데이터 탭 메뉴 — 분석 / 데이터 두 묶음
 const OWCS_GROUPS = [
@@ -53,6 +54,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
 
   // 팀별 분석 / 맵 / 로그
   const [scoutTeam, setScoutTeam] = useState(nextOpp || opps[0] || "");
+  const [scoutTab, setScoutTab] = useState<ScoutTab>("summary");
   const [mapsMode, setMapsMode] = useState("all");
   const [mapsTeam, setMapsTeam] = useState("ZANSIDE");
   const [logF, setLogF] = useState<LogFilter>({ z: "all", team: "", mode: "", map: "", date: "" });
@@ -90,7 +92,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
     setIcons(D.heroIcons);
     switch (tab) {
       case "home": return renderMatchday(D, weakExpand);
-      case "scout": return renderScout(D, scoutTeam, weakExpand);
+      case "scout": return renderScout(D, scoutTeam, scoutTab);
       case "players": return renderPlayers(D, { playerA, playerB, search: playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel });
       case "log": return renderLog(D, logF, logExpand);
       case "scenario": return renderScenario(D);

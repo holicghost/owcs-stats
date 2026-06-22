@@ -1339,7 +1339,6 @@ export function renderEstimator(D: DataBundle, e: EstInput): string {
     <div class="panel">
       <h2>맞대결 시뮬레이션 <span class="count">학습 모델 아님 · 투명한 가중 합산</span></h2>
       <div class="sub-note">맵과 양 팀 구성(자리마다 선수+영웅)을 고르면 그 매치업의 <b>예상 승률</b>과 근거를 보여줘요. 덜 채우면 채운 만큼만 추정해요.</div>
-      <label class="estfield" style="max-width:420px;margin-bottom:10px"><span class="estlabel">과거 경기 불러오기 <span style="text-transform:none;letter-spacing:0">— 맵·양 팀 라인업을 한 번에 채워요</span></span>${loadSel}</label>
       <label class="estfield" style="max-width:360px;margin-bottom:14px"><span class="estlabel">맵 (모드 자동)</span>${mapSel}</label>
       <div class="grid2 h2h-inputs">
         <div class="h2h-side"><div class="h2h-h zan">ZANSIDE</div><div class="estrows">${estRows(D, "us", D.us, e.usPlayers, e.usHeroes)}</div></div>

@@ -401,6 +401,23 @@ table.heatmap .hm-corner{min-width:60px}
 .estrow select{width:100%;min-width:0}
 @media(max-width:480px){.estrow{grid-template-columns:48px 1fr 1fr}}
 
+/* 팀별 분석 언더라인 서브탭 */
+.subtabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin:18px 0 16px;overflow-x:auto;scrollbar-width:none}
+.subtabs::-webkit-scrollbar{display:none}
+.subtab{flex:0 0 auto;font-family:inherit;font-size:14px;font-weight:600;color:var(--tx-mid);background:none;border:none;border-bottom:2px solid transparent;padding:10px 16px;cursor:pointer;margin-bottom:-1px;white-space:nowrap}
+.subtab:hover{color:var(--tx)}
+.subtab.on{color:var(--accent);border-bottom-color:var(--accent)}
+.gamecard{padding:14px}
+.gc-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;font-weight:700}
+.gc-head .zan2{color:var(--accent)}
+
+/* 영웅 상세 마스터-디테일 */
+.hd-maps{display:flex;flex-direction:column;gap:4px}
+.hd-mapbtn{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;text-align:left;background:var(--panel);border:1px solid var(--line-soft);border-radius:8px;padding:8px 10px;cursor:pointer;font-family:inherit;font-size:13px;color:var(--tx)}
+.hd-mapbtn:hover{border-color:var(--accent-dim)}
+.hd-mapbtn.on{border-color:var(--accent);background:rgba(25,227,192,.08)}
+.hd-empty{padding:18px 0}
+
 /* 경기 기록 상세 (행 펼침) */
 .mono{font-family:var(--mono)}
 .logrow{cursor:pointer}
