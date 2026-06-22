@@ -1256,8 +1256,6 @@ export function renderEstimator(D: DataBundle, e: EstInput): string {
   const maps = Object.keys(D.mapInfo).sort((a, b) => (D.mapInfo[a] || "").localeCompare(D.mapInfo[b] || "") || a.localeCompare(b));
   const mapSel = `<select data-act="est-map"><option value="" ${!e.map ? "selected" : ""}>— 맵 선택 —</option>${maps.map((m) => `<option value="${esc(m)}" ${m === e.map ? "selected" : ""}>${esc(mapKo(m))} (${MODE_KO[D.mapInfo[m]] || D.mapInfo[m]})</option>`).join("")}</select>`;
   const oppSel = `<select data-act="est-oppteam"><option value="" ${!e.oppTeam ? "selected" : ""}>— 상대 팀(선택) —</option>${D.teamNames.filter((n) => n !== D.us).map((n) => `<option value="${esc(n)}" ${n === e.oppTeam ? "selected" : ""}>${esc(n)}</option>`).join("")}</select>`;
-  const usSets = D.sets.filter((s) => s.top === D.us || s.bottom === D.us).slice().reverse();
-  const loadSel = `<select data-act="est-load"><option value="">— 불러올 ZANSIDE 경기 선택 —</option>${usSets.map((s) => { const opp = s.top === D.us ? s.bottom : s.top; return `<option value="${esc(setKey(s))}">${fmtDate(s.date)} vs ${esc(opp)} · ${esc(mapKo(s.map))}</option>`; }).join("")}</select>`;
 
   const r = h2hEstimate(D, e);
   let result: string;
