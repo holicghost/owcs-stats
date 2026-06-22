@@ -11,11 +11,10 @@ import {
 type Role = "Tank" | "DPS" | "Support";
 type ScoutTab = "summary" | "games" | "deep";
 
-// OWCS 데이터 탭 메뉴 — 분석 / 데이터 두 묶음
+// OWCS 데이터 탭 메뉴 — 분석 / 데이터 두 묶음 (다음 경기·순위 시나리오는 ZANSIDE 탭으로 이동)
 const OWCS_GROUPS = [
   {
     label: "분석", tabs: [
-      { id: "home", label: "다음 경기" },
       { id: "scout", label: "팀별 분석" },
       { id: "players", label: "선수별 분석" },
       { id: "ban", label: "영웅 분석" },
@@ -25,12 +24,19 @@ const OWCS_GROUPS = [
   {
     label: "데이터", tabs: [
       { id: "log", label: "경기 기록" },
-      { id: "scenario", label: "순위 시나리오" },
       { id: "estimator", label: "시뮬레이션" },
     ],
   },
 ] as const;
 type TabId = (typeof OWCS_GROUPS)[number]["tabs"][number]["id"];
+
+// ZANSIDE 데이터 탭 하위 메뉴
+const ZANSIDE_TABS = [
+  { id: "matchday", label: "다음 경기" },
+  { id: "scenario", label: "순위 시나리오" },
+  { id: "team", label: "우리팀 임시" },
+] as const;
+type ZTab = (typeof ZANSIDE_TABS)[number]["id"];
 
 const ROLE_FILTERS: Array<{ id: "all" | Role; label: string }> = [
   { id: "all", label: "전체" }, { id: "Tank", label: "탱커" }, { id: "DPS", label: "딜러" }, { id: "Support", label: "서포터" },
@@ -49,8 +55,9 @@ export default function Dashboard({ data }: { data: DataBundle }) {
     return opps.includes(o) ? o : null;
   }, [D, opps]);
 
-  const [mod, setMod] = useState<"owcs" | "scrim" | "zanside">("owcs");
-  const [tab, setTab] = useState<TabId>("home");
+  const [mod, setMod] = useState<"owcs" | "scrim" | "zanside">("zanside");
+  const [tab, setTab] = useState<TabId>("scout");
+  const [zTab, setZTab] = useState<ZTab>("matchday");
 
   // 팀별 분석 / 맵 / 로그
   const [scoutTeam, setScoutTeam] = useState(nextOpp || opps[0] || "");
@@ -92,22 +99,29 @@ export default function Dashboard({ data }: { data: DataBundle }) {
   const html = useMemo(() => {
     setIcons(D.heroIcons);
     switch (tab) {
-      case "home": return renderMatchday(D, weakExpand);
       case "scout": return renderScout(D, scoutTeam, scoutTab);
       case "players": return renderPlayers(D, { playerA, playerB, search: playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel });
       case "log": return renderLog(D, logF, logExpand, logSort);
-      case "scenario": return renderScenario(D);
       case "ban": return renderBanAnalysis(D, { role: banRole, topN: banTopN, team: banTeam, banMap, banExpand } as BanUI);
       case "maps": return renderMaps(D, mapsMode, mapsTeam);
       case "estimator": return renderEstimator(D, est);
       default: return "";
     }
-  }, [D, tab, scoutTeam, scoutTab, weakExpand, playerA, playerB, playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel, logF, logExpand, logSort, banRole, banTopN, banTeam, banMap, banExpand, mapsMode, mapsTeam, est]);
+  }, [D, tab, scoutTeam, scoutTab, playerA, playerB, playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel, logF, logExpand, logSort, banRole, banTopN, banTeam, banMap, banExpand, mapsMode, mapsTeam, est]);
 
-  const zansideHtml = useMemo(() => { setIcons(D.heroIcons); return renderZanside(D, weakExpand); }, [D, weakExpand]);
+  const zansideHtml = useMemo(() => {
+    setIcons(D.heroIcons);
+    switch (zTab) {
+      case "matchday": return renderMatchday(D, weakExpand);
+      case "scenario": return renderScenario(D);
+      case "team": return renderZanside(D, weakExpand);
+      default: return "";
+    }
+  }, [D, zTab, weakExpand]);
 
   const toTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
   function go(id: TabId) { setMod("owcs"); setTab(id); toTop(); }
+  function goZ(id: ZTab) { setMod("zanside"); setZTab(id); toTop(); }
 
   function onClick(ev: Event) {
     const el = (ev.target as HTMLElement).closest?.<HTMLElement>("[data-act]");
@@ -247,6 +261,13 @@ export default function Dashboard({ data }: { data: DataBundle }) {
                 <button key={t.id} className={`tab ${t.id === tab ? "on" : ""}`} onClick={() => go(t.id)}>{t.label}</button>
               ))}
             </Fragment>
+          ))}
+        </nav>
+      )}
+      {mod === "zanside" && (
+        <nav className="tabs">
+          {ZANSIDE_TABS.map((t) => (
+            <button key={t.id} className={`tab ${t.id === zTab ? "on" : ""}`} onClick={() => goZ(t.id)}>{t.label}</button>
           ))}
         </nav>
       )}
