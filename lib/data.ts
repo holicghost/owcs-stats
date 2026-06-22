@@ -66,6 +66,7 @@ function parseMain(text: string): SetRec[] {
       winner: norm(r[C.winner]), loser: norm(r[C.loser]),
       ws: parseScore(r[C.wscore]), ls: parseScore(r[C.lscore]),
       picks: { top: readPicks(r, cols.top), bottom: readPicks(r, cols.bottom) },
+      memo: norm(r[C.memo]),
     };
   });
 }

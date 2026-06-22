@@ -15,7 +15,7 @@ export const STANDINGS_URL = gviz("OWCS 순위표");
 export const C = {
   date: 0, match: 1, replay: 2, top: 3, bottom: 4, picker: 6, mode: 7, map: 8,
   b1t: 9, b1r: 10, b1h: 11, b2t: 12, b2r: 13, b2h: 14,
-  winner: 16, wscore: 17, loser: 18, lscore: 19,
+  winner: 16, wscore: 17, loser: 18, lscore: 19, memo: 43,
 } as const;
 
 // 화면 표시용 모드 한글 라벨 (시트 원본은 영어 그대로, 표시할 때만 변환).
