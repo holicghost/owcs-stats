@@ -1156,6 +1156,15 @@ export function setToEstOpp(D: DataBundle, key: string): Partial<EstInput> | nul
   const slots = picksToSlots(oppSide);
   return { map: s.map, oppTeam: oppName, oppPlayers: slots.players, oppHeroes: slots.heroes, srcKey: key };
 }
+// 특정 팀의 라인업을 그 팀 경기에서 불러오기 (상대 쪽 슬롯 채움 — ZANSIDE전 아니어도 됨)
+export function setToEstOppTeam(D: DataBundle, key: string, team: string): Partial<EstInput> | null {
+  const s = findSetByKey(D, key);
+  if (!s || !team) return null;
+  const side = s.top === team ? s.picks.top : s.bottom === team ? s.picks.bottom : null;
+  if (!side) return null;
+  const slots = picksToSlots(side);
+  return { map: s.map, oppTeam: team, oppPlayers: slots.players, oppHeroes: slots.heroes, srcKey: "" };
+}
 // 백테스트: 과거 ZANSIDE 경기에 대해 모델 예측 vs 실제
 function backtestUs(D: DataBundle) {
   const games = D.sets.filter((s) => (s.top === D.us || s.bottom === D.us) && s.winner);
@@ -1606,10 +1615,18 @@ function estPlayerOpts(D: DataBundle, team: string, role: string, val: string): 
   const byRole = opts.filter((p) => repRole(p.roles) === role);
   if (byRole.length) opts = byRole;
   opts.sort((a, b) => b.n - a.n);
-  return `<option value="" ${!val ? "selected" : ""}>— 선수 —</option>${opts.map((p) => `<option value="${esc(p.name)}" ${p.name === val ? "selected" : ""}>${esc(team ? p.name : `${p.name} · ${p.team}`)}</option>`).join("")}`;
+  // 불러온 선수가 역할/팀 필터에 안 걸려도 반드시 보이도록 보강
+  if (val && !opts.some((p) => p.name === val)) {
+    const P = D.players[val];
+    opts = [...(P ? [P] : [{ name: val, team, n: 0, roles: {} } as unknown as Player]), ...opts];
+  }
+  return `<option value="" ${!val ? "selected" : ""}>— 선수 —</option>${opts.map((p) => `<option value="${esc(p.name)}" ${p.name === val ? "selected" : ""}>${esc(team ? p.name : `${p.name}${p.team ? ` · ${p.team}` : ""}`)}</option>`).join("")}`;
 }
 function estHeroOpts(role: "DPS" | "Tank" | "Support", val: string): string {
-  return `<option value="" ${!val ? "selected" : ""}>— 영웅 —</option>${HEROES[role].map((h) => `<option value="${esc(h)}" ${h === val ? "selected" : ""}>${esc(heroKo(h))}</option>`).join("")}`;
+  const list = HEROES[role].slice();
+  // 불러온 영웅이 이 역할 목록에 없어도(역할 분류 차이 등) 반드시 보이도록 보강
+  if (val && !list.includes(val)) list.unshift(val);
+  return `<option value="" ${!val ? "selected" : ""}>— 영웅 —</option>${list.map((h) => `<option value="${esc(h)}" ${h === val ? "selected" : ""}>${esc(heroKo(h))}</option>`).join("")}`;
 }
 function estRows(D: DataBundle, kind: "us" | "opp", team: string, players: string[], heroes: string[]): string {
   return EST_SLOTS.map((s, i) => `<div class="estrow">
