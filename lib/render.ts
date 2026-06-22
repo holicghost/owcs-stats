@@ -1031,10 +1031,6 @@ export function renderBanAnalysis(D: DataBundle, f: BanUI): string {
       <div class="panel"><h2>리그 선밴 상위</h2><div class="bars">${banBars(gFirst, f)}</div></div>
       <div class="panel"><h2>리그 후밴 상위</h2><div class="bars">${banBars(gSecond, f)}</div></div>
     </div>
-    <div class="grid2">
-      <div class="panel"><h2>ZANSIDE가 자주 당하는 밴 <span class="count">${Z ? Object.values(Z.banAgainst).reduce((a, b) => a + b, 0) : 0}회</span></h2><div class="bars">${Z ? banBars(Z.banAgainst, f) : nod()}</div></div>
-      <div class="panel"><h2>ZANSIDE가 자주 거는 밴 <span class="count">${Object.values(made).reduce((a, b) => a + b, 0)}회</span></h2><div class="bars">${banBars(made, f)}</div></div>
-    </div>
     <div class="panel">
       <h2>팀별 밴 성향 <span class="count">${esc(cur)}${banMap !== "all" ? ` · ${esc(mapKo(banMap))}` : ""} · 영웅을 누르면 펼침</span></h2>
       <div class="fbar"><span class="flabel">팀</span>${teamSel}<span class="flabel">맵</span>${mapSel}</div>
