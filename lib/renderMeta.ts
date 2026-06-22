@@ -18,7 +18,7 @@ const wrCls = (wr: number) => (wr >= 55 ? "hi" : wr >= 45 ? "mid" : "lo");
 const nod = (t?: string) => `<div class="nodata">${t || "데이터 없음"}</div>`;
 const roleTag = (r: string) => (r === "Unknown" || !r ? "" : `<span class="rtag ${r}">${ROLE_KO[r] || r}</span>`);
 const dataWait = (cols: string) =>
-  `<div class="datawait"><div class="dw-i">선픽 데이터 대기</div><div class="sub-note" style="margin:6px 0 0">선픽 데이터가 입력되면 자동으로 표시됩니다. 채울 컬럼: <b>${cols}</b></div></div>`;
+  `<div class="datawait"><div class="dw-i">아직 선픽이 입력되지 않았어요</div><div class="sub-note" style="margin:6px 0 0">시트의 <b>${cols}</b> 칸을 채우면 여기에 자동으로 나타납니다.</div></div>`;
 
 const applyRole = <T extends { role: string }>(rows: T[], f: MetaFilter) =>
   f.role === "all" ? rows : rows.filter((r) => r.role === f.role);
@@ -231,7 +231,7 @@ export function renderMetaTeam(D: DataBundle, meta: MetaData, f: MetaFilter): st
     <div class="fbar"><span class="flabel">팀</span>${teamSel}<span class="flabel">밴 맵 필터</span>${mapSel}</div>
     <div class="panel">
       <h2>팀별 밴 성향 <span class="count">${esc(cur)}${banMap !== "all" ? ` · ${esc(banMap)}` : ""} · 행을 누르면 펼침</span></h2>
-      <div class="sub-note">선밴·후밴 분리 집계. 펼치면 맵별 분포와 해당 세트의 양 팀 라인업(선픽)을 보여줍니다 (24).</div>
+      <div class="sub-note">선밴·후밴을 나눠 셉니다. 영웅을 누르면 어떤 맵에서 밴됐는지와 그 경기의 양 팀 라인업을 펼쳐 봅니다.</div>
       ${banTable}
     </div>
     <div class="panel"><h2>영웅 픽 & 승률 <span class="count">선픽 기준</span></h2>${pickWR}</div>`;
@@ -267,7 +267,7 @@ export function renderMetaPlayer(D: DataBundle, meta: MetaData, f: MetaFilter): 
 
   return `
     <div class="panel"><h2>선수별 영웅·승률 <span class="count">요약 · 표본 10 미만 ⚠</span></h2>
-      <div class="sub-note">대표 역할 기준 역할 필터 적용. 이 화면은 <b>요약</b>이며, 영웅×맵 히트맵·선수 비교 등 상세는 선수명(↗)을 눌러 <b>스카우팅 → 선수</b> 탭에서 봅니다 (17.4).</div>
+      <div class="sub-note">여기는 <b>요약</b>이에요. 선수 이름(↗)을 누르면 영웅×맵 히트맵, 선수 비교 같은 자세한 화면(<b>전략 분석 → 선수</b>)으로 넘어갑니다.</div>
       <table><thead><tr><th>선수</th><th>역할</th><th>소속</th><th class="num">표본(맵세트)</th><th>주 영웅</th><th class="num">주영웅 승률</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="6">${nod("해당 역할 선수 없음")}</td></tr>`}</tbody></table></div>`;
 }
@@ -291,15 +291,15 @@ export function renderMetaPosition(D: DataBundle, meta: MetaData, f: MetaFilter)
 // ===== 17.8 데이터 노트 =====
 export function renderMetaNotes(): string {
   return `
-    <div class="panel"><h2>데이터 노트 <span class="count">지표 정의 18 · 전제 16</span></h2>
+    <div class="panel"><h2>이 화면의 숫자가 뜻하는 것</h2>
       <div class="notes">
-        <p><b>pick_count</b> — (맵세트, 팀) 단위 중복제거 영웅 등장 수. 같은 세트·팀에서 같은 영웅은 1로 센다. (18.1)</p>
-        <p><b>pick_rate</b> — 같은 역할/포지션 범위 내 pick_count 비율(%). (18.2)</p>
-        <p><b>ban_count</b> — (맵세트) 단위 밴 등장 수. 선밴/후밴 합산·분리 둘 다 제공. (18.3)</p>
-        <p><b>matches_played</b> — 해당 영웅이 픽된 맵세트 수(승률 표 기준). <b>win_rate</b> = wins / matches_played, 무승부는 played 포함·win 제외. (18.4·18.5)</p>
-        <p><b>저표본</b> — 맵세트 10 미만 행에 ⚠ 경고. 승자 미상·승점 미기록 세트는 승률 집계에서 제외. (18.6·18.7)</p>
+        <p><b>픽 수</b> — 한 경기(맵세트)에서 한 팀이 그 영웅을 꺼냈는지를 셉니다. 같은 경기·같은 팀이면 한 번으로 칩니다.</p>
+        <p><b>픽률</b> — 같은 역할(또는 포지션) 안에서 그 영웅이 차지하는 비율이에요.</p>
+        <p><b>밴 수</b> — 경기 단위 밴 횟수. 선밴과 후밴을 합쳐서도, 나눠서도 봅니다.</p>
+        <p><b>승률</b> — 그 영웅이 나온 경기 중 이긴 비율이에요. 승자가 안 적힌 경기는 빼고 셉니다.</p>
+        <p><b>경기 수가 적은 줄(맵세트 10 미만)</b>에는 ⚠ 표시를 달아요. 승률을 가볍게 보세요.</p>
         <hr/>
-        <p><b>전제</b> — 밴 데이터는 모든 세트에 채워져 있어 밴 화면은 전부 동작한다. 픽 데이터는 "상수팀 첫픽 / 하수팀 첫픽" 컬럼에서 오며, 채워진 만큼만 표시된다. (16.2·16.3)</p>
-        <p>우리 픽 지표는 <b>"선픽(오프닝) 기준"</b>이다. 세트 내 교체 영웅까지 보려면 시트 입력 확장이 필요하다. (16.4)</p>
+        <p><b>밴</b>은 모든 경기에 적혀 있어 밴 화면은 지금 다 보입니다. <b>픽</b>은 시트의 "상수팀 첫픽 / 하수팀 첫픽" 칸에서 가져오며, 채운 만큼만 보여요.</p>
+        <p>여기 픽은 <b>경기 시작 조합(오프닝) 기준</b>이에요. 경기 도중 바꾼 영웅까지 보려면 시트에 따로 적어야 합니다.</p>
       </div></div>`;
 }

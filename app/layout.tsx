@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ZANSIDE 스카우팅 — OWCS KOREA Stage 2",
+  title: "ZANSIDE 데이터 분석 — OWCS KOREA Stage 2",
   description: "ZANSIDE 코칭스태프 내부 전략·전술 대시보드",
   robots: { index: false, follow: false },
 };

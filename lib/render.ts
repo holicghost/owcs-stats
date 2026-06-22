@@ -351,8 +351,20 @@ export function renderMatchday(D: DataBundle, weakExpand: string): string {
     ${weaknessPanel(D, D.us, true, weakExpand)}
     ${weaknessPanel(D, opp, false, weakExpand)}
     <div class="panel"><h2>분석 근거 경기 <span class="count">${h2h.length ? "최근 맞대결" : `${esc(opp)} 최근 경기`}</span></h2><div class="sched">${refList || nod("표시할 경기가 없어요.")}</div></div>
-    <div class="panel"><h2>예상 승률 근거 <span class="count">학습 모델 아님 · 가중 합산</span></h2>
-      <div class="sub-note">${est.basis.map(esc).join(" · ")} → ${est.pct}% (신뢰도 ${est.conf}, 표본 ${est.minSample}시리즈). 소수점까지 믿지 마세요.</div></div>`;
+    <div class="panel"><h2>예상 승률은 어떻게 나왔나 <span class="count">학습 모델 아님 · 가중 합산</span></h2>
+      <div class="sub-note">${est.basis.map(esc).join(" · ")} → ${est.pct}% (신뢰도 ${est.conf}, ${est.minSample}시리즈). 소수점까지 믿을 숫자는 아니에요.</div></div>
+    ${healthPanel(D)}`;
+}
+// 데이터 점검 결과 (문제 있을 때만 노출)
+function healthPanel(D: DataBundle): string {
+  const h = D.health;
+  if (h.warn + h.error === 0 && h.dropped === 0) return "";
+  const items = h.issues.slice(0, 8).map((i) =>
+    `<div class="issue ${i.level}"><span class="iss-code">${esc(i.code)}</span><span class="iss-where mini">${esc(i.where)}</span><span class="iss-msg">${esc(i.msg)}</span></div>`
+  ).join("");
+  return `<div class="panel"><h2>데이터 점검 <span class="count">정상 ${h.okRows}경기${h.warn ? ` · 확인필요 ${h.warn}` : ""}${h.dropped ? ` · 제외 ${h.dropped}` : ""}</span></h2>
+    <div class="sub-note">시트에서 이런 점이 보였어요. 통계에 큰 영향은 없지만 한번 확인해 두면 좋아요.</div>
+    <div class="issuelist">${items}${h.issues.length > 8 ? `<div class="mini">…외 ${h.issues.length - 8}건</div>` : ""}</div></div>`;
 }
 
 // ===== SCOUT (5.2) =====
@@ -1055,7 +1067,7 @@ export function renderEstimator(D: DataBundle, e: EstInput): string {
   return `
     <div class="panel">
       <h2>모의 로스터 & 승률 추정 <span class="count">투명한 가중 합산식 · 예측 아님</span></h2>
-      <div class="sub-note">맵과 우리 5인 영웅을 고르면 과거 데이터 기반 <b>추정</b>치와 근거를 보여줍니다. 표본이 작으면 "데이터 부족"으로 표시됩니다 (명세 12·15).</div>
+      <div class="sub-note">맵과 우리 5인 영웅을 고르면 과거 기록을 바탕으로 한 <b>추정</b>치와 그 근거를 보여줍니다. 기록이 적으면 "데이터 부족"으로 나와요.</div>
       <div class="estgrid">
         <label class="estfield"><span class="estlabel">맵 (모드 자동)</span>${mapSel}</label>
         <label class="estfield"><span class="estlabel">상대 (선택)</span>${oppSel}</label>

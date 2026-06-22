@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState, type ChangeEvent, type MouseEvent } from 
 import { useRouter } from "next/navigation";
 import type { DataBundle } from "@/lib/types";
 import {
-  renderHome, renderScout, renderBanpick, renderMaps, renderLog,
+  renderMatchday, renderScout, renderBanpick, renderMaps, renderLog,
   renderScenario, renderPlayers, renderEstimator,
   type LogFilter, type EstInput,
 } from "@/lib/render";
@@ -15,7 +15,7 @@ import {
 } from "@/lib/renderMeta";
 
 const SCOUT_TABS = [
-  { id: "home", label: "홈" },
+  { id: "home", label: "다음 경기" },
   { id: "scout", label: "상대 분석" },
   { id: "banpick", label: "밴픽" },
   { id: "maps", label: "맵·모드" },
@@ -87,6 +87,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
   const [metaTeam, setMetaTeam] = useState(D.teams[D.us] ? D.us : D.teamNames[0] || "");
   const [metaBanMap, setMetaBanMap] = useState("all");
   const [metaBanExpand, setMetaBanExpand] = useState("");
+  const [weakExpand, setWeakExpand] = useState("");
 
   const [updated, setUpdated] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -101,8 +102,8 @@ export default function Dashboard({ data }: { data: DataBundle }) {
 
   const scoutHtml = useMemo(() => {
     switch (tab) {
-      case "home": return renderHome(D);
-      case "scout": return renderScout(D, scoutTeam);
+      case "home": return renderMatchday(D, weakExpand);
+      case "scout": return renderScout(D, scoutTeam, weakExpand);
       case "banpick": return renderBanpick(D, bpTeam);
       case "maps": return renderMaps(D, mapsMode, mapsTeam);
       case "log": return renderLog(D, logF);
@@ -111,7 +112,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "estimator": return renderEstimator(D, est);
       default: return "";
     }
-  }, [D, tab, scoutTeam, bpTeam, mapsMode, mapsTeam, logF, playerA, playerB, playerSearch, playerRole, compareAll, est]);
+  }, [D, tab, scoutTeam, bpTeam, mapsMode, mapsTeam, logF, playerA, playerB, playerSearch, playerRole, compareAll, est, weakExpand]);
 
   const metaHtml = useMemo(() => {
     const f: MetaFilter = { role: metaRole, topN: metaTopN, mapSel: metaMap, teamSel: metaTeam, banMap: metaBanMap, banExpand: metaBanExpand };
@@ -149,6 +150,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "goplayer": setPlayerA(val); setPlayerB(""); goScoutTab("players"); break;
       case "meta-role": setMetaRole(val as "all" | Role); break;
       case "ban-expand": setMetaBanExpand((cur) => (cur === val ? "" : val)); break;
+      case "weak-expand": setWeakExpand((cur) => (cur === val ? "" : val)); break;
       case "copy":
         navigator.clipboard?.writeText(val).then(() => {
           el.textContent = "복사됨";
@@ -207,9 +209,9 @@ export default function Dashboard({ data }: { data: DataBundle }) {
   return (
     <div className="wrap">
       <header>
-        <div className="eyebrow">OWCS ASIA: KOREA · Stage 2 · 내부 스카우팅</div>
+        <div className="eyebrow">OWCS ASIA: KOREA · Stage 2 · 내부 분석 도구</div>
         <h1>
-          ZANSIDE <span className="thin">스카우팅 보드</span>
+          ZANSIDE <span className="thin">데이터 분석</span>
         </h1>
         <div className="sub">
           <span>
@@ -223,7 +225,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
           <span className="dot" />
           <span>{D.sets.length} 맵 · {D.series.length} 시리즈</span>
           <span className="dot" />
-          <span>{updated ? `갱신 ${updated}` : "불러옴"}</span>
+          <span>{updated ? `마지막 업데이트 ${updated}` : "불러오는 중"}</span>
           <button className="refresh" onClick={refresh} disabled={refreshing}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" />
@@ -236,7 +238,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       {/* 상위 모듈 전환 */}
       <div className="modnav">
         <button className={`modbtn ${mod === "scouting" ? "on" : ""}`} onClick={() => setMod("scouting")}>
-          ZANSIDE 스카우팅
+          전략 분석
         </button>
         <button className={`modbtn ${mod === "meta" ? "on" : ""}`} onClick={() => setMod("meta")}>
           영웅 메타
@@ -299,7 +301,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       </main>
 
       <footer>
-        ZANSIDE 내부 스카우팅 도구 · 데이터 출처 Google Sheets (ISR 10분 캐시)
+        ZANSIDE 내부 데이터 분석 도구 · 데이터는 Google Sheets에서 10분마다 갱신
         <br />
         스크림 데이터는 포함하지 않습니다 · Not affiliated with Blizzard Entertainment.
       </footer>
