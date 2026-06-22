@@ -401,6 +401,23 @@ table.heatmap .hm-corner{min-width:60px}
 .estrow select{width:100%;min-width:0}
 @media(max-width:480px){.estrow{grid-template-columns:48px 1fr 1fr}}
 
+/* 요약 분석 — 포지션별 선수 강점/약점, 모드별 맵 요약 */
+.possum{margin-bottom:14px}
+.possum:last-child{margin-bottom:0}
+.possum-role{font-family:var(--mono);font-size:11px;font-weight:700;text-transform:uppercase;color:var(--tx-dim);margin-bottom:6px;letter-spacing:.05em}
+.phrow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line-soft)}
+.phrow:last-child{border-bottom:none}
+.phn{font-weight:700;min-width:88px}
+.phg{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ph-lab{font-family:var(--mono);font-size:10px;font-weight:700;padding:2px 6px;border-radius:5px}
+.ph-lab.good{background:rgba(25,227,192,.16);color:var(--accent)}
+.ph-lab.bad{background:rgba(255,93,115,.16);color:var(--warn)}
+.hsum{display:inline-flex;align-items:center;gap:4px;background:var(--panel-2);border:1px solid var(--line-soft);border-radius:7px;padding:3px 7px;font-size:12.5px}
+.modesums{display:flex;flex-direction:column;gap:10px}
+.modesum{background:var(--panel-2);border:1px solid var(--line-soft);border-radius:10px;padding:11px 13px}
+.modesum-h{font-weight:700;margin-bottom:6px}
+.modesum-r{font-size:13px;margin:3px 0}
+
 /* 팀별 분석 언더라인 서브탭 */
 .subtabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin:18px 0 16px;overflow-x:auto;scrollbar-width:none}
 .subtabs::-webkit-scrollbar{display:none}
