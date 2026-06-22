@@ -1850,6 +1850,35 @@ function recommendUs(D: DataBundle, e: EstInput) {
   return { basePct, slots };
 }
 // 맵 추천: 현재 우리 구성에서 어떤 맵이 유리한지 (맵만 바꿔 예상 승률 비교)
+// 조합 추천: "이 상대 · 이 맵"에서 예상 승률이 높은 ZANSIDE 실제 조합 (과거에 실제로 굴린 5인 조합)
+function recommendComp(D: DataBundle, e: EstInput) {
+  if (!e.map) return [];
+  const seen = new Set<string>();
+  const comps: Array<{ players: string[]; heroes: string[]; pct: number; srcKey: string; srcMap: string; srcDate: string; sameMap: boolean; usedN: number }> = [];
+  const sigCount: Record<string, number> = {};
+  const usSets = D.sets.filter((s) => s.top === D.us || s.bottom === D.us);
+  // 먼저 각 조합이 몇 번 쓰였는지 집계
+  usSets.forEach((s) => {
+    const side = s.top === D.us ? s.picks.top : s.picks.bottom;
+    const heroes = picksToSlots(side).heroes;
+    if (heroes.filter(Boolean).length < 5) return;
+    const sig = heroes.slice().sort().join("|");
+    sigCount[sig] = (sigCount[sig] || 0) + 1;
+  });
+  usSets.forEach((s) => {
+    const side = s.top === D.us ? s.picks.top : s.picks.bottom;
+    const slots = picksToSlots(side);
+    const heroes = slots.heroes;
+    if (heroes.filter(Boolean).length < 5) return;
+    const sig = heroes.slice().sort().join("|");
+    if (seen.has(sig)) return;
+    seen.add(sig);
+    const est = h2hEstimate(D, { ...e, usPlayers: slots.players, usHeroes: heroes });
+    comps.push({ players: slots.players, heroes, pct: est.pct ?? 50, srcKey: setKey(s), srcMap: s.map, srcDate: s.date, sameMap: s.map === e.map, usedN: sigCount[sig] });
+  });
+  comps.sort((a, b) => b.pct - a.pct || (b.sameMap ? 1 : 0) - (a.sameMap ? 1 : 0) || b.usedN - a.usedN);
+  return comps.slice(0, 4);
+}
 function recommendMaps(D: DataBundle, e: EstInput) {
   const maps = Object.keys(D.mapInfo);
   const us = D.teams[D.us];
@@ -1915,24 +1944,31 @@ export function renderEstimator(D: DataBundle, e: EstInput): string {
     oppLoad = `<select class="loadsel" disabled><option value="">⤓ 상대 팀 먼저 선택</option></select>`;
   }
 
-  // 우리 추천 (맵 입력 시) — 선수별로 "그 선수가 잘하는 영웅"을 데이터로
+  // 조합 추천 (맵 입력 시) — "이 상대·이 맵"에서 예상 승률이 높은 ZANSIDE 실제 조합
   let recPanel = "";
   if (e.map) {
-    const rec = recommendUs(D, e);
-    const recHtml = rec.slots.map((sl) => `<div class="recslot"><div class="recslot-h">${sl.player ? `<b>${esc(sl.player)}</b>` : "선수 미정"} <span class="mini">${sl.label}</span></div>${sl.player && sl.top.length
-      ? sl.top.map((c) => `<div class="recitem${c.gameKey ? " clickable" : ""}"${c.gameKey ? ` data-act="load-sim" data-val="${esc(c.gameKey)}"` : ""}>${heroChip(c.hero)} <span class="wr ${wrCls(c.pw)}">${c.pw}%</span> <span class="mini">본인 ${c.sample}경기</span>${smpTag(c.sample)}</div>`).join("")
-      : nod(sl.player ? "이 선수의 영웅 기록이 없어요." : "이 역할 선수가 없어요.")}</div>`).join("");
-    // 맵 추천
+    const comps = recommendComp(D, e);
+    const compHtml = comps.length
+      ? comps.map((c, i) => {
+          const lineup = EST_SLOTS.map((sl, idx) => `<span class="comp-slot"><span class="comp-pl">${c.players[idx] ? esc(c.players[idx]) : "—"}</span>${heroChip(c.heroes[idx])}</span>`).join("");
+          return `<div class="compitem${i === 0 ? " best" : ""}">
+            <div class="comp-head"><span class="comp-rank">${i === 0 ? "👍 추천" : `#${i + 1}`}</span><span class="wr ${wrCls(c.pct)}">예상 ${c.pct}%</span>${c.sameMap ? '<span class="comp-tag">이 맵 사용 이력</span>' : ""}<span class="mini">${c.usedN}회 사용</span></div>
+            <div class="comp-lineup">${lineup}</div>
+            <div class="comp-actions"><button class="minibtn" data-act="est-comp" data-val="${esc(c.srcKey)}">이 조합 적용</button><button class="linkbtn" data-act="load-sim" data-val="${esc(c.srcKey)}">근거 경기 ↗</button></div>
+          </div>`;
+        }).join("")
+      : nod("5인 조합 기록이 아직 부족해요.");
+    // 맵 추천 (이 조합에 유리한 맵)
     const recMaps = recommendMaps(D, e).slice(0, 5);
     const mapHtml = recMaps.length
       ? recMaps.map((m, idx) => `<div class="recmapitem ${m.map === e.map ? "cur" : ""}" data-act="est-map" data-val="${esc(m.map)}">${idx === 0 ? "<b>👍</b> " : ""}${mk(m.map)} <span class="mini">${MODE_KO[m.mode] || m.mode}</span> <span class="wr ${wrCls(m.pct!)}">예상 ${m.pct}%</span>${m.wr != null ? ` <span class="mini">실적 ${m.wr}%(${m.n})</span>` : ' <span class="mini">실적 없음</span>'}</div>`).join("")
       : nod("맵 추천 표본이 부족해요.");
-    recPanel = `<div class="panel"><h2>우리 추천 <span class="count">선수별 주력 영웅 · 데이터 기준</span></h2>
-      <div class="sub-note">현재 추정 ${rec.basePct}% 기준. 각 자리 선수가 <b>본인이 잘하는</b> 영웅 순서예요(승률=본인 전적). 누르면 근거 경기를 불러와요.</div>
-      <div class="recgrid">${recHtml}</div>
+    recPanel = `<div class="panel"><h2>조합 추천 <span class="count">${e.oppTeam ? `vs ${esc(e.oppTeam)} · ` : ""}${esc(mapKo(e.map))} 고승률 조합</span></h2>
+      <div class="sub-note">ZANSIDE가 <b>실제로 굴린 5인 조합</b>을 이 매치업에 대입해 예상 승률 높은 순으로 보여줘요. <b>이 조합 적용</b>은 현재 맵·상대를 유지한 채 우리 라인업만 채웁니다.</div>
+      <div class="complist">${compHtml}</div>
       <h3 class="recmap-h">이 구성에 유리한 맵</h3>
       <div class="recmaps">${mapHtml}</div>
-      <div class="sub-note causenote">상관일 뿐 인과가 아니에요. 표본이 적은 항목(⚠)은 믿음을 낮추세요.</div></div>`;
+      <div class="sub-note causenote">상관일 뿐 인과가 아니에요. 표본이 적은 조합은 신중히 보세요.</div></div>`;
   }
   // 상대 조합별 승률 (맵 + 상대 팀 입력 시)
   let sensPanel = "";
