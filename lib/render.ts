@@ -404,7 +404,45 @@ function renderH2H(D: DataBundle, curScout: string): string {
     }).join("")}</div>`;
 }
 /** 상대 분석 칩 + 본문 전체. curScout 은 Dashboard 가 해석한 유효 팀명. */
-export function renderScout(D: DataBundle, curScout: string, weakExpand: string): string {
+// 팀의 영웅 픽 집계 (맵세트·팀 중복제거)
+function teamHeroPicks(D: DataBundle, team: string): Record<string, { n: number; w: number }> {
+  const picks: Record<string, { n: number; w: number }> = {};
+  D.sets.forEach((s) => {
+    const side = s.top === team ? s.picks.top : s.bottom === team ? s.picks.bottom : null;
+    if (!side) return;
+    const won = setWinner(s) === team;
+    const seen = new Set<string>();
+    side.forEach((p) => {
+      if (!p.hero || seen.has(p.hero)) return;
+      seen.add(p.hero);
+      const a = (picks[p.hero] = picks[p.hero] || { n: 0, w: 0 });
+      a.n++;
+      if (won) a.w++;
+    });
+  });
+  return picks;
+}
+function heroPickBars(obj: Record<string, { n: number; w: number }>, n: number): string {
+  const arr = Object.entries(obj).sort((a, b) => b[1].n - a[1].n).slice(0, n);
+  if (!arr.length) return nod("픽 기록이 없어요.");
+  const mx = Math.max(1, ...arr.map((x) => x[1].n));
+  return arr.map(([h, r]) => {
+    const wr = r.n ? Math.round((r.w / r.n) * 100) : 0;
+    const low = r.n < 3;
+    return `<div class="bar"><span class="lab">${heroChip(h)}</span><div class="tr"><div class="fl blu" style="width:${Math.round((r.n / mx) * 100)}%"></div></div><span class="vl">${r.n}${low ? "" : `·${wr}%`}</span></div>`;
+  }).join("");
+}
+function teamMapSummary(T: Team): string {
+  const maps = Object.entries(T.maps).map(([map, r]) => ({ map, w: r.w, l: r.l, n: r.w + r.l })).sort((a, b) => b.n - a.n);
+  if (!maps.length) return nod("맵 기록이 없어요.");
+  return `<table><thead><tr><th>맵</th><th class="num">출전</th><th class="num">승-패</th><th class="num">승률</th></tr></thead><tbody>${maps.map((m) => {
+    const wr = m.n ? Math.round((m.w / m.n) * 100) : 0;
+    const low = m.n < 3;
+    return `<tr><td class="hname">${mk(m.map)}</td><td class="num">${m.n}${low ? ' <span class="lowsmp">⚠</span>' : ""}</td><td class="num">${m.w}-${m.l}</td><td class="num">${low ? '<span class="mini">표본&lt;3</span>' : `<span class="wr ${wrCls(wr)}">${wr}%</span>`}</td></tr>`;
+  }).join("")}</tbody></table>`;
+}
+
+export function renderScout(D: DataBundle, curScout: string, scoutTab: string): string {
   const opps = D.teamNames.filter((n) => n !== D.us);
   const chips = opps.map((n) => {
     const isNext = usUpcoming(D).some((g) => g.a === n || g.b === n);
@@ -422,43 +460,65 @@ export function renderScout(D: DataBundle, curScout: string, weakExpand: string)
     stat("맵 전적", `<span class="ww">${T.mapW}</span><small> - ${T.mapL}</small>`) +
     stat("맵 득실", `${mdiff > 0 ? "+" : ""}${mdiff}`);
 
-  const pn = sum(T.pickMaps);
-  const pmModes = topN(T.pickModes, 5);
-  const pmMaps = topN(T.pickMaps, 6);
-  const pickHtml = pn
-    ? `<div class="sub-note" style="margin:0 0 8px">모드</div>` +
-      (pmModes.length ? (() => { const mx = Math.max(1, ...pmModes.map((x) => x[1])); return pmModes.map(([m, n]) => barCount(MODE_KO[m] || m, n, mx, "blu")).join(""); })() : nod()) +
-      `<div class="sub-note" style="margin:12px 0 8px">맵</div>` +
-      (pmMaps.length ? (() => { const mx = Math.max(1, ...pmMaps.map((x) => x[1])); return pmMaps.map(([m, n]) => barCount(mapKo(m), n, mx, "blu")).join(""); })() : nod())
-    : nod("맵 픽권 표본이 없습니다 (ADMIN/공란 제외).");
+  const tab = ["summary", "games", "deep"].includes(scoutTab) ? scoutTab : "summary";
+  const subtabs = `<div class="subtabs">${[["summary", "요약 분석"], ["games", "경기별 분석"], ["deep", "심층 통계"]].map(([id, lb]) => `<button class="subtab ${tab === id ? "on" : ""}" data-act="scout-tab" data-val="${id}">${lb}</button>`).join("")}</div>`;
 
-  const ms = modeWinrate(T);
-  const mmx = Math.max(1, ...ms.map((m) => m[1].t));
-  const modesHtml = ms.length ? ms.map(([m, d]) => barWR(MODE_KO[m] || m, d.w, d.t, mmx)).join("") : nod();
-
-  const fbN = sum(T.firstBan);
   const ms2 = D.series.filter((s) => s.top === curScout || s.bottom === curScout).slice().reverse();
+  const fbN = sum(T.firstBan);
+
+  let body: string;
+  if (tab === "games") {
+    const teamSets = D.sets.filter((s) => s.top === curScout || s.bottom === curScout).slice().reverse();
+    body = teamSets.length
+      ? teamSets.map((s) => `<div class="panel gamecard"><div class="gc-head"><span class="mini">${fmtDate(s.date)} · ${esc(s.match)} · ${esc(MODE_KO[s.mode] || s.mode)}</span> <b class="${s.top === curScout ? "zan2" : ""}">${esc(s.top)}</b> <span class="mini">vs</span> <b class="${s.bottom === curScout ? "zan2" : ""}">${esc(s.bottom)}</b></div>${setDetail(D, s)}</div>`).join("")
+      : nod("이 팀의 경기 기록이 없어요.");
+  } else if (tab === "deep") {
+    const pn = sum(T.pickMaps);
+    const pmModes = topN(T.pickModes, 5);
+    const pmMaps = topN(T.pickMaps, 6);
+    const pickHtml = pn
+      ? `<div class="sub-note" style="margin:0 0 8px">모드</div>` +
+        (pmModes.length ? (() => { const mx = Math.max(1, ...pmModes.map((x) => x[1])); return pmModes.map(([m, n]) => barCount(MODE_KO[m] || m, n, mx, "blu")).join(""); })() : nod()) +
+        `<div class="sub-note" style="margin:12px 0 8px">맵</div>` +
+        (pmMaps.length ? (() => { const mx = Math.max(1, ...pmMaps.map((x) => x[1])); return pmMaps.map(([m, n]) => barCount(mapKo(m), n, mx, "blu")).join(""); })() : nod())
+      : nod("맵 픽권 표본이 없어요 (ADMIN/공란 제외).");
+    const ms = modeWinrate(T);
+    const mmx = Math.max(1, ...ms.map((m) => m[1].t));
+    const modesHtml = ms.length ? ms.map(([m, d]) => barWR(MODE_KO[m] || m, d.w, d.t, mmx)).join("") : nod();
+    body = `
+      <div class="grid2">
+        <div class="panel"><h2>맵을 고를 때 선호 (맵 픽권 보유 시) <span class="count">표본 ${pn}회</span></h2>
+          <div class="sub-note">ADMIN·공란(주최/불명) 선택은 제외</div>
+          <div class="bars">${pickHtml}</div>
+        </div>
+        <div class="panel"><h2>모드별 승률 <span class="count">맵 단위</span></h2><div class="bars">${modesHtml}</div></div>
+      </div>
+      <div class="grid2">
+        <div class="panel"><h2>선밴 경향 (우리가 막힐 픽) <span class="count">표본 ${fbN}회</span></h2><div class="bars">${countBars(T.firstBan, "ban")}</div></div>
+        <div class="panel"><h2>후밴 경향</h2><div class="bars">${countBars(T.secondBan, "ban")}</div></div>
+      </div>
+      <div class="panel">
+        <h2>ZANSIDE 상대 전적 (헤드투헤드) <span class="count">${D.sets.filter((s) => (s.top === D.us && s.bottom === curScout) || (s.top === curScout && s.bottom === D.us)).length}세트</span></h2>
+        <div>${renderH2H(D, curScout)}</div>
+      </div>`;
+  } else {
+    body = `
+      <div class="grid2">
+        <div class="panel"><h2>영웅별 요약 <span class="count">자주 꺼낸 영웅 · 표본·승률</span></h2><div class="bars">${heroPickBars(teamHeroPicks(D, curScout), 10)}</div></div>
+        <div class="panel"><h2>맵별 요약 <span class="count">출전·승률</span></h2>${teamMapSummary(T)}</div>
+      </div>
+      <div class="grid2">
+        <div class="panel"><h2>선밴 요약 <span class="count">표본 ${fbN}회</span></h2><div class="bars">${countBars(T.firstBan, "ban")}</div></div>
+        <div class="panel"><h2>후밴 요약</h2><div class="bars">${countBars(T.secondBan, "ban")}</div></div>
+      </div>
+      <div class="panel"><h2>경기 기록 <span class="count">${ms2.length}시리즈 · 간단 결과</span></h2><div class="sched">${ms2.map((S) => seriesRow(D, S)).join("") || nod()}</div></div>`;
+  }
 
   return `
     <div class="chiprow">${chips}</div>
     <div class="statrow">${cards}</div>
-    ${weaknessPanel(D, curScout, false, weakExpand)}
-    <div class="grid2">
-      <div class="panel"><h2>맵을 고를 때 선호 (맵 픽권 보유 시) <span class="count">표본 ${pn}회</span></h2>
-        <div class="sub-note">ADMIN·공란(주최/불명) 선택은 제외</div>
-        <div class="bars">${pickHtml}</div>
-      </div>
-      <div class="panel"><h2>모드별 승률 <span class="count">맵 단위</span></h2><div class="bars">${modesHtml}</div></div>
-    </div>
-    <div class="grid2">
-      <div class="panel"><h2>선밴 경향 (우리가 막힐 픽) <span class="count">표본 ${fbN}회</span></h2><div class="bars">${countBars(T.firstBan, "ban")}</div></div>
-      <div class="panel"><h2>후밴 경향</h2><div class="bars">${countBars(T.secondBan, "ban")}</div></div>
-    </div>
-    <div class="panel">
-      <h2>ZANSIDE 상대 전적 (헤드투헤드) <span class="count">${D.sets.filter((s) => (s.top === D.us && s.bottom === curScout) || (s.top === curScout && s.bottom === D.us)).length}세트</span></h2>
-      <div>${renderH2H(D, curScout)}</div>
-    </div>
-    <div class="panel"><h2>해당 팀 경기 기록</h2><div class="sched">${ms2.map((S) => seriesRow(D, S)).join("") || nod()}</div></div>`;
+    ${subtabs}
+    ${body}`;
 }
 
 // ===== BANPICK (5.3) =====
