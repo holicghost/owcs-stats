@@ -154,6 +154,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "weak-expand": setWeakExpand((c) => (c === val ? "" : val)); break;
       case "log-expand": setLogExpand((arr) => (arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val])); break;
       case "load-sim": { const inp = setToEstInput(D, val); if (inp) { setEst(inp); go("estimator"); } break; }
+      case "est-comp": { const p = setToEstUs(D, val); if (p) setEst((s) => ({ ...s, usPlayers: p.usPlayers ?? s.usPlayers, usHeroes: p.usHeroes ?? s.usHeroes, srcKey: "" })); break; }
       case "copy":
         navigator.clipboard?.writeText(val).then(() => {
           el.classList.add("done");

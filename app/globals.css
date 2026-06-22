@@ -524,6 +524,20 @@ table.heatmap .hm-corner{text-align:left;white-space:nowrap;color:var(--tx-dim);
 .recmapitem{display:flex;align-items:center;gap:9px;flex-wrap:wrap;background:var(--panel-2);border:1px solid var(--line-soft);border-radius:9px;padding:8px 11px;cursor:pointer;font-size:13px}
 .recmapitem:hover{background:var(--panel-3)}
 .recmapitem.cur{border-color:var(--accent)}
+/* 조합 추천 */
+.complist{display:flex;flex-direction:column;gap:10px;margin-bottom:6px}
+.compitem{background:var(--panel-2);border:1px solid var(--line-soft);border-radius:10px;padding:11px 13px}
+.compitem.best{border-color:var(--accent-dim);background:linear-gradient(180deg,rgba(25,227,192,.06),transparent)}
+.comp-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:9px}
+.comp-rank{font-weight:800;font-size:13px}
+.comp-tag{font-family:var(--mono);font-size:10.5px;color:var(--accent);border:1px solid var(--accent-dim);border-radius:5px;padding:1px 6px}
+.comp-lineup{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:9px}
+.comp-slot{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px}
+.comp-pl{font-family:var(--mono);font-size:10.5px;color:var(--tx-mid);max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.comp-actions{display:flex;gap:12px;align-items:center}
+.minibtn{font-family:inherit;font-size:12px;font-weight:600;color:var(--accent);background:rgba(25,227,192,.1);border:1px solid var(--accent-dim);border-radius:7px;padding:4px 10px;cursor:pointer}
+.minibtn:hover{background:rgba(25,227,192,.18)}
+.minibtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .sensitem{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--panel-2);border:1px solid var(--line-soft);border-radius:9px;padding:8px 11px;margin-bottom:6px;cursor:pointer;font-size:13px}
 .sensitem:hover{border-color:var(--accent-dim)}
 .senshe{display:inline-flex;gap:3px;flex-wrap:wrap}
