@@ -3,135 +3,96 @@ import { useEffect, useMemo, useState, type ChangeEvent, type MouseEvent } from 
 import { useRouter } from "next/navigation";
 import type { DataBundle } from "@/lib/types";
 import {
-  renderMatchday, renderScout, renderBanpick, renderMaps, renderLog,
-  renderScenario, renderPlayers, renderEstimator,
-  type LogFilter, type EstInput,
+  renderMatchday, renderScout, renderBanAnalysis, renderMaps, renderLog,
+  renderScenario, renderPlayers, renderEstimator, setIcons,
+  type LogFilter, type EstInput, type BanUI,
 } from "@/lib/render";
-import { buildMeta, type Role } from "@/lib/herometa";
-import {
-  renderMetaOverview, renderMetaBan, renderMetaMap, renderMetaTeam,
-  renderMetaPlayer, renderMetaWinrate, renderMetaPosition, renderMetaNotes,
-  type MetaFilter,
-} from "@/lib/renderMeta";
 
-const SCOUT_TABS = [
+type Role = "Tank" | "DPS" | "Support";
+
+// OWCS 데이터 탭 메뉴 (순서·이름)
+const OWCS_TABS = [
   { id: "home", label: "다음 경기" },
-  { id: "scout", label: "상대 분석" },
-  { id: "banpick", label: "밴픽" },
-  { id: "maps", label: "맵·모드" },
-  { id: "log", label: "경기 로그" },
-  { id: "scenario", label: "순위 시나리오" },
+  { id: "scout", label: "팀별 분석" },
   { id: "players", label: "선수" },
-  { id: "estimator", label: "승률 추정" },
+  { id: "log", label: "경기 기록" },
+  { id: "scenario", label: "순위 시나리오" },
+  { id: "ban", label: "영웅 밴 분석" },
+  { id: "maps", label: "맵 분석" },
+  { id: "estimator", label: "시뮬레이션" },
 ] as const;
-type ScoutTab = (typeof SCOUT_TABS)[number]["id"];
-
-const META_TABS = [
-  { id: "overview", label: "개요" },
-  { id: "ban", label: "밴 메타" },
-  { id: "map", label: "맵 메타" },
-  { id: "team", label: "팀 분석" },
-  { id: "player", label: "선수 분석" },
-  { id: "winrate", label: "승률 분석" },
-  { id: "position", label: "포지션 픽률" },
-  { id: "notes", label: "데이터 노트" },
-] as const;
-type MetaTab = (typeof META_TABS)[number]["id"];
+type TabId = (typeof OWCS_TABS)[number]["id"];
 
 const ROLE_FILTERS: Array<{ id: "all" | Role; label: string }> = [
-  { id: "all", label: "전체" },
-  { id: "Tank", label: "탱커" },
-  { id: "DPS", label: "딜러" },
-  { id: "Support", label: "서포터" },
+  { id: "all", label: "전체" }, { id: "Tank", label: "탱커" }, { id: "DPS", label: "딜러" }, { id: "Support", label: "서포터" },
 ];
 
-const EMPTY_EST: EstInput = { map: "", dps1: "", dps2: "", tank: "", sup1: "", sup2: "", opp: "" };
+const EMPTY_EST: EstInput = { map: "", us: ["", "", "", "", ""], oppTeam: "", oppPlayers: ["", "", "", "", ""], oppHeroes: ["", "", "", "", ""] };
 
 export default function Dashboard({ data }: { data: DataBundle }) {
   const D = data;
   const router = useRouter();
   const opps = useMemo(() => D.teamNames.filter((n) => n !== D.us), [D]);
   const nextOpp = useMemo(() => {
-    const up = D.schedule.find(
-      (g) => g.status === "upcoming" && !g.tbd && g.phase === "regular" && (g.a === D.us || g.b === D.us)
-    );
+    const up = D.schedule.find((g) => g.status === "upcoming" && !g.tbd && g.phase === "regular" && (g.a === D.us || g.b === D.us));
     if (!up) return null;
     const o = up.a === D.us ? up.b : up.a;
     return opps.includes(o) ? o : null;
   }, [D, opps]);
 
-  const meta = useMemo(() => buildMeta(D), [D]);
+  const [mod, setMod] = useState<"owcs" | "scrim">("owcs");
+  const [tab, setTab] = useState<TabId>("home");
 
-  // 모듈 / 탭
-  const [mod, setMod] = useState<"scouting" | "meta">("scouting");
-  const [tab, setTab] = useState<ScoutTab>("home");
-  const [metaTab, setMetaTab] = useState<MetaTab>("overview");
-
-  // 전략 분석 탭 상태
+  // 팀별 분석 / 맵 / 로그
   const [scoutTeam, setScoutTeam] = useState(nextOpp || opps[0] || "");
-  const [bpTeam, setBpTeam] = useState(D.teams[D.us] ? D.us : D.teamNames[0] || "");
   const [mapsMode, setMapsMode] = useState("all");
   const [mapsTeam, setMapsTeam] = useState("ZANSIDE");
   const [logF, setLogF] = useState<LogFilter>({ z: "all", team: "", mode: "", map: "", date: "" });
+  const [weakExpand, setWeakExpand] = useState("");
+
+  // 선수
   const [playerA, setPlayerA] = useState(D.playerNames[0] || "");
   const [playerB, setPlayerB] = useState("");
   const [playerSearch, setPlayerSearch] = useState("");
   const [playerRole, setPlayerRole] = useState<"all" | Role>("all");
   const [compareAll, setCompareAll] = useState(false);
-  const [est, setEst] = useState<EstInput>(EMPTY_EST);
+  const [openTeams, setOpenTeams] = useState<string[]>([]);
+  const [heroExpand, setHeroExpand] = useState("");
 
-  // 메타 필터
-  const [metaRole, setMetaRole] = useState<"all" | Role>("all");
-  const [metaTopN, setMetaTopN] = useState(20);
-  const [metaMap, setMetaMap] = useState("");
-  const [metaTeam, setMetaTeam] = useState(D.teams[D.us] ? D.us : D.teamNames[0] || "");
-  const [metaBanMap, setMetaBanMap] = useState("all");
-  const [metaBanExpand, setMetaBanExpand] = useState("");
-  const [weakExpand, setWeakExpand] = useState("");
+  // 영웅 밴 분석
+  const [banRole, setBanRole] = useState<"all" | Role>("all");
+  const [banTopN, setBanTopN] = useState(12);
+  const [banTeam, setBanTeam] = useState(D.teams[D.us] ? D.us : D.teamNames[0] || "");
+  const [banMap, setBanMap] = useState("all");
+  const [banExpand, setBanExpand] = useState("");
+
+  // 시뮬레이션
+  const [est, setEst] = useState<EstInput>(EMPTY_EST);
 
   const [updated, setUpdated] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    setUpdated(
-      new Date(D.fetchedAt).toLocaleString("ko-KR", {
-        month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
-      })
-    );
+    setUpdated(new Date(D.fetchedAt).toLocaleString("ko-KR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }));
   }, [D.fetchedAt]);
 
-  const scoutHtml = useMemo(() => {
+  const html = useMemo(() => {
+    setIcons(D.heroIcons);
     switch (tab) {
       case "home": return renderMatchday(D, weakExpand);
       case "scout": return renderScout(D, scoutTeam, weakExpand);
-      case "banpick": return renderBanpick(D, bpTeam);
-      case "maps": return renderMaps(D, mapsMode, mapsTeam);
+      case "players": return renderPlayers(D, { playerA, playerB, search: playerSearch, role: playerRole, compareAll, openTeams, heroExpand });
       case "log": return renderLog(D, logF);
       case "scenario": return renderScenario(D);
-      case "players": return renderPlayers(D, { playerA, playerB, search: playerSearch, role: playerRole, compareAll });
+      case "ban": return renderBanAnalysis(D, { role: banRole, topN: banTopN, team: banTeam, banMap, banExpand } as BanUI);
+      case "maps": return renderMaps(D, mapsMode, mapsTeam);
       case "estimator": return renderEstimator(D, est);
       default: return "";
     }
-  }, [D, tab, scoutTeam, bpTeam, mapsMode, mapsTeam, logF, playerA, playerB, playerSearch, playerRole, compareAll, est, weakExpand]);
-
-  const metaHtml = useMemo(() => {
-    const f: MetaFilter = { role: metaRole, topN: metaTopN, mapSel: metaMap, teamSel: metaTeam, banMap: metaBanMap, banExpand: metaBanExpand };
-    switch (metaTab) {
-      case "overview": return renderMetaOverview(D, meta, f);
-      case "ban": return renderMetaBan(D, meta, f);
-      case "map": return renderMetaMap(D, meta, f);
-      case "team": return renderMetaTeam(D, meta, f);
-      case "player": return renderMetaPlayer(D, meta, f);
-      case "winrate": return renderMetaWinrate(D, meta, f);
-      case "position": return renderMetaPosition(D, meta, f);
-      case "notes": return renderMetaNotes();
-      default: return "";
-    }
-  }, [D, meta, metaTab, metaRole, metaTopN, metaMap, metaTeam, metaBanMap, metaBanExpand]);
+  }, [D, tab, scoutTeam, weakExpand, playerA, playerB, playerSearch, playerRole, compareAll, openTeams, heroExpand, logF, banRole, banTopN, banTeam, banMap, banExpand, mapsMode, mapsTeam, est]);
 
   const toTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
-  function goScoutTab(id: ScoutTab) { setMod("scouting"); setTab(id); toTop(); }
-  function goMetaTab(id: MetaTab) { setMod("meta"); setMetaTab(id); toTop(); }
+  function go(id: TabId) { setMod("owcs"); setTab(id); toTop(); }
 
   function onClick(ev: MouseEvent<HTMLElement>) {
     const el = (ev.target as HTMLElement).closest<HTMLElement>("[data-act]");
@@ -140,21 +101,22 @@ export default function Dashboard({ data }: { data: DataBundle }) {
     const val = el.dataset.val ?? "";
     switch (act) {
       case "scout": setScoutTeam(val); break;
-      case "goscout": setScoutTeam(val); goScoutTab("scout"); break;
+      case "goscout": setScoutTeam(val); go("scout"); break;
+      case "goplayer": setPlayerA(val); setPlayerB(""); go("players"); break;
       case "logz": setLogF((f) => ({ ...f, z: val as LogFilter["z"] })); break;
-      case "player": setPlayerA(val); setPlayerB(""); break;
+      case "player": setPlayerA(val); setPlayerB(""); setHeroExpand(""); break;
       case "compare": setPlayerB(val); break;
       case "compareclear": setPlayerB(""); break;
       case "compare-all-toggle": setCompareAll((v) => !v); break;
       case "player-role": setPlayerRole(val as "all" | Role); break;
-      case "goplayer": setPlayerA(val); setPlayerB(""); goScoutTab("players"); break;
-      case "meta-role": setMetaRole(val as "all" | Role); break;
-      case "ban-expand": setMetaBanExpand((cur) => (cur === val ? "" : val)); break;
-      case "weak-expand": setWeakExpand((cur) => (cur === val ? "" : val)); break;
+      case "team-toggle": setOpenTeams((s) => (s.includes(val) ? s.filter((t) => t !== val) : [...s, val])); break;
+      case "hero-expand": setHeroExpand((c) => (c === val ? "" : val)); break;
+      case "ban-role": setBanRole(val as "all" | Role); break;
+      case "ban-expand": setBanExpand((c) => (c === val ? "" : val)); break;
+      case "weak-expand": setWeakExpand((c) => (c === val ? "" : val)); break;
       case "copy":
         navigator.clipboard?.writeText(val).then(() => {
-          el.textContent = "복사됨";
-          el.classList.add("done");
+          el.textContent = "복사됨"; el.classList.add("done");
           setTimeout(() => { el.textContent = "복사"; el.classList.remove("done"); }, 1200);
         });
         break;
@@ -166,25 +128,21 @@ export default function Dashboard({ data }: { data: DataBundle }) {
     const act = el.dataset.act;
     if (!act) return;
     const v = el.value;
+    if (act.startsWith("est-us-")) { const i = +act.slice(7); setEst((s) => { const us = [...s.us]; us[i] = v; return { ...s, us }; }); return; }
+    if (act.startsWith("est-oppplayer-")) { const i = +act.slice(14); setEst((s) => { const a = [...s.oppPlayers]; a[i] = v; return { ...s, oppPlayers: a }; }); return; }
+    if (act.startsWith("est-opphero-")) { const i = +act.slice(12); setEst((s) => { const a = [...s.oppHeroes]; a[i] = v; return { ...s, oppHeroes: a }; }); return; }
     switch (act) {
-      case "bpteam": setBpTeam(v); break;
       case "mapsmode": setMapsMode(v); break;
       case "mapsteam": setMapsTeam(v); break;
       case "logteam": setLogF((f) => ({ ...f, team: v })); break;
       case "logmode": setLogF((f) => ({ ...f, mode: v })); break;
       case "logmap": setLogF((f) => ({ ...f, map: v })); break;
       case "logdate": setLogF((f) => ({ ...f, date: v })); break;
+      case "ban-topn": setBanTopN(+v); break;
+      case "ban-team": setBanTeam(v); setBanExpand(""); break;
+      case "ban-map": setBanMap(v); setBanExpand(""); break;
       case "est-map": setEst((s) => ({ ...s, map: v })); break;
-      case "est-opp": setEst((s) => ({ ...s, opp: v })); break;
-      case "est-dps1": setEst((s) => ({ ...s, dps1: v })); break;
-      case "est-dps2": setEst((s) => ({ ...s, dps2: v })); break;
-      case "est-tank": setEst((s) => ({ ...s, tank: v })); break;
-      case "est-sup1": setEst((s) => ({ ...s, sup1: v })); break;
-      case "est-sup2": setEst((s) => ({ ...s, sup2: v })); break;
-      case "meta-topn": setMetaTopN(+v); break;
-      case "meta-map": setMetaMap(v); break;
-      case "meta-team": setMetaTeam(v); break;
-      case "meta-banmap": setMetaBanMap(v); break;
+      case "est-oppteam": setEst((s) => ({ ...s, oppTeam: v, oppPlayers: ["", "", "", "", ""], oppHeroes: ["", "", "", "", ""] })); break;
     }
   }
 
@@ -194,7 +152,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
     if (!el) return;
     ev.preventDefault();
     setScoutTeam(el.dataset.val ?? "");
-    goScoutTab("scout");
+    go("scout");
   }
 
   const st = D.standings.find((x) => x.team === D.us);
@@ -210,94 +168,56 @@ export default function Dashboard({ data }: { data: DataBundle }) {
     <div className="wrap">
       <header>
         <div className="eyebrow">OWCS ASIA: KOREA · Stage 2 · 내부 분석 도구</div>
-        <h1>
-          ZANSIDE <span className="thin">데이터 분석</span>
-        </h1>
+        <h1>ZANSIDE <span className="thin">데이터 분석</span></h1>
         <div className="sub">
-          <span>
-            {st ? (
-              <>
-                매치 <b style={{ color: "var(--accent)" }}>{st.win}승 {st.lose}패</b> · {st.rank}위
-                {sameRank > 1 ? " (공동)" : ""}
-              </>
-            ) : "—"}
-          </span>
+          <span>{st ? (<>매치 <b style={{ color: "var(--accent)" }}>{st.win}승 {st.lose}패</b> · {st.rank}위{sameRank > 1 ? " (공동)" : ""}</>) : "—"}</span>
           <span className="dot" />
           <span>{D.sets.length} 맵 · {D.series.length} 시리즈</span>
           <span className="dot" />
           <span>{updated ? `마지막 업데이트 ${updated}` : "불러오는 중"}</span>
           <button className="refresh" onClick={refresh} disabled={refreshing}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" />
-            </svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12a9 9 0 1 1-2.64-6.36M21 3v6h-6" /></svg>
             {refreshing ? "갱신 중…" : "새로고침"}
           </button>
         </div>
       </header>
 
-      {/* 상위 모듈 전환 */}
       <div className="modnav">
-        <button className={`modbtn ${mod === "scouting" ? "on" : ""}`} onClick={() => setMod("scouting")}>
-          전략 분석
-        </button>
-        <button className={`modbtn ${mod === "meta" ? "on" : ""}`} onClick={() => setMod("meta")}>
-          영웅 메타
-        </button>
+        <button className={`modbtn ${mod === "owcs" ? "on" : ""}`} onClick={() => setMod("owcs")}>OWCS 데이터</button>
+        <button className={`modbtn ${mod === "scrim" ? "on" : ""}`} onClick={() => setMod("scrim")}>스크림 데이터</button>
       </div>
 
-      <nav className="tabs">
-        {mod === "scouting"
-          ? SCOUT_TABS.map((t) => (
-              <button key={t.id} className={`tab ${t.id === tab ? "on" : ""}`} onClick={() => goScoutTab(t.id)}>
-                {t.label}
-              </button>
-            ))
-          : META_TABS.map((t) => (
-              <button key={t.id} className={`tab ${t.id === metaTab ? "on" : ""}`} onClick={() => goMetaTab(t.id)}>
-                {t.label}
-              </button>
-            ))}
-      </nav>
+      {mod === "owcs" && (
+        <nav className="tabs">
+          {OWCS_TABS.map((t) => (
+            <button key={t.id} className={`tab ${t.id === tab ? "on" : ""}`} onClick={() => go(t.id)}>{t.label}</button>
+          ))}
+        </nav>
+      )}
 
       <main onClick={onClick} onChange={onChange} onKeyDown={onKeyDown}>
-        {mod === "scouting" && tab === "players" && (
+        {mod === "owcs" && tab === "players" && (
           <div className="metabar">
-            <input
-              className="searchbox"
-              type="search"
-              placeholder="선수 이름 검색…"
-              value={playerSearch}
-              onChange={(e) => setPlayerSearch((e.target as HTMLInputElement).value)}
-            />
+            <input className="searchbox" type="search" placeholder="선수 이름 검색…" value={playerSearch} onChange={(e) => setPlayerSearch((e.target as HTMLInputElement).value)} />
             <span className="flabel">역할</span>
             <div className="seg">
               {ROLE_FILTERS.map((r) => (
-                <button key={r.id} className={playerRole === r.id ? "on" : ""} data-act="player-role" data-val={r.id}>
-                  {r.label}
-                </button>
+                <button key={r.id} className={playerRole === r.id ? "on" : ""} data-act="player-role" data-val={r.id}>{r.label}</button>
               ))}
             </div>
           </div>
         )}
-        {mod === "meta" && metaTab !== "notes" && (
-          <div className="metabar">
-            <span className="flabel">역할</span>
-            <div className="seg">
-              {ROLE_FILTERS.map((r) => (
-                <button key={r.id} className={metaRole === r.id ? "on" : ""} data-act="meta-role" data-val={r.id}>
-                  {r.label}
-                </button>
-              ))}
+        {mod === "owcs"
+          ? <section dangerouslySetInnerHTML={{ __html: html }} />
+          : (
+            <div className="panel" style={{ marginTop: 16 }}>
+              <h2>스크림 데이터</h2>
+              <div className="datawait" style={{ marginTop: 4 }}>
+                <div className="dw-i">아직 연결되지 않았어요</div>
+                <div className="sub-note" style={{ margin: "6px 0 0" }}>스크림은 민감한 내부 데이터라 따로 연결해야 해요. 사용할 스크림 시트와 권한을 정해 주시면 여기에 붙여 드릴게요.</div>
+              </div>
             </div>
-            <span className="flabel">표시</span>
-            <select data-act="meta-topn" defaultValue={metaTopN} key={metaTopN}>
-              <option value={20}>Top 20</option>
-              <option value={50}>Top 50</option>
-              <option value={0}>전체</option>
-            </select>
-          </div>
-        )}
-        <section dangerouslySetInnerHTML={{ __html: mod === "scouting" ? scoutHtml : metaHtml }} />
+          )}
       </main>
 
       <footer>

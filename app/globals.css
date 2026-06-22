@@ -342,6 +342,44 @@ table.heatmap .hm-corner{min-width:60px}
 .iss-where{white-space:nowrap}
 .iss-msg{color:var(--tx-mid)}
 
+/* ===== 영웅 아이콘 + 한글 칩 ===== */
+.hchip{display:inline-flex;align-items:center;gap:5px;vertical-align:middle;min-width:0}
+.hchip-n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hicon{width:20px;height:20px;border-radius:5px;object-fit:cover;background:var(--panel-3);flex:0 0 auto;display:inline-block;vertical-align:middle}
+.hicon-x{display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;font-family:var(--mono);color:var(--tx-dim)}
+.bar .lab .hchip{max-width:100%}
+
+/* 팀 그룹 접기 버튼 (작업2) */
+.plteam-h{background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:6px;padding:6px 2px}
+.plteam-h:hover{color:var(--tx)}
+.plteam-h .caret{color:var(--tx-dim);font-size:11px}
+
+/* 영웅 행 아코디언 (작업1) */
+.herotable .herorow{cursor:pointer}
+.herotable .herorow.open{background:var(--panel-2)}
+.herotable .herorow .caret{color:var(--tx-dim);width:20px}
+.herodetail td{background:var(--panel-2);padding:12px}
+.herodetail-inner{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:760px){.herodetail-inner{grid-template-columns:1fr}}
+.hd-map{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:6px 8px;border-bottom:1px solid var(--line-soft);font-size:13px}
+.hd-mapn{font-weight:600}
+.hd-comps{display:flex;flex-direction:column;gap:7px;max-height:340px;overflow:auto}
+.hd-comp{background:var(--panel);border:1px solid var(--line-soft);border-left:3px solid var(--line);border-radius:8px;padding:8px 10px}
+.hd-comp.w{border-left-color:var(--accent)} .hd-comp.l{border-left-color:var(--tx-dim)}
+.hd-comp-head{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.hd-comp-head .ww{color:var(--accent);font-weight:700} .hd-comp-head .ll{color:var(--tx-dim);font-weight:700}
+.hd-line{display:flex;flex-wrap:wrap;gap:5px}
+.lu-p{display:inline-flex;align-items:center;gap:4px}
+
+/* 맞대결 시뮬레이션 입력 */
+.h2h-inputs{align-items:start}
+.h2h-side{background:var(--panel-2);border:1px solid var(--line-soft);border-radius:12px;padding:14px}
+.h2h-h{font-weight:800;font-size:15px;margin-bottom:12px}
+.h2h-h.zan{color:var(--accent)}
+.oppslots{display:flex;flex-direction:column;gap:10px}
+.oppslot{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.oppslot .estfield{margin:0}
+
 .state{text-align:center;padding:60px 20px;color:var(--tx-mid)}
 .state .spin{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;margin:0 auto 16px;animation:sp .8s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}

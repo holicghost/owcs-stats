@@ -97,6 +97,12 @@ export const HEROES: Record<"Tank" | "DPS" | "Support", string[]> = {
   ],
 };
 
+// 영웅 → 역할 (HEROES 역산). 밴 분석 역할 필터용. 목록에 없으면 undefined.
+export const HERO_ROLE: Record<string, "Tank" | "DPS" | "Support"> = {};
+(Object.keys(HEROES) as Array<"Tank" | "DPS" | "Support">).forEach((r) =>
+  HEROES[r].forEach((h) => (HERO_ROLE[h] = r))
+);
+
 // ===== 승률 추정기 가중치 (명세 12.3) — 화면에도 그대로 노출 =====
 export const EST_WEIGHTS = {
   mapMode: 0.45, // 12.3.1 ZANSIDE 모드·맵 성적
