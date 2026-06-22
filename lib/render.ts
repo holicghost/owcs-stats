@@ -828,10 +828,12 @@ export function renderBanAnalysis(D: DataBundle, f: BanUI): string {
   setIcons(D.heroIcons);
   // 리그 전체 밴 (선밴/후밴 분리)
   const gFirst: Record<string, number> = {}, gSecond: Record<string, number> = {}, byMode: Record<string, Record<string, number>> = {};
+  const banByMapH: Record<string, Record<string, number>> = {}; // 맵 → 영웅 → 밴 수
   D.sets.forEach((s) => s.bans.forEach((b) => {
     if (!b.hero) return;
     (b.phase === "first" ? gFirst : gSecond)[b.hero] = ((b.phase === "first" ? gFirst : gSecond)[b.hero] || 0) + 1;
     if (s.mode) (byMode[s.mode] = byMode[s.mode] || {})[b.hero] = ((byMode[s.mode] || {})[b.hero] || 0) + 1;
+    if (s.map) (banByMapH[s.map] = banByMapH[s.map] || {})[b.hero] = ((banByMapH[s.map] || {})[b.hero] || 0) + 1;
   }));
   const gAll: Record<string, number> = { ...gFirst };
   Object.entries(gSecond).forEach(([h, n]) => (gAll[h] = (gAll[h] || 0) + n));
@@ -866,9 +868,13 @@ export function renderBanAnalysis(D: DataBundle, f: BanUI): string {
       }).join("")}</tbody></table>`
     : nod("이 팀의 밴 기록이 없어요.");
 
-  const modeBlocks = MODE_ORDER.filter((m) => byMode[m]).map((m) =>
-    `<div><div class="sub-note">${MODE_KO[m] || m}</div><div class="bars">${banBars(byMode[m], { ...f, topN: 5 }, "ban")}</div></div>`
-  ).join("");
+  // 모드 → 그 모드의 맵들 (맵별 밴 분포)
+  const mapsByMode: Record<string, string[]> = {};
+  Object.keys(banByMapH).forEach((map) => { const mode = D.mapInfo[map]; if (mode) (mapsByMode[mode] = mapsByMode[mode] || []).push(map); });
+  const modeBlocks = MODE_ORDER.filter((m) => mapsByMode[m]).map((m) => {
+    const ms = mapsByMode[m].slice().sort();
+    return `<div class="modeban-grp"><div class="modeban-mode">${MODE_KO[m] || m}</div><div class="grid3">${ms.map((map) => `<div><div class="sub-note">${mk(map)}</div><div class="bars">${banBars(banByMapH[map], { ...f, topN: 5 }, "ban")}</div></div>`).join("")}</div></div>`;
+  }).join("");
 
   return `
     ${filterBar}
@@ -886,7 +892,7 @@ export function renderBanAnalysis(D: DataBundle, f: BanUI): string {
       <div class="sub-note">선밴·후밴을 나눠 셉니다. 펼치면 맵별 분포와 그 경기의 양 팀 라인업을 보여줘요.</div>
       ${banTable}
     </div>
-    <div class="panel"><h2>모드별 밴 분포 <span class="count">상위 5</span></h2><div class="grid3">${modeBlocks || nod()}</div></div>`;
+    <div class="panel"><h2>모드별 밴 분포 <span class="count">모드 안 각 맵별 · 상위 5</span></h2><div class="modebans">${modeBlocks || nod()}</div></div>`;
 }
 
 // ===== MAPS (5.4) =====

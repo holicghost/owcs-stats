@@ -245,6 +245,10 @@ select:focus{outline:2px solid var(--accent-dim);outline-offset:1px}
 .datawait .dw-i{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--tx-mid);letter-spacing:.03em}
 .lowsmp{color:var(--gold);font-family:var(--mono);cursor:help}
 .modeban{min-width:0}
+.modebans{display:flex;flex-direction:column;gap:16px}
+.modeban-grp{border-top:1px solid var(--line-soft);padding-top:12px}
+.modeban-grp:first-child{border-top:none;padding-top:0}
+.modeban-mode{font-family:var(--mono);font-size:11.5px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px}
 .notes{display:flex;flex-direction:column;gap:9px;font-size:13.5px;line-height:1.6;color:var(--tx-mid)}
 .notes p{margin:0}
 .notes b{color:var(--tx)}
