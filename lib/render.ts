@@ -998,9 +998,11 @@ export function renderPlayers(D: DataBundle, ui: PlayerUI): string {
     </div>
     <div class="panel">${playerCard(D, a)}
       <div class="sub-note" style="margin-top:8px">경기 시작 조합(오프닝) 기준이에요. 경기 도중 바꾼 영웅은 빠져 있어요. 표본이 적은 항목엔 ⚠를 달아요.</div></div>
+    ${a.n > 0 ? `
     <div class="panel"><h2>① 영웅별 성적 <span class="count">영웅 단위 · 행을 누르면 맵별·조합별로 펼침</span></h2>${heroTable(D, a, ui.heroExpand)}</div>
     <div class="panel"><h2>② 맵별 성적 <span class="count">맵 단위 · 출전 수·승률</span></h2>${mapTable(a)}</div>
-    <div class="panel"><h2>③ 영웅 × 맵 강점 <span class="count">어떤 영웅을 어떤 맵에서 잘하는지</span></h2>${heroMapHeatmap(a)}</div>
+    <div class="panel"><h2>③ 영웅 × 맵 강점 <span class="count">어떤 영웅을 어떤 맵에서 잘하는지</span></h2>${heroMapHeatmap(a)}</div>` : `
+    <div class="panel"><div class="datawait"><div class="dw-i">${esc(a.name)} — 아직 기록된 경기가 없어요</div><div class="sub-note" style="margin:6px 0 0">이 선수의 선픽(오프닝) 기록이 시트에 입력되면 영웅별·맵별·영웅×맵 강점이 자동으로 채워져요.</div></div></div>`}
     <div class="panel">
       <h2>선수 비교 <span class="count">${b ? `${esc(a.name)} vs ${esc(b.name)}` : "팀과 선수를 고르면 좌우 비교"}</span></h2>
       ${b ? `<button class="clearbtn" data-act="compareclear" style="margin-bottom:12px">비교 닫기 ✕</button>` : ""}
