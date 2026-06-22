@@ -995,9 +995,7 @@ export function renderBanAnalysis(D: DataBundle, f: BanUI): string {
   const gAll: Record<string, number> = { ...gFirst };
   Object.entries(gSecond).forEach(([h, n]) => (gAll[h] = (gAll[h] || 0) + n));
 
-  const Z = D.teams[D.us];
-  const made: Record<string, number> = Z ? { ...Z.firstBan } : {};
-  if (Z) Object.entries(Z.secondBan).forEach(([h, n]) => (made[h] = (made[h] || 0) + n));
+  // ZANSIDE 거는/당하는 밴은 'ZANSIDE 데이터 → 우리팀 임시'로 이전(teamSummary에서 표시).
 
   // 역할/표시 필터 (페이지 내 컨트롤)
   const roles: Array<[string, string]> = [["all", "전체"], ["Tank", "탱커"], ["DPS", "딜러"], ["Support", "서포터"]];
