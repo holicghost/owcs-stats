@@ -67,6 +67,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
   const [pickTeam, setPickTeam] = useState(D.players[firstPlayer]?.team || D.us);
   const [pickTeamB, setPickTeamB] = useState(nextOpp || opps[0] || "");
   const [heroExpand, setHeroExpand] = useState("");
+  const [heroMapSel, setHeroMapSel] = useState("");
 
   // 영웅 밴 분석
   const [banRole, setBanRole] = useState<"all" | Role>("all");
@@ -90,7 +91,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
     switch (tab) {
       case "home": return renderMatchday(D, weakExpand);
       case "scout": return renderScout(D, scoutTeam, weakExpand);
-      case "players": return renderPlayers(D, { playerA, playerB, search: playerSearch, pickTeam, pickTeamB, heroExpand });
+      case "players": return renderPlayers(D, { playerA, playerB, search: playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel });
       case "log": return renderLog(D, logF, logExpand);
       case "scenario": return renderScenario(D);
       case "ban": return renderBanAnalysis(D, { role: banRole, topN: banTopN, team: banTeam, banMap, banExpand } as BanUI);
@@ -98,7 +99,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "estimator": return renderEstimator(D, est);
       default: return "";
     }
-  }, [D, tab, scoutTeam, weakExpand, playerA, playerB, playerSearch, pickTeam, pickTeamB, heroExpand, logF, logExpand, banRole, banTopN, banTeam, banMap, banExpand, mapsMode, mapsTeam, est]);
+  }, [D, tab, scoutTeam, scoutTab, weakExpand, playerA, playerB, playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel, logF, logExpand, banRole, banTopN, banTeam, banMap, banExpand, mapsMode, mapsTeam, est]);
 
   const toTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
   function go(id: TabId) { setMod("owcs"); setTab(id); toTop(); }
@@ -110,14 +111,17 @@ export default function Dashboard({ data }: { data: DataBundle }) {
     const val = el.dataset.val ?? "";
     switch (act) {
       case "scout": setScoutTeam(val); break;
+      case "scout-tab": setScoutTab(val as ScoutTab); break;
       case "goscout": setScoutTeam(val); go("scout"); break;
-      case "goplayer": setPlayerA(val); setPlayerB(""); setPickTeam(D.players[val]?.team || pickTeam); go("players"); break;
+      case "goto": setMod("owcs"); setTab(val as TabId); toTop(); break;
+      case "goplayer": setPlayerA(val); setPlayerB(""); setHeroExpand(""); setHeroMapSel(""); setPickTeam(D.players[val]?.team || pickTeam); go("players"); break;
       case "logz": setLogF((f) => ({ ...f, z: val as LogFilter["z"] })); break;
       case "player": // 검색 결과 클릭 → 선수 선택 + 드롭다운 자동 맞춤 + 검색 비움
-        setPlayerA(val); setPlayerB(""); setHeroExpand(""); setPickTeam(D.players[val]?.team || pickTeam); setPlayerSearch("");
+        setPlayerA(val); setPlayerB(""); setHeroExpand(""); setHeroMapSel(""); setPickTeam(D.players[val]?.team || pickTeam); setPlayerSearch("");
         break;
       case "compareclear": setPlayerB(""); break;
-      case "hero-expand": setHeroExpand((c) => (c === val ? "" : val)); break;
+      case "hero-expand": setHeroExpand((c) => (c === val ? "" : val)); setHeroMapSel(""); break;
+      case "heromap-sel": setHeroMapSel((c) => (c === val ? "" : val)); break;
       case "ban-role": setBanRole(val as "all" | Role); break;
       case "ban-expand": setBanExpand((c) => (c === val ? "" : val)); break;
       case "weak-expand": setWeakExpand((c) => (c === val ? "" : val)); break;
@@ -153,11 +157,11 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "ban-map": setBanMap(v); setBanExpand(""); break;
       case "pick-team": {
         const top = D.playerNames.map((n) => D.players[n]).filter((p) => p.team === v).sort((a, b) => b.n - a.n)[0];
-        setPickTeam(v); setHeroExpand("");
+        setPickTeam(v); setHeroExpand(""); setHeroMapSel("");
         if (top) setPlayerA(top.name);
         break;
       }
-      case "pick-player": if (v) { setPlayerA(v); setHeroExpand(""); } break;
+      case "pick-player": if (v) { setPlayerA(v); setHeroExpand(""); setHeroMapSel(""); } break;
       case "comp-team": setPickTeamB(v); break;
       case "comp-player": setPlayerB(v); break;
       case "est-map": setEst((s) => ({ ...s, map: v })); break;

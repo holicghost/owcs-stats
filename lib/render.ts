@@ -951,46 +951,49 @@ function playerCard(D: DataBundle, p: Player): string {
   </div>`;
 }
 
-// 작업1: 영웅 행을 펼치면 맵별 승률 + 함께한 조합
-function heroDetail(D: DataBundle, p: Player, hero: string): string {
+// 영웅 행 펼침: 왼쪽 맵 목록(클릭) → 오른쪽 그 맵 상세 (마스터-디테일)
+function heroDetail(D: DataBundle, p: Player, hero: string, selMap: string): string {
   const cells = Object.values(p.cells).filter((c) => c.hero === hero).sort((a, b) => b.n - a.n);
-  const mapRows = cells.length
+  const left = cells.length
     ? cells.map((c) => {
         const wr = c.n ? Math.round((c.w / c.n) * 100) : 0;
         const low = c.n < 3;
-        return `<div class="hd-map"><span class="hd-mapn">${mk(c.map)}</span><span class="mini">${c.w}-${c.n - c.w}</span><span class="${low ? "mini" : "wr " + wrCls(wr)}">${low ? "표본&lt;3" : wr + "%"}</span></div>`;
+        const on = c.map === selMap;
+        return `<button class="hd-mapbtn ${on ? "on" : ""}" data-act="heromap-sel" data-val="${esc(c.map)}"><span class="hd-mapn">${mk(c.map)}</span><span class="mini">${c.w}-${c.n - c.w}</span><span class="${low ? "mini" : "wr " + wrCls(wr)}">${low ? "표본&lt;3" : wr + "%"}</span></button>`;
       }).join("")
     : nod("맵 기록이 없어요.");
 
-  const fmtSc = (sc: SetRec["ws"]) => (sc ? (sc.kind === "dist" ? Math.round(sc.val) + "m" : String(sc.val)) : "·");
-  const comps: Array<{ date: string; map: string; opp: string; score: string; won: boolean; mates: { player: string; hero: string }[] }> = [];
-  D.sets.forEach((s) => {
-    const side = s.top === p.team ? s.picks.top : s.bottom === p.team ? s.picks.bottom : null;
-    if (!side) return;
-    const me = side.find((x) => x.player === p.name && x.hero === hero);
-    if (!me) return;
-    const mates = side.filter((x) => x !== me && (x.player || x.hero));
-    const w = setWinner(s);
-    const won = w === p.team;
-    const mine = won ? s.ws : s.ls;
-    const theirs = won ? s.ls : s.ws;
-    comps.push({ date: s.date, map: s.map, opp: s.top === p.team ? s.bottom : s.top, score: `${fmtSc(mine)}-${fmtSc(theirs)}`, won, mates });
-  });
-  comps.sort((a, b) => (a.date < b.date ? 1 : -1));
-  const compRows = comps.length
-    ? comps.map((c) => {
-        const line = [{ player: p.name, hero }, ...c.mates]
-          .map((m) => `<span class="lu-p">${heroIcon(m.hero || "")}<span>${esc(m.player || "?")}</span></span>`).join("");
-        return `<div class="hd-comp ${c.won ? "w" : "l"}"><div class="hd-comp-head"><span class="mini">${fmtDate(c.date)}</span> <b>${mk(c.map)}</b> · 상대 ${esc(c.opp)} · <span class="mono">${c.score}</span> <span class="${c.won ? "ww" : "ll"}">${c.won ? "승" : "패"}</span></div><div class="hd-line">${line}</div></div>`;
-      }).join("")
-    : nod("함께한 조합 기록이 없어요.");
+  let right: string;
+  if (!selMap || !cells.some((c) => c.map === selMap)) {
+    right = `<div class="hd-empty">${nod("왼쪽에서 맵을 누르면 그 맵의 경기가 여기 떠요.")}</div>`;
+  } else {
+    const fmtSc = (sc: SetRec["ws"]) => (sc ? (sc.kind === "dist" ? Math.round(sc.val) + "m" : String(sc.val)) : "·");
+    const comps: Array<{ date: string; map: string; opp: string; score: string; won: boolean; line: { player: string; hero: string }[] }> = [];
+    D.sets.forEach((s) => {
+      if (s.map !== selMap) return;
+      const side = s.top === p.team ? s.picks.top : s.bottom === p.team ? s.picks.bottom : null;
+      if (!side) return;
+      const me = side.find((x) => x.player === p.name && x.hero === hero);
+      if (!me) return;
+      const mates = side.filter((x) => x !== me && (x.player || x.hero));
+      const won = setWinner(s) === p.team;
+      comps.push({ date: s.date, map: s.map, opp: s.top === p.team ? s.bottom : s.top, score: `${fmtSc(won ? s.ws : s.ls)}-${fmtSc(won ? s.ls : s.ws)}`, won, line: [{ player: p.name, hero }, ...mates] });
+    });
+    comps.sort((a, b) => (a.date < b.date ? 1 : -1));
+    right = comps.length
+      ? comps.map((c) => {
+          const line = c.line.map((m) => `<span class="lu-p">${heroIcon(m.hero || "")}<span>${esc(m.player || "?")}</span></span>`).join("");
+          return `<div class="hd-comp ${c.won ? "w" : "l"}"><div class="hd-comp-head"><span class="mini">${fmtDate(c.date)}</span> <b>${mk(c.map)}</b> · 상대 ${esc(c.opp)} · <span class="mono">${c.score}</span> <span class="${c.won ? "ww" : "ll"}">${c.won ? "승" : "패"}</span></div><div class="hd-line">${line}</div></div>`;
+        }).join("")
+      : nod("해당 맵 경기가 없어요.");
+  }
 
   return `<div class="herodetail-inner">
-    <div class="hd-col">${mapRows}</div>
-    <div class="hd-col"><div class="hd-comps">${compRows}</div></div>
+    <div class="hd-col hd-maps">${left}</div>
+    <div class="hd-col"><div class="hd-comps">${right}</div></div>
   </div>`;
 }
-function heroTable(D: DataBundle, p: Player, heroExpand: string): string {
+function heroTable(D: DataBundle, p: Player, heroExpand: string, heroMapSel: string): string {
   const heroes = Object.values(p.heroes).sort((a, b) => b.n - a.n);
   if (!heroes.length) return nod("아직 기록된 영웅이 없어요. 선픽이 입력되면 채워져요.");
   const mx = Math.max(1, ...heroes.map((h) => h.n));
@@ -1004,7 +1007,7 @@ function heroTable(D: DataBundle, p: Player, heroExpand: string): string {
       <td class="num">${h.n >= 3 ? `<span class="wr ${wrCls(wr)}">${wr}%</span>` : '<span class="mini">표본&lt;3</span>'}</td>
       <td><div class="tr mini-tr"><div class="fl" style="width:${Math.round((h.n / mx) * 100)}%"></div></div></td>
       <td class="num caret">${open ? "▾" : "▸"}</td></tr>`;
-    return open ? row + `<tr class="herodetail"><td colspan="6">${heroDetail(D, p, h.hero)}</td></tr>` : row;
+    return open ? row + `<tr class="herodetail"><td colspan="6">${heroDetail(D, p, h.hero, heroMapSel)}</td></tr>` : row;
   }).join("")}</tbody></table>`;
 }
 // 영웅×맵 강점 히트맵 (13.3)
@@ -1067,7 +1070,7 @@ export function renderPlayers(D: DataBundle, ui: PlayerUI): string {
     <div class="panel">${playerCard(D, a)}
       <div class="sub-note" style="margin-top:8px">경기 시작 조합(오프닝) 기준이에요. 경기 도중 바꾼 영웅은 빠져 있어요. 표본이 적은 항목엔 ⚠를 달아요.</div></div>
     ${a.n > 0 ? `
-    <div class="panel"><h2>① 영웅별 성적 <span class="count">영웅 단위 · 행을 누르면 맵별·조합별로 펼침</span></h2>${heroTable(D, a, ui.heroExpand)}</div>
+    <div class="panel"><h2>① 영웅별 성적 <span class="count">영웅 단위 · 행을 누르면 맵별·조합별로 펼침</span></h2>${heroTable(D, a, ui.heroExpand, ui.heroMapSel)}</div>
     <div class="panel"><h2>② 맵별 성적 <span class="count">맵 단위 · 출전 수·승률</span></h2>${mapTable(a)}</div>
     <div class="panel"><h2>③ 영웅 × 맵 강점 <span class="count">어떤 영웅을 어떤 맵에서 잘하는지</span></h2>${heroMapHeatmap(a)}</div>` : `
     <div class="panel"><div class="datawait"><div class="dw-i">${esc(a.name)} — 아직 기록된 경기가 없어요</div><div class="sub-note" style="margin:6px 0 0">이 선수의 선픽(오프닝) 기록이 시트에 입력되면 영웅별·맵별·영웅×맵 강점이 자동으로 채워져요.</div></div></div>`}
