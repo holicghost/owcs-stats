@@ -58,7 +58,8 @@ export default function Dashboard({ data }: { data: DataBundle }) {
   const [mapsMode, setMapsMode] = useState("all");
   const [mapsTeam, setMapsTeam] = useState("ZANSIDE");
   const [logF, setLogF] = useState<LogFilter>({ z: "all", team: "", mode: "", map: "", date: "" });
-  const [logExpand, setLogExpand] = useState("");
+  const [logExpand, setLogExpand] = useState<string[]>([]);
+  const [logSort, setLogSort] = useState("new");
   const [weakExpand, setWeakExpand] = useState("");
 
   // 선수
@@ -94,14 +95,14 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "home": return renderMatchday(D, weakExpand);
       case "scout": return renderScout(D, scoutTeam, scoutTab);
       case "players": return renderPlayers(D, { playerA, playerB, search: playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel });
-      case "log": return renderLog(D, logF, logExpand);
+      case "log": return renderLog(D, logF, logExpand, logSort);
       case "scenario": return renderScenario(D);
       case "ban": return renderBanAnalysis(D, { role: banRole, topN: banTopN, team: banTeam, banMap, banExpand } as BanUI);
       case "maps": return renderMaps(D, mapsMode, mapsTeam);
       case "estimator": return renderEstimator(D, est);
       default: return "";
     }
-  }, [D, tab, scoutTeam, scoutTab, weakExpand, playerA, playerB, playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel, logF, logExpand, banRole, banTopN, banTeam, banMap, banExpand, mapsMode, mapsTeam, est]);
+  }, [D, tab, scoutTeam, scoutTab, weakExpand, playerA, playerB, playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel, logF, logExpand, logSort, banRole, banTopN, banTeam, banMap, banExpand, mapsMode, mapsTeam, est]);
 
   const zansideHtml = useMemo(() => { setIcons(D.heroIcons); return renderZanside(D, weakExpand); }, [D, weakExpand]);
 
@@ -129,7 +130,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "ban-role": setBanRole(val as "all" | Role); break;
       case "ban-expand": setBanExpand((c) => (c === val ? "" : val)); break;
       case "weak-expand": setWeakExpand((c) => (c === val ? "" : val)); break;
-      case "log-expand": setLogExpand((c) => (c === val ? "" : val)); break;
+      case "log-expand": setLogExpand((arr) => (arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val])); break;
       case "load-sim": { const inp = setToEstInput(D, val); if (inp) { setEst(inp); go("estimator"); } break; }
       case "copy":
         navigator.clipboard?.writeText(val).then(() => {
@@ -156,6 +157,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "logmode": setLogF((f) => ({ ...f, mode: v })); break;
       case "logmap": setLogF((f) => ({ ...f, map: v })); break;
       case "logdate": setLogF((f) => ({ ...f, date: v })); break;
+      case "logsort": setLogSort(v); break;
       case "ban-topn": setBanTopN(+v); break;
       case "ban-team": setBanTeam(v); setBanExpand(""); break;
       case "ban-map": setBanMap(v); setBanExpand(""); break;

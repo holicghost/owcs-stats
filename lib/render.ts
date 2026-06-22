@@ -998,29 +998,51 @@ function backtestUs(D: DataBundle) {
   return { n, hits, brier, items };
 }
 
-export function renderLog(D: DataBundle, f: LogFilter, logExpand: string): string {
+export function renderLog(D: DataBundle, f: LogFilter, logExpand: string[], logSort: string): string {
   const opt = (val: string, label: string, sel: string) =>
     `<option value="${esc(val)}" ${val === sel ? "selected" : ""}>${esc(label)}</option>`;
   const teamSel = `<select data-act="logteam"><option value="" ${!f.team ? "selected" : ""}>팀 전체</option>${D.teamNames.map((n) => opt(n, n, f.team)).join("")}</select>`;
   const modes = MODE_ORDER.filter((m) => D.sets.some((s) => s.mode === m));
   const modeSel = `<select data-act="logmode"><option value="" ${!f.mode ? "selected" : ""}>모드 전체</option>${modes.map((m) => opt(m, MODE_KO[m] || m, f.mode)).join("")}</select>`;
   const maps = [...new Set(D.sets.map((s) => s.map).filter(Boolean))].sort();
-  const mapSel = `<select data-act="logmap"><option value="" ${!f.map ? "selected" : ""}>맵 전체</option>${maps.map((m) => opt(m, m, f.map)).join("")}</select>`;
+  const mapSel = `<select data-act="logmap"><option value="" ${!f.map ? "selected" : ""}>맵 전체</option>${maps.map((m) => `<option value="${esc(m)}" ${m === f.map ? "selected" : ""}>${esc(mapKo(m))}</option>`).join("")}</select>`;
   const dates = [...new Set(D.sets.map((s) => s.date))].sort();
-  const dateSel = `<select data-act="logdate"><option value="" ${!f.date ? "selected" : ""}>날짜 전체</option>${dates.map((d) => opt(d, d, f.date)).join("")}</select>`;
+  const dateSel = `<select data-act="logdate"><option value="" ${!f.date ? "selected" : ""}>날짜 전체</option>${dates.map((d) => opt(d, fmtDate(d), f.date)).join("")}</select>`;
+  const sortSel = `<select data-act="logsort"><option value="new" ${logSort !== "old" ? "selected" : ""}>최신순</option><option value="old" ${logSort === "old" ? "selected" : ""}>오래된순</option></select>`;
 
-  const arr = D.sets.filter((s) => {
+  let arr = D.sets.filter((s) => {
     if (f.z === "us" && s.top !== D.us && s.bottom !== D.us) return false;
     if (f.team && s.top !== f.team && s.bottom !== f.team) return false;
     if (f.mode && s.mode !== f.mode) return false;
     if (f.map && s.map !== f.map) return false;
     if (f.date && s.date !== f.date) return false;
     return true;
-  }).slice().reverse();
+  }).slice();
+  if (logSort !== "old") arr = arr.reverse(); // 최신순(기본)
 
-  // 승/패 기준 팀(focus): 팀 필터가 있으면 그 팀, 없으면 ZANSIDE가 낀 경기면 ZANSIDE, 아니면 상수팀
-  const focusOf = (s: SetRec) => (f.team && (s.top === f.team || s.bottom === f.team)) ? f.team : (s.top === D.us || s.bottom === D.us ? D.us : s.top);
-  const body = arr.length ? arr.map((s) => scoutGameCard(D, s, focusOf(s))).join("") : nod("필터에 해당하는 경기가 없어요.");
+  const fmtSc = (sc: SetRec["ws"]) => (sc ? (sc.kind === "dist" ? Math.round(sc.val) + "m" : String(sc.val)) : "·");
+  const rows = arr.length ? arr.map((s) => {
+    const w = setWinner(s);
+    const open = logExpand.includes(setKey(s));
+    const picker = s.picker && s.picker !== "ADMIN" ? esc(s.picker) : "—";
+    const topSc = w === s.top ? fmtSc(s.ws) : fmtSc(s.ls);
+    const botSc = w === s.top ? fmtSc(s.ls) : fmtSc(s.ws);
+    const winCell = w ? `<span class="${w === D.us ? "zan" : ""}">${esc(w)}</span>` : '<span class="mini">미정</span>';
+    const rep = s.replay ? `<span class="repcode">${esc(s.replay)}</span><button class="copyb copyicon" data-act="copy" data-val="${esc(s.replay)}" title="복사"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button>` : '<span class="mini">-</span>';
+    const row = `<tr class="logrow ${open ? "open" : ""}" data-act="log-expand" data-val="${esc(setKey(s))}">
+      <td class="mini">${fmtDate(s.date)}</td>
+      <td class="${s.top === D.us ? "zan" : ""}">${esc(s.top)}</td>
+      <td class="${s.bottom === D.us ? "zan" : ""}">${esc(s.bottom)}</td>
+      <td class="mini">${picker}</td>
+      <td class="mini">${esc(MODE_KO[s.mode] || s.mode)}</td>
+      <td>${mk(s.map)}</td>
+      <td class="num mono">${topSc}-${botSc}</td>
+      <td>${winCell}</td>
+      <td>${rep}</td>
+      <td class="num caret">${open ? "▾" : "▸"}</td>
+    </tr>`;
+    return open ? row + `<tr class="logdetailrow"><td colspan="10">${setDetail(D, s)}</td></tr>` : row;
+  }).join("") : `<tr><td colspan="10">${nod("필터에 해당하는 경기가 없어요.")}</td></tr>`;
 
   return `
     <div class="fbar">
@@ -1030,11 +1052,14 @@ export function renderLog(D: DataBundle, f: LogFilter, logExpand: string): strin
       <span class="flabel">모드</span>${modeSel}
       <span class="flabel">맵</span>${mapSel}
       <span class="flabel">날짜</span>${dateSel}
+      <span class="flabel">정렬</span>${sortSel}
     </div>
-    <div class="panel" style="background:transparent;border:none;padding:0">
-      <h2 style="padding:0 2px">경기 기록 <span class="count">${arr.length}맵</span></h2>
-      <div class="sub-note" style="padding:0 2px">한 카드 = 한 맵(세트). 맵 선택팀·밴·양 팀 라인업·스코어·리플레이까지 한눈에. 카드 아래 버튼으로 시뮬레이션에 불러올 수 있어요.</div>
-      ${body}
+    <div class="panel">
+      <h2>경기 기록 <span class="count">${arr.length}세트 · 행을 누르면 상세</span></h2>
+      <table class="logtable">
+        <thead><tr><th>날짜</th><th>상수팀</th><th>하수팀</th><th>맵 픽</th><th>모드</th><th>맵</th><th class="num">스코어</th><th>승리팀</th><th>리플레이</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
     </div>`;
 }
 
@@ -1170,12 +1195,11 @@ function playerSelect2(D: DataBundle, opts: { pickTeam: string; selName: string;
 
 function playerCard(D: DataBundle, p: Player): string {
   const th = topHero(p);
-  const sm = strongMaps(p, 2);
+  const sm = strongMaps(p, 3);
   return `<div class="pcard">
     <div class="pc-name">${esc(p.name)}</div>
-    <div class="pc-meta">${esc(ROLE_KO[repRole(p.roles)] || repRole(p.roles))} · <span class="${p.team === D.us ? "zan" : ""}">${esc(p.team)}</span> · ${p.n}세트</div>
-    <div class="pc-tags">대표 영웅 ${th ? heroChip(th.hero) : "-"}${th ? ` <span class="mini">${th.n}회</span>` : ""}
-      &nbsp;·&nbsp; 강점 맵 ${sm.length ? sm.map((m) => `${mk(m.map)} <span class="wr ${wrCls(m.wr)}">${m.wr}%</span>`).join(", ") : '<span class="mini">아직 적어요</span>'}</div>
+    <div class="pc-meta">${esc(ROLE_KO[repRole(p.roles)] || repRole(p.roles))} · <span class="${p.team === D.us ? "zan" : ""}">${esc(p.team)}</span></div>
+    <div class="pc-tags"><span class="pc-lab">주 영웅</span> ${th ? heroChip(th.hero) : "—"} &nbsp;&nbsp; <span class="pc-lab">강점 맵</span> ${sm.length ? sm.map((m) => mk(m.map)).join(", ") : "—"}</div>
   </div>`;
 }
 
@@ -1295,8 +1319,7 @@ export function renderPlayers(D: DataBundle, ui: PlayerUI): string {
       ${searchResults}
       ${playerSelect2(D, { pickTeam, selName: a.name, teamAct: "pick-team", playerAct: "pick-player" })}
     </div>
-    <div class="panel">${playerCard(D, a)}
-      <div class="sub-note" style="margin-top:8px">경기 시작 조합(오프닝) 기준이에요. 경기 도중 바꾼 영웅은 빠져 있어요. 표본이 적은 항목엔 ⚠를 달아요.</div></div>
+    <div class="panel">${playerCard(D, a)}</div>
     ${a.n > 0 ? `
     <div class="panel"><h2>① 영웅별 성적 <span class="count">영웅 단위 · 행을 누르면 맵별·조합별로 펼침</span></h2>${heroTable(D, a, ui.heroExpand, ui.heroMapSel)}</div>
     <div class="panel"><h2>② 맵별 성적 <span class="count">맵 단위 · 출전 수·승률</span></h2>${mapTable(a)}</div>
