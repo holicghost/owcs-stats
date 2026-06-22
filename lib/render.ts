@@ -789,10 +789,22 @@ function setDetail(D: DataBundle, s: SetRec): string {
       ${s.replay ? `<span><span class="mini">리플레이</span> <span class="repcode">${esc(s.replay)}</span> <button class="copyb" data-act="copy" data-val="${esc(s.replay)}">복사</button></span>` : ""}
     </div>
     <div class="bd-bans">${banLine(fb, "선밴")}${banLine(sb, "후밴")}</div>
-    <div class="sub-note" style="margin:10px 0 4px">출전 라인업 <span class="mini">첫픽(오프닝) 기준 · 경기 중 교체는 아직 기록 없음</span></div>
+    <div class="sub-note" style="margin:10px 0 4px">출전 라인업 <span class="mini">첫픽(오프닝) 기준</span></div>
     <div class="bd-lineups">${lineupDetail(s.top, s.picks.top, s.top === D.us)}${lineupDetail(s.bottom, s.picks.bottom, s.bottom === D.us)}</div>
+    ${s.memo ? `<div class="sub-note" style="margin:10px 0 4px">경기 중 교체 · 메모</div><div class="memobox">${renderMemo(s.memo)}</div>` : ""}
     ${canLoad ? `<div style="margin-top:10px"><button class="loadbtn" data-act="load-sim" data-val="${esc(setKey(s))}">이 경기로 시뮬레이션 채우기 ↗</button></div>` : ""}
   </div>`;
+}
+// 메모 파싱: "선수 → 영웅" 같은 교체 패턴을 뽑고, 안 되면 원문 그대로.
+function renderMemo(memo: string): string {
+  const lines = memo.split(/[\n]+/).map((x) => x.trim()).filter(Boolean);
+  return lines.map((line) => {
+    const parts = line.split(/→|->/).map((x) => x.trim());
+    if (parts.length >= 2 && parts[parts.length - 1]) {
+      return `<div class="swap"><span class="mini">교체</span> ${esc(parts[0])} <span class="mini">→</span> ${heroChip(parts[parts.length - 1])}</div>`;
+    }
+    return `<div class="memo-raw">${esc(line)}</div>`;
+  }).join("");
 }
 // 세트 → 시뮬레이션 입력 (ZANSIDE 쪽을 우리로, 상대를 상대로)
 export function setToEstInput(D: DataBundle, key: string): EstInput | null {
