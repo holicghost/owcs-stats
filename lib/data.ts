@@ -2,7 +2,7 @@
 // 명세 11.1: 파서를 먼저 만들고 4.4/8.5 로 검증한 뒤 화면에 쓴다.
 import { parseCSV } from "./csv";
 import {
-  C, FULLPUSH, MAIN_EXPORT, MAIN_GVIZ, BRACKET_URL, STANDINGS_URL, REVALIDATE, US,
+  C, FULLPUSH, MAIN_EXPORT, MAIN_GVIZ, BRACKET_URL, STANDINGS_URL, REVALIDATE, US, HERO_KO,
 } from "./constants";
 import type {
   Ban, DataBundle, DataHealth, Game, Pick, Player, Score, SetRec, Series, Standing, Team,
@@ -13,6 +13,14 @@ import { validateSets, crossIssues } from "./validate";
 // ===== 파싱 헬퍼 =====
 function norm(s: unknown): string {
   return (s == null ? "" : String(s)).trim().normalize("NFC");
+}
+// 영웅명 대소문자 정규화: 시트의 SHION 등 → 카탈로그 표준키(Shion)로 통일.
+// 이래야 HERO_ROLE·HEROES 매칭(역할 그룹·추천·밴 포지션)이 빠짐없이 동작한다.
+const HERO_CANON_LC: Record<string, string> = {};
+Object.keys(HERO_KO).forEach((k) => (HERO_CANON_LC[k.toLowerCase()] = k));
+function canonHero(name: string): string {
+  const n = norm(name);
+  return n ? HERO_CANON_LC[n.toLowerCase()] || n : "";
 }
 function parseScore(raw: unknown): Score {
   const s = norm(raw);
@@ -42,7 +50,7 @@ function resolvePickCols(header: string[]): { top: Array<[number, number, string
 }
 function readPicks(r: string[], slots: Array<[number, number, string]>): Pick[] {
   return slots
-    .map(([ni, hi, role]) => ({ role, player: norm(r[ni]), hero: norm(r[hi]) }))
+    .map(([ni, hi, role]) => ({ role, player: norm(r[ni]), hero: canonHero(r[hi]) }))
     .filter((p) => p.player || p.hero);
 }
 
@@ -56,8 +64,8 @@ function parseMain(text: string): SetRec[] {
     const match = norm(r[C.match]);
     const seriesId = date + " " + match.split("#")[0].trim();
     const bans: Ban[] = [
-      { team: norm(r[C.b1t]), role: norm(r[C.b1r]), hero: norm(r[C.b1h]), phase: "first" as const },
-      { team: norm(r[C.b2t]), role: norm(r[C.b2r]), hero: norm(r[C.b2h]), phase: "second" as const },
+      { team: norm(r[C.b1t]), role: norm(r[C.b1r]), hero: canonHero(r[C.b1h]), phase: "first" as const },
+      { team: norm(r[C.b2t]), role: norm(r[C.b2r]), hero: canonHero(r[C.b2h]), phase: "second" as const },
     ].filter((b) => b.team && b.hero);
     return {
       date, match, seriesId, replay: norm(r[C.replay]),

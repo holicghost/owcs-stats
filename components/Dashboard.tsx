@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import type { DataBundle } from "@/lib/types";
 import {
   renderMatchday, renderScout, renderBanAnalysis, renderMaps, renderLog,
-  renderScenario, renderPlayers, renderEstimator, renderZanside, setIcons, setToEstInput, setToEstUs, setToEstOpp,
+  renderScenario, renderPlayers, renderEstimator, renderZanside, setIcons, setToEstInput, setToEstUs, setToEstOppTeam,
   type LogFilter, type EstInput, type BanUI,
 } from "@/lib/render";
 
@@ -195,7 +195,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "est-map": setEst((s) => ({ ...s, map: v, srcKey: "" })); break;
       case "est-oppteam": setEst((s) => ({ ...s, oppTeam: v, oppPlayers: ["", "", "", "", ""], oppHeroes: ["", "", "", "", ""], srcKey: "" })); break;
       case "est-load-us": if (v) { const p = setToEstUs(D, v); if (p) setEst((s) => ({ ...s, ...p })); } break;
-      case "est-load-opp": if (v) { const p = setToEstOpp(D, v); if (p) setEst((s) => ({ ...s, ...p })); } break;
+      case "est-load-opp": if (v) setEst((s) => { const p = setToEstOppTeam(D, v, s.oppTeam); return p ? { ...s, ...p } : s; }); break;
     }
   }
 

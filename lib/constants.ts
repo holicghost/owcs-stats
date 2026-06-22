@@ -91,17 +91,17 @@ export const REVALIDATE = 600;
 // 승률 추정기(12)·모의 로스터에서 역할별 영웅을 고르기 위한 카탈로그.
 export const HEROES: Record<"Tank" | "DPS" | "Support", string[]> = {
   Tank: [
-    "D.Va", "Doomfist", "Hazard", "Junker Queen", "Mauga", "Orisa", "Ramattra",
+    "D.Va", "Domina", "Doomfist", "Hazard", "Junker Queen", "Mauga", "Orisa", "Ramattra",
     "Reinhardt", "Roadhog", "Sigma", "Winston", "Wrecking Ball", "Zarya",
   ],
   DPS: [
-    "Ashe", "Bastion", "Cassidy", "Echo", "Genji", "Hanzo", "Junkrat", "Mei",
-    "Pharah", "Reaper", "Sojourn", "Soldier: 76", "Sombra", "Symmetra",
-    "Torbjörn", "Tracer", "Venture", "Widowmaker",
+    "Anran", "Ashe", "Bastion", "Cassidy", "Echo", "Emre", "Freja", "Genji", "Hanzo",
+    "Junkrat", "Mei", "Pharah", "Reaper", "Shion", "Sierra", "Sojourn", "Soldier: 76",
+    "Sombra", "Symmetra", "Torbjörn", "Tracer", "Vendetta", "Venture", "Widowmaker",
   ],
   Support: [
-    "Ana", "Baptiste", "Brigitte", "Illari", "Juno", "Kiriko", "Lifeweaver",
-    "Lúcio", "Mercy", "Moira", "Zenyatta",
+    "Ana", "Baptiste", "Brigitte", "Illari", "Jetpack Cat", "Juno", "Kiriko", "Lifeweaver",
+    "Lúcio", "Mercy", "Mizuki", "Moira", "Wuyang", "Zenyatta",
   ],
 };
 

@@ -427,6 +427,11 @@ table.heatmap .hm-corner{text-align:left;white-space:nowrap;color:var(--tx-dim);
 .recitem.clickable:hover{background:var(--panel-3)}
 .recdelta{font-family:var(--mono);font-weight:700}
 .recdelta.up{color:var(--accent)} .recdelta.down{color:var(--warn)}
+.recmap-h{font-size:13px;margin:16px 0 8px;color:var(--tx)}
+.recmaps{display:flex;flex-direction:column;gap:6px}
+.recmapitem{display:flex;align-items:center;gap:9px;flex-wrap:wrap;background:var(--panel-2);border:1px solid var(--line-soft);border-radius:9px;padding:8px 11px;cursor:pointer;font-size:13px}
+.recmapitem:hover{background:var(--panel-3)}
+.recmapitem.cur{border-color:var(--accent)}
 .sensitem{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--panel-2);border:1px solid var(--line-soft);border-radius:9px;padding:8px 11px;margin-bottom:6px;cursor:pointer;font-size:13px}
 .sensitem:hover{border-color:var(--accent-dim)}
 .senshe{display:inline-flex;gap:3px;flex-wrap:wrap}

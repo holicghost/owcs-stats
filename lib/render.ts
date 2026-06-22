@@ -1713,21 +1713,45 @@ function findUsHeroGame(D: DataBundle, map: string, hero: string): string {
   });
   return s ? setKey(s) : "";
 }
-// 우리 추천: 자리별로 후보 영웅을 넣어 본 예상 승률 (높은 순)
+// 우리 추천: 자리별로 "그 선수"가 잘하는 영웅을 데이터로 추천 (선수 본인 전적 기준)
 function recommendUs(D: DataBundle, e: EstInput) {
   const base = h2hEstimate(D, e);
   const basePct = base.pct ?? 50;
   const slots = EST_SLOTS.map((slot, i) => {
-    const cands = HEROES[slot.role].map((h) => {
-      const trial = { ...e, usHeroes: e.usHeroes.map((x, j) => (j === i ? h : x)) };
-      const est = h2hEstimate(D, trial);
-      const sig = D.usHeroSignal[h];
-      const sample = sig ? sig.w + sig.l : 0;
-      return { hero: h, pct: est.pct ?? basePct, delta: (est.pct ?? basePct) - basePct, sample, gameKey: sample ? findUsHeroGame(D, e.map, h) : "" };
-    }).filter((c) => c.sample >= 1).sort((a, b) => b.pct - a.pct || b.sample - a.sample);
-    return { label: slot.label, top: cands.slice(0, 3) };
+    // 자리에 지정된 선수 → 없으면 그 역할의 ZANSIDE 주전(가장 많이 출전)
+    let player = e.usPlayers[i];
+    if (!player) {
+      const cand = D.playerNames.map((n) => D.players[n]).filter((p) => p.team === D.us && repRole(p.roles) === slot.role).sort((a, b) => b.n - a.n)[0];
+      player = cand ? cand.name : "";
+    }
+    const P = player ? D.players[player] : null;
+    // 그 선수가 실제로 다룬 영웅(역할 일치) 중 본인 승률·표본 순
+    let cands: Array<{ hero: string; pct: number; delta: number; sample: number; pw: number; gameKey: string }> = [];
+    if (P) {
+      cands = Object.values(P.heroes)
+        .filter((hs) => HERO_ROLE[hs.hero] === slot.role && hs.n >= 1)
+        .map((hs) => {
+          const trial = { ...e, usPlayers: e.usPlayers.map((x, j) => (j === i ? player : x)), usHeroes: e.usHeroes.map((x, j) => (j === i ? hs.hero : x)) };
+          const est = h2hEstimate(D, trial);
+          return { hero: hs.hero, pct: est.pct ?? basePct, delta: (est.pct ?? basePct) - basePct, sample: hs.n, pw: hs.n ? Math.round((hs.w / hs.n) * 100) : 0, gameKey: findUsHeroGame(D, e.map, hs.hero) };
+        })
+        .sort((a, b) => b.pw - a.pw || b.sample - a.sample)
+        .slice(0, 3);
+    }
+    return { label: slot.label, player, top: cands };
   });
   return { basePct, slots };
+}
+// 맵 추천: 현재 우리 구성에서 어떤 맵이 유리한지 (맵만 바꿔 예상 승률 비교)
+function recommendMaps(D: DataBundle, e: EstInput) {
+  const maps = Object.keys(D.mapInfo);
+  const us = D.teams[D.us];
+  return maps.map((m) => {
+    const est = h2hEstimate(D, { ...e, map: m });
+    const mp = us && us.maps[m];
+    const n = mp ? mp.w + mp.l : 0;
+    return { map: m, mode: D.mapInfo[m] || "", pct: est.pct, wr: n ? Math.round((mp!.w / n) * 100) : null, n };
+  }).filter((x) => x.pct != null).sort((a, b) => (b.pct! - a.pct!) || (b.n - a.n));
 }
 // 상대 민감도: 상대 과거 조합별 우리 예상 승률
 function oppSensitivity(D: DataBundle, e: EstInput) {
@@ -1771,23 +1795,37 @@ export function renderEstimator(D: DataBundle, e: EstInput): string {
   // 저표본 표시: 딱 1맵일 때만 경고, 2맵 이상은 아무것도 안 붙임
   const smpTag = (n: number) => n === 1 ? ' <span class="lowsmp">⚠ 표본부족</span>' : "";
 
-  // 불러오기 셀렉트 (과거 ZANSIDE 경기)
+  // 불러오기 셀렉트
   const usGames = D.sets.filter((s) => s.top === D.us || s.bottom === D.us).slice().reverse();
-  const gameOpt = (s: SetRec) => `<option value="${esc(setKey(s))}">${fmtDate(s.date)} vs ${esc(s.top === D.us ? s.bottom : s.top)} · ${esc(mapKo(s.map))}</option>`;
-  const usLoad = `<select data-act="est-load-us" class="loadsel"><option value="">⤓ 경기 불러오기</option>${usGames.map(gameOpt).join("")}</select>`;
-  const oppLoad = `<select data-act="est-load-opp" class="loadsel"><option value="">⤓ 경기 불러오기</option>${usGames.map(gameOpt).join("")}</select>`;
+  const gameOpt = (s: SetRec, me: string) => `<option value="${esc(setKey(s))}">${fmtDate(s.date)} vs ${esc(s.top === me ? s.bottom : s.top)} · ${esc(mapKo(s.map))}</option>`;
+  const usLoad = `<select data-act="est-load-us" class="loadsel"><option value="">⤓ 경기 불러오기</option>${usGames.map((s) => gameOpt(s, D.us)).join("")}</select>`;
+  // 상대 불러오기: 선택한 상대 팀의 경기(그 팀의 상대 이름이 보임)
+  let oppLoad: string;
+  if (e.oppTeam) {
+    const oppGames = D.sets.filter((s) => s.top === e.oppTeam || s.bottom === e.oppTeam).slice().reverse();
+    oppLoad = `<select data-act="est-load-opp" class="loadsel"><option value="">⤓ ${esc(e.oppTeam)} 경기 불러오기</option>${oppGames.map((s) => gameOpt(s, e.oppTeam)).join("")}</select>`;
+  } else {
+    oppLoad = `<select class="loadsel" disabled><option value="">⤓ 상대 팀 먼저 선택</option></select>`;
+  }
 
-  // 우리 추천 (맵 입력 시)
+  // 우리 추천 (맵 입력 시) — 선수별로 "그 선수가 잘하는 영웅"을 데이터로
   let recPanel = "";
   if (e.map) {
     const rec = recommendUs(D, e);
-    const recHtml = rec.slots.map((sl) => `<div class="recslot"><div class="recslot-h">${sl.label}</div>${sl.top.length
-      ? sl.top.map((c) => `<div class="recitem${c.gameKey ? " clickable" : ""}"${c.gameKey ? ` data-act="load-sim" data-val="${esc(c.gameKey)}"` : ""}>${heroChip(c.hero)} <span class="wr ${wrCls(c.pct)}">${c.pct}%</span> <span class="recdelta ${c.delta >= 0 ? "up" : "down"}">${c.delta >= 0 ? "+" : ""}${c.delta}p</span> <span class="mini">${c.sample}경기</span>${smpTag(c.sample)}</div>`).join("")
-      : nod("표본 있는 후보가 없어요.")}</div>`).join("");
-    recPanel = `<div class="panel"><h2>우리 추천 <span class="count">자리별 · 예상 승률 높은 순</span></h2>
-      <div class="sub-note">현재 추정 ${rec.basePct}% 기준. 각 자리에 이 영웅을 쓰면 예상 승률이 이렇게 변해요.</div>
+    const recHtml = rec.slots.map((sl) => `<div class="recslot"><div class="recslot-h">${sl.player ? `<b>${esc(sl.player)}</b>` : "선수 미정"} <span class="mini">${sl.label}</span></div>${sl.player && sl.top.length
+      ? sl.top.map((c) => `<div class="recitem${c.gameKey ? " clickable" : ""}"${c.gameKey ? ` data-act="load-sim" data-val="${esc(c.gameKey)}"` : ""}>${heroChip(c.hero)} <span class="wr ${wrCls(c.pw)}">${c.pw}%</span> <span class="mini">본인 ${c.sample}경기</span>${smpTag(c.sample)}</div>`).join("")
+      : nod(sl.player ? "이 선수의 영웅 기록이 없어요." : "이 역할 선수가 없어요.")}</div>`).join("");
+    // 맵 추천
+    const recMaps = recommendMaps(D, e).slice(0, 5);
+    const mapHtml = recMaps.length
+      ? recMaps.map((m, idx) => `<div class="recmapitem ${m.map === e.map ? "cur" : ""}" data-act="est-map" data-val="${esc(m.map)}">${idx === 0 ? "<b>👍</b> " : ""}${mk(m.map)} <span class="mini">${MODE_KO[m.mode] || m.mode}</span> <span class="wr ${wrCls(m.pct!)}">예상 ${m.pct}%</span>${m.wr != null ? ` <span class="mini">실적 ${m.wr}%(${m.n})</span>` : ' <span class="mini">실적 없음</span>'}</div>`).join("")
+      : nod("맵 추천 표본이 부족해요.");
+    recPanel = `<div class="panel"><h2>우리 추천 <span class="count">선수별 주력 영웅 · 데이터 기준</span></h2>
+      <div class="sub-note">현재 추정 ${rec.basePct}% 기준. 각 자리 선수가 <b>본인이 잘하는</b> 영웅 순서예요(승률=본인 전적). 누르면 근거 경기를 불러와요.</div>
       <div class="recgrid">${recHtml}</div>
-      <div class="sub-note causenote">상관일 뿐 인과가 아니에요. 상대·맵·밴에 따라 달라질 수 있고, 표본이 적은 항목(⚠)은 믿음을 낮추세요. 항목을 누르면 근거 경기를 불러와요.</div></div>`;
+      <h3 class="recmap-h">이 구성에 유리한 맵</h3>
+      <div class="recmaps">${mapHtml}</div>
+      <div class="sub-note causenote">상관일 뿐 인과가 아니에요. 표본이 적은 항목(⚠)은 믿음을 낮추세요.</div></div>`;
   }
   // 상대 조합별 승률 (맵 + 상대 팀 입력 시)
   let sensPanel = "";
@@ -1825,7 +1863,6 @@ export function renderEstimator(D: DataBundle, e: EstInput): string {
         <div class="stat"><div class="k">Brier</div><div class="v">${bt.brier.toFixed(3)}</div></div>
       </div>
       <div class="sub-note">${bt.n < 10 ? `표본 ${bt.n}경기로 적어요 — 적중률을 단정하지 마세요. ` : ""}같은 데이터로 만든 모델을 같은 경기에 검증한 값(인-샘플)이라 실제보다 낙관적일 수 있어요. Brier는 0에 가까울수록 정확.</div>
-      <div class="verif-list">${bt.items.slice(0, 12).map((i) => `<div class="verif-row clickable" data-act="load-sim" data-val="${esc(i.key)}"><span class="mini">${fmtDate(i.date)} vs ${esc(i.opp)}</span> <span class="wr ${wrCls(i.pct)}">${i.pct}%</span> <span class="${i.won ? "ww" : "ll"}">${i.won ? "승" : "패"}</span> <span class="${i.hit ? "vhit" : "vmiss"}">${i.hit ? "✓" : "✗"}</span></div>`).join("")}</div>
     </div>`;
   }
 
