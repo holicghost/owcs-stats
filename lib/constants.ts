@@ -24,23 +24,29 @@ export const MODE_KO: Record<string, string> = {
 };
 export const modeKo = (m: string) => MODE_KO[m] || m;
 
-// 영웅 한글명. 시트의 영어 표기 → 공식 한글명. 없으면 원본 그대로 표시.
+// 영웅 한글명. 시트의 영어 표기 → 한글명. 없으면 원본 그대로 표시.
+// 이 리그 데이터엔 커스텀/미출시 영웅(Domina, Shion, Jetpack Cat 등)도 포함된다.
 export const HERO_KO: Record<string, string> = {
   // Tank
-  "D.Va": "D.Va", "Doomfist": "둠피스트", "Hazard": "해저드", "Junker Queen": "정커 퀸",
-  "Mauga": "마우가", "Orisa": "오리사", "Ramattra": "라마트라", "Reinhardt": "라인하르트",
-  "Roadhog": "로드호그", "Sigma": "시그마", "Winston": "윈스턴", "Wrecking Ball": "레킹볼", "Zarya": "자리야",
+  "D.Va": "디바", "Domina": "도미나", "Doomfist": "둠피스트", "Ramattra": "라마트라",
+  "Reinhardt": "라인하르트", "Wrecking Ball": "레킹볼", "Roadhog": "로드호그", "Mauga": "마우가",
+  "Sigma": "시그마", "Orisa": "오리사", "Winston": "윈스턴", "Zarya": "자리야",
+  "Junker Queen": "정커퀸", "Hazard": "해저드",
   // DPS
-  "Ashe": "애쉬", "Bastion": "바스티온", "Cassidy": "캐서디", "Echo": "에코", "Freja": "프레이야",
-  "Genji": "겐지", "Hanzo": "한조", "Junkrat": "정크랫", "Mei": "메이", "Pharah": "파라",
-  "Reaper": "리퍼", "Sojourn": "소전", "Soldier: 76": "솔저: 76", "Sombra": "솜브라",
-  "Symmetra": "시메트라", "Torbjörn": "토르비욘", "Tracer": "트레이서", "Venture": "벤처", "Widowmaker": "위도우메이커",
+  "Genji": "겐지", "Mei": "메이", "Bastion": "바스티온", "Vendetta": "벤데타", "Venture": "벤처",
+  "Sojourn": "소전", "Sombra": "솜브라", "Soldier: 76": "솔저: 76", "Symmetra": "시메트라",
+  "Sierra": "시에라", "Shion": "시온", "Anran": "안란", "Ashe": "애쉬", "Echo": "에코", "Emre": "엠레",
+  "Widowmaker": "위도우메이커", "Junkrat": "정크랫", "Cassidy": "캐서디", "Torbjörn": "토르비욘",
+  "Tracer": "트레이서", "Pharah": "파라", "Freja": "프레야", "Hanzo": "한조", "Reaper": "리퍼",
   // Support
-  "Ana": "아나", "Baptiste": "바티스트", "Brigitte": "브리기테", "Illari": "일리아리", "Juno": "주노",
-  "Kiriko": "키리코", "Lifeweaver": "라이프위버", "Lúcio": "루시우", "Mercy": "메르시",
-  "Moira": "모이라", "Zenyatta": "젠야타",
+  "Lifeweaver": "라이프위버", "Lúcio": "루시우", "Mercy": "메르시", "Mizuki": "미즈키", "Moira": "모이라",
+  "Baptiste": "바티스트", "Brigitte": "브리기테", "Ana": "아나", "Wuyang": "우양", "Illari": "일리아리",
+  "Jetpack Cat": "제트팩 캣", "Zenyatta": "젠야타", "Juno": "주노", "Kiriko": "키리코",
 };
-export const heroKo = (name: string) => HERO_KO[name] || name;
+// 대소문자 차이(예: SHION) 폴백용 소문자 키 맵
+const HERO_KO_LC: Record<string, string> = {};
+Object.keys(HERO_KO).forEach((k) => (HERO_KO_LC[k.toLowerCase()] = HERO_KO[k]));
+export const heroKo = (name: string) => HERO_KO[name] || HERO_KO_LC[(name || "").toLowerCase()] || name;
 
 // 맵 한글명. 없으면 원본 그대로 표시.
 export const MAP_KO: Record<string, string> = {

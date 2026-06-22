@@ -3,7 +3,7 @@
 import {
   MODE_KO, MODE_ORDER, ROLE_KO, HEROES, EST_WEIGHTS, EST_THRESH, heroKo, mapKo, HERO_ROLE,
 } from "./constants";
-import type { DataBundle, Player, SetRec, Series, Standing, Team } from "./types";
+import type { DataBundle, Pick, Player, SetRec, Series, Standing, Team } from "./types";
 import { dimensions, crossEdge, WEAK_MARGIN, WEAK_SAMPLE_MIN, type Weak } from "./weakness";
 import { esc, wrCls, nod, hk, mk, heroChip, heroIcon, setIcons } from "./ui";
 export { esc, setIcons };
@@ -687,7 +687,67 @@ function scoreStr(s: SetRec): string {
   const b = wIsTop ? fmt(s.ls) : fmt(s.ws);
   return `<span class="${wIsTop ? "wr hi" : ""}">${a}</span><span class="mini"> - </span><span class="${!wIsTop ? "wr hi" : ""}">${b}</span>`;
 }
-export function renderLog(D: DataBundle, f: LogFilter): string {
+// ===== 세트 상세 + 시뮬레이션 불러오기 공용 헬퍼 =====
+// 한 세트를 가리키는 안정 키 (날짜+경기+맵)
+const setKey = (s: SetRec) => `${s.date}|${s.match}|${s.map}`;
+export function findSetByKey(D: DataBundle, key: string): SetRec | null {
+  return D.sets.find((s) => setKey(s) === key) || null;
+}
+// 첫픽(오프닝)을 자리(딜러1·딜러2·탱커·서포터1·서포터2)로 변환
+function picksToSlots(picks: Pick[]): { players: string[]; heroes: string[] } {
+  const dps = picks.filter((p) => p.role === "DPS");
+  const tank = picks.filter((p) => p.role === "Tank");
+  const sup = picks.filter((p) => p.role === "Support");
+  const players = ["", "", "", "", ""], heroes = ["", "", "", "", ""];
+  const put = (i: number, p?: Pick) => { if (p) { players[i] = p.player; heroes[i] = p.hero; } };
+  put(0, dps[0]); put(1, dps[1]); put(2, tank[0]); put(3, sup[0]); put(4, sup[1]);
+  return { players, heroes };
+}
+// 라인업 한 팀 (오프닝 기준). 첫픽 없으면 "라인업 미기록".
+function lineupDetail(name: string, picks: Pick[], zan: boolean): string {
+  if (!picks.length) return `<div class="lineup"><span class="lu-team ${zan ? "zan" : ""}">${esc(name)}</span> <span class="mini">라인업 미기록</span></div>`;
+  const order: Record<string, number> = { Tank: 0, DPS: 1, Support: 2 };
+  const sorted = picks.slice().sort((a, b) => (order[a.role] ?? 9) - (order[b.role] ?? 9));
+  return `<div class="lineup"><span class="lu-team ${zan ? "zan" : ""}">${esc(name)}</span>${sorted.map((p) => `<span class="lu-p">${heroIcon(p.hero || "")}<span>${esc(p.player || "?")}${p.hero ? ` <span class="mini">${esc(heroKo(p.hero))}</span>` : ""}</span></span>`).join("")}</div>`;
+}
+// 세트 상세: 맵 선택팀·모드·맵·선밴/후밴·양 팀 라인업·스코어·리플레이.
+// (경기 중 영웅 교체는 시트에 없어 표시하지 않음 — 데이터가 생기면 별도 블록으로 추가)
+function setDetail(D: DataBundle, s: SetRec): string {
+  const w = setWinner(s);
+  const picker = s.picker ? (s.picker === "ADMIN" ? "주최(ADMIN)" : esc(s.picker)) : "공란/불명";
+  const fb = s.bans.find((b) => b.phase === "first");
+  const sb = s.bans.find((b) => b.phase === "second");
+  const banLine = (b: typeof fb, label: string) => b
+    ? `<span class="bd-ban"><span class="mini">${label}</span> <b>${esc(b.team)}</b> 밴 ${heroChip(b.hero)}</span>`
+    : `<span class="bd-ban"><span class="mini">${label}</span> <span class="mini">기록 없음</span></span>`;
+  const canLoad = s.top === D.us || s.bottom === D.us;
+  return `<div class="setdetail">
+    <div class="bd-meta">
+      <span><span class="mini">맵</span> <b>${mk(s.map)}</b> · ${esc(MODE_KO[s.mode] || s.mode)}</span>
+      <span><span class="mini">맵 선택</span> ${picker}</span>
+      <span><span class="mini">스코어</span> ${scoreStr(s)}${w ? ` · <b>${esc(w)} 승</b>` : ""}</span>
+      ${s.replay ? `<span><span class="mini">리플레이</span> <span class="repcode">${esc(s.replay)}</span> <button class="copyb" data-act="copy" data-val="${esc(s.replay)}">복사</button></span>` : ""}
+    </div>
+    <div class="bd-bans">${banLine(fb, "선밴")}${banLine(sb, "후밴")}</div>
+    <div class="sub-note" style="margin:10px 0 4px">출전 라인업 <span class="mini">첫픽(오프닝) 기준 · 경기 중 교체는 아직 기록 없음</span></div>
+    <div class="bd-lineups">${lineupDetail(s.top, s.picks.top, s.top === D.us)}${lineupDetail(s.bottom, s.picks.bottom, s.bottom === D.us)}</div>
+    ${canLoad ? `<div style="margin-top:10px"><button class="loadbtn" data-act="load-sim" data-val="${esc(setKey(s))}">이 경기로 시뮬레이션 채우기 ↗</button></div>` : ""}
+  </div>`;
+}
+// 세트 → 시뮬레이션 입력 (ZANSIDE 쪽을 우리로, 상대를 상대로)
+export function setToEstInput(D: DataBundle, key: string): EstInput | null {
+  const s = findSetByKey(D, key);
+  if (!s) return null;
+  const usTop = s.top === D.us;
+  const usSide = usTop ? s.picks.top : s.picks.bottom;
+  const opSide = usTop ? s.picks.bottom : s.picks.top;
+  const oppName = usTop ? s.bottom : s.top;
+  const us = picksToSlots(usSide);
+  const op = picksToSlots(opSide);
+  return { map: s.map, usPlayers: us.players, usHeroes: us.heroes, oppTeam: oppName, oppPlayers: op.players, oppHeroes: op.heroes };
+}
+
+export function renderLog(D: DataBundle, f: LogFilter, logExpand: string): string {
   const opt = (val: string, label: string, sel: string) =>
     `<option value="${esc(val)}" ${val === sel ? "selected" : ""}>${esc(label)}</option>`;
   const teamSel = `<select data-act="logteam"><option value="" ${!f.team ? "selected" : ""}>팀 전체</option>${D.teamNames.map((n) => opt(n, n, f.team)).join("")}</select>`;
@@ -716,15 +776,17 @@ export function renderLog(D: DataBundle, f: LogFilter): string {
         const aZ = s.top === D.us ? "zan" : "";
         const bZ = s.bottom === D.us ? "zan" : "";
         const bans = s.bans.map((b) => heroChip(b.hero)).join(" ") || '<span class="mini">-</span>';
-        return `<tr class="${isUs ? "zanrow" : ""}">
+        const open = logExpand === setKey(s);
+        const row = `<tr class="logrow ${isUs ? "zanrow" : ""} ${open ? "open" : ""}" data-act="log-expand" data-val="${esc(setKey(s))}">
           <td class="mini">${fmtDate(s.date)}</td>
           <td class="mini">${esc(s.match)}</td>
           <td><span class="hname">${mk(s.map)}</span> <span class="mini">${esc(MODE_KO[s.mode] || s.mode)}</span></td>
           <td><span class="${aCls} ${aZ}">${esc(s.top)}</span> <span class="mini">vs</span> <span class="${bCls} ${bZ}">${esc(s.bottom)}</span></td>
           <td class="num">${scoreStr(s)}</td>
           <td class="mini">${bans}</td>
-          <td>${s.replay ? `<span class="rep"><span class="repcode">${esc(s.replay)}</span><button class="copyb" data-act="copy" data-val="${esc(s.replay)}">복사</button></span>` : '<span class="mini">-</span>'}</td>
+          <td class="num caret">${open ? "▾" : "▸"}</td>
         </tr>`;
+        return open ? row + `<tr class="logdetailrow"><td colspan="7">${setDetail(D, s)}</td></tr>` : row;
       }).join("")
     : "";
 
@@ -738,13 +800,13 @@ export function renderLog(D: DataBundle, f: LogFilter): string {
       <span class="flabel">날짜</span>${dateSel}
     </div>
     <div class="panel">
-      <h2>경기 로그 <span class="count">${arr.length}맵</span></h2>
-      <div class="sub-note">한 행 = 한 맵(세트). 리플레이 코드 옆 복사 버튼으로 복사</div>
+      <h2>경기 기록 <span class="count">${arr.length}맵</span></h2>
+      <div class="sub-note">한 행 = 한 맵(세트). 행을 누르면 맵 선택팀·밴·양 팀 라인업·스코어·리플레이 상세가 펼쳐져요.</div>
       <table>
-        <thead><tr><th>날짜</th><th>경기</th><th>맵 / 모드</th><th>대결</th><th class="num">스코어</th><th>밴(선·후)</th><th>리플레이</th></tr></thead>
+        <thead><tr><th>날짜</th><th>경기</th><th>맵 / 모드</th><th>대결</th><th class="num">스코어</th><th>밴(선·후)</th><th></th></tr></thead>
         <tbody>${body}</tbody>
       </table>
-      ${arr.length ? "" : `<div class="nodata">필터에 해당하는 경기가 없습니다.</div>`}
+      ${arr.length ? "" : `<div class="nodata">필터에 해당하는 경기가 없어요.</div>`}
     </div>`;
 }
 
