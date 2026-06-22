@@ -339,7 +339,7 @@ export function renderMatchday(D: DataBundle, weakExpand: string): string {
       .map((m) => ({ m, wr: us.modes[m].w / us.modes[m].t }))
       .sort((a, b) => b.wr - a.wr);
     if (ms[0]) resp.push(`우리는 <b>${MODE_KO[ms[0].m]}</b>에서 강해요(${Math.round(ms[0].wr * 100)}%). 픽권이 있으면 우선 고려.`);
-    if (banPick) resp.push(`첫 밴은 <b>${esc(banPick.hero)}</b> 후보 — 상대 핵심 픽을 지워요.`);
+    if (banPick) resp.push(`첫 밴은 <b>${esc(heroKo(banPick.hero))}</b> 후보 — 상대 핵심 픽을 지워요.`);
     if (riskMode !== "—") resp.push(`<b>${riskMode}</b>은 우리가 밀리는 구간이라 연습·회피를 검토해요.`);
   }
   const respHtml = resp.length ? resp.map((t) => `<li>${t}</li>`).join("") : `<li class="mini">표본이 더 쌓이면 대응을 제안할게요.</li>`;
@@ -400,7 +400,7 @@ function renderH2H(D: DataBundle, curScout: string): string {
       return `<div class="game"><span class="dt">${fmtDate(s.date)}</span>
         <span class="tA zan">${D.us}</span>
         <span class="sc"><span class="${won ? "ww" : "ll"}">${won ? "승" : "패"}</span></span>
-        <span class="tB loser">${esc(MODE_KO[s.mode] || s.mode)} · ${esc(s.map)}</span></div>`;
+        <span class="tB loser">${esc(MODE_KO[s.mode] || s.mode)} · ${mk(s.map)}</span></div>`;
     }).join("")}</div>`;
 }
 /** 상대 분석 칩 + 본문 전체. curScout 은 Dashboard 가 해석한 유효 팀명. */
@@ -429,7 +429,7 @@ export function renderScout(D: DataBundle, curScout: string, weakExpand: string)
     ? `<div class="sub-note" style="margin:0 0 8px">모드</div>` +
       (pmModes.length ? (() => { const mx = Math.max(1, ...pmModes.map((x) => x[1])); return pmModes.map(([m, n]) => barCount(MODE_KO[m] || m, n, mx, "blu")).join(""); })() : nod()) +
       `<div class="sub-note" style="margin:12px 0 8px">맵</div>` +
-      (pmMaps.length ? (() => { const mx = Math.max(1, ...pmMaps.map((x) => x[1])); return pmMaps.map(([m, n]) => barCount(m, n, mx, "blu")).join(""); })() : nod())
+      (pmMaps.length ? (() => { const mx = Math.max(1, ...pmMaps.map((x) => x[1])); return pmMaps.map(([m, n]) => barCount(mapKo(m), n, mx, "blu")).join(""); })() : nod())
     : nod("맵 픽권 표본이 없습니다 (ADMIN/공란 제외).");
 
   const ms = modeWinrate(T);
@@ -534,7 +534,7 @@ export function renderMaps(D: DataBundle, mapsMode: string, mapsTeam: string): s
     ? arr.map((r) => {
         const wr = r.w + r.l ? Math.round((r.w / (r.w + r.l)) * 100) : -1;
         const pk = topN(r.pickers, 1)[0];
-        return `<tr><td class="hname">${esc(r.map)}</td><td class="mini">${MODE_KO[r.mode] || r.mode}</td>
+        return `<tr><td class="hname">${mk(r.map)}</td><td class="mini">${MODE_KO[r.mode] || r.mode}</td>
           <td class="num">${r.n}</td>
           <td class="num">${mapsTeam === "ZANSIDE" ? `${r.w}-${r.l}` : '<span class="mini">-</span>'}</td>
           <td class="num">${mapsTeam === "ZANSIDE" && wr >= 0 ? `<span class="wr ${wrCls(wr)}">${wr}%</span>` : '<span class="mini">-</span>'}</td>
@@ -609,11 +609,11 @@ export function renderLog(D: DataBundle, f: LogFilter): string {
         const bCls = w === s.bottom ? "winner" : "loser";
         const aZ = s.top === D.us ? "zan" : "";
         const bZ = s.bottom === D.us ? "zan" : "";
-        const bans = s.bans.map((b) => esc(b.hero)).join(" · ") || '<span class="mini">-</span>';
+        const bans = s.bans.map((b) => heroChip(b.hero)).join(" ") || '<span class="mini">-</span>';
         return `<tr class="${isUs ? "zanrow" : ""}">
           <td class="mini">${fmtDate(s.date)}</td>
           <td class="mini">${esc(s.match)}</td>
-          <td><span class="hname">${esc(s.map)}</span> <span class="mini">${esc(MODE_KO[s.mode] || s.mode)}</span></td>
+          <td><span class="hname">${mk(s.map)}</span> <span class="mini">${esc(MODE_KO[s.mode] || s.mode)}</span></td>
           <td><span class="${aCls} ${aZ}">${esc(s.top)}</span> <span class="mini">vs</span> <span class="${bCls} ${bZ}">${esc(s.bottom)}</span></td>
           <td class="num">${scoreStr(s)}</td>
           <td class="mini">${bans}</td>
