@@ -27,7 +27,7 @@ const ROLE_FILTERS: Array<{ id: "all" | Role; label: string }> = [
   { id: "all", label: "전체" }, { id: "Tank", label: "탱커" }, { id: "DPS", label: "딜러" }, { id: "Support", label: "서포터" },
 ];
 
-const EMPTY_EST: EstInput = { map: "", us: ["", "", "", "", ""], oppTeam: "", oppPlayers: ["", "", "", "", ""], oppHeroes: ["", "", "", "", ""] };
+const EMPTY_EST: EstInput = { map: "", usPlayers: ["", "", "", "", ""], usHeroes: ["", "", "", "", ""], oppTeam: "", oppPlayers: ["", "", "", "", ""], oppHeroes: ["", "", "", "", ""] };
 
 export default function Dashboard({ data }: { data: DataBundle }) {
   const D = data;
@@ -51,12 +51,12 @@ export default function Dashboard({ data }: { data: DataBundle }) {
   const [weakExpand, setWeakExpand] = useState("");
 
   // 선수
-  const [playerA, setPlayerA] = useState(D.playerNames[0] || "");
+  const firstPlayer = D.playerNames[0] || "";
+  const [playerA, setPlayerA] = useState(firstPlayer);
   const [playerB, setPlayerB] = useState("");
   const [playerSearch, setPlayerSearch] = useState("");
-  const [playerRole, setPlayerRole] = useState<"all" | Role>("all");
-  const [compareAll, setCompareAll] = useState(false);
-  const [openTeams, setOpenTeams] = useState<string[]>([]);
+  const [pickTeam, setPickTeam] = useState(D.players[firstPlayer]?.team || D.us);
+  const [pickTeamB, setPickTeamB] = useState(nextOpp || opps[0] || "");
   const [heroExpand, setHeroExpand] = useState("");
 
   // 영웅 밴 분석
@@ -81,7 +81,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
     switch (tab) {
       case "home": return renderMatchday(D, weakExpand);
       case "scout": return renderScout(D, scoutTeam, weakExpand);
-      case "players": return renderPlayers(D, { playerA, playerB, search: playerSearch, role: playerRole, compareAll, openTeams, heroExpand });
+      case "players": return renderPlayers(D, { playerA, playerB, search: playerSearch, pickTeam, pickTeamB, heroExpand });
       case "log": return renderLog(D, logF);
       case "scenario": return renderScenario(D);
       case "ban": return renderBanAnalysis(D, { role: banRole, topN: banTopN, team: banTeam, banMap, banExpand } as BanUI);
@@ -89,7 +89,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "estimator": return renderEstimator(D, est);
       default: return "";
     }
-  }, [D, tab, scoutTeam, weakExpand, playerA, playerB, playerSearch, playerRole, compareAll, openTeams, heroExpand, logF, banRole, banTopN, banTeam, banMap, banExpand, mapsMode, mapsTeam, est]);
+  }, [D, tab, scoutTeam, weakExpand, playerA, playerB, playerSearch, pickTeam, pickTeamB, heroExpand, logF, banRole, banTopN, banTeam, banMap, banExpand, mapsMode, mapsTeam, est]);
 
   const toTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
   function go(id: TabId) { setMod("owcs"); setTab(id); toTop(); }
@@ -102,14 +102,13 @@ export default function Dashboard({ data }: { data: DataBundle }) {
     switch (act) {
       case "scout": setScoutTeam(val); break;
       case "goscout": setScoutTeam(val); go("scout"); break;
-      case "goplayer": setPlayerA(val); setPlayerB(""); go("players"); break;
+      case "goplayer": setPlayerA(val); setPlayerB(""); setPickTeam(D.players[val]?.team || pickTeam); go("players"); break;
       case "logz": setLogF((f) => ({ ...f, z: val as LogFilter["z"] })); break;
       case "player": setPlayerA(val); setPlayerB(""); setHeroExpand(""); break;
+      case "pick-team": setPickTeam(val); setPlayerSearch(""); break;
+      case "comp-team": setPickTeamB(val); break;
       case "compare": setPlayerB(val); break;
       case "compareclear": setPlayerB(""); break;
-      case "compare-all-toggle": setCompareAll((v) => !v); break;
-      case "player-role": setPlayerRole(val as "all" | Role); break;
-      case "team-toggle": setOpenTeams((s) => (s.includes(val) ? s.filter((t) => t !== val) : [...s, val])); break;
       case "hero-expand": setHeroExpand((c) => (c === val ? "" : val)); break;
       case "ban-role": setBanRole(val as "all" | Role); break;
       case "ban-expand": setBanExpand((c) => (c === val ? "" : val)); break;
@@ -128,7 +127,8 @@ export default function Dashboard({ data }: { data: DataBundle }) {
     const act = el.dataset.act;
     if (!act) return;
     const v = el.value;
-    if (act.startsWith("est-us-")) { const i = +act.slice(7); setEst((s) => { const us = [...s.us]; us[i] = v; return { ...s, us }; }); return; }
+    if (act.startsWith("est-usplayer-")) { const i = +act.slice(13); setEst((s) => { const a = [...s.usPlayers]; a[i] = v; return { ...s, usPlayers: a }; }); return; }
+    if (act.startsWith("est-ushero-")) { const i = +act.slice(11); setEst((s) => { const a = [...s.usHeroes]; a[i] = v; return { ...s, usHeroes: a }; }); return; }
     if (act.startsWith("est-oppplayer-")) { const i = +act.slice(14); setEst((s) => { const a = [...s.oppPlayers]; a[i] = v; return { ...s, oppPlayers: a }; }); return; }
     if (act.startsWith("est-opphero-")) { const i = +act.slice(12); setEst((s) => { const a = [...s.oppHeroes]; a[i] = v; return { ...s, oppHeroes: a }; }); return; }
     switch (act) {
@@ -198,13 +198,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       <main onClick={onClick} onChange={onChange} onKeyDown={onKeyDown}>
         {mod === "owcs" && tab === "players" && (
           <div className="metabar">
-            <input className="searchbox" type="search" placeholder="선수 이름 검색…" value={playerSearch} onChange={(e) => setPlayerSearch((e.target as HTMLInputElement).value)} />
-            <span className="flabel">역할</span>
-            <div className="seg">
-              {ROLE_FILTERS.map((r) => (
-                <button key={r.id} className={playerRole === r.id ? "on" : ""} data-act="player-role" data-val={r.id}>{r.label}</button>
-              ))}
-            </div>
+            <input className="searchbox" type="search" placeholder={`${pickTeam || "선택한 팀"} 선수 검색…`} value={playerSearch} onChange={(e) => setPlayerSearch((e.target as HTMLInputElement).value)} />
           </div>
         )}
         {mod === "owcs"

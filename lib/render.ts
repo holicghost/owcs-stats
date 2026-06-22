@@ -991,18 +991,11 @@ export function renderPlayers(D: DataBundle, ui: PlayerUI): string {
       <div class="sub-note">팀을 고르면 그 팀 선수만 보여요. 위 검색창은 고른 팀 안에서 찾아요. 칩 옆 숫자는 출전 맵 수예요.</div>
       ${teamPicker(D, { pickTeam, search: ui.search, selName: a.name, teamAct: "pick-team", playerAct: "player" })}
     </div>
-    <div class="panel">
-      ${playerCard(D, a)}
-      <div class="sub-note" style="margin-top:8px">경기 시작 조합(오프닝) 기준이에요. 경기 도중 바꾼 영웅은 빠져 있어요.</div>
-      <div class="grid2" style="margin-top:14px">
-        <div><h2 style="margin-bottom:10px">영웅별 성적 <span class="count">행을 누르면 맵별·조합별로 펼침</span></h2>${heroTable(D, a, ui.heroExpand)}</div>
-        <div><h2 style="margin-bottom:10px">맵별 강점 <span class="count">막대=사용량, 승률은 3경기 이상</span></h2><div class="bars">${mapStrength(a)}</div></div>
-      </div>
-    </div>
-    <div class="panel">
-      <h2>영웅 × 맵 강점 <span class="count">어떤 영웅을 어떤 맵에서 잘하는지</span></h2>
-      ${heroMapHeatmap(a)}
-    </div>
+    <div class="panel">${playerCard(D, a)}
+      <div class="sub-note" style="margin-top:8px">경기 시작 조합(오프닝) 기준이에요. 경기 도중 바꾼 영웅은 빠져 있어요. 표본이 적은 항목엔 ⚠를 달아요.</div></div>
+    <div class="panel"><h2>① 영웅별 성적 <span class="count">영웅 단위 · 행을 누르면 맵별·조합별로 펼침</span></h2>${heroTable(D, a, ui.heroExpand)}</div>
+    <div class="panel"><h2>② 맵별 성적 <span class="count">맵 단위 · 출전 수·승률</span></h2>${mapTable(a)}</div>
+    <div class="panel"><h2>③ 영웅 × 맵 강점 <span class="count">어떤 영웅을 어떤 맵에서 잘하는지</span></h2>${heroMapHeatmap(a)}</div>
     <div class="panel">
       <h2>선수 비교 <span class="count">${b ? `${esc(a.name)} vs ${esc(b.name)}` : "팀을 고르고 비교할 선수를 누르세요"}</span></h2>
       ${b ? `<button class="clearbtn" data-act="compareclear" style="margin-bottom:12px">비교 닫기 ✕</button>` : ""}
@@ -1010,14 +1003,20 @@ export function renderPlayers(D: DataBundle, ui: PlayerUI): string {
     </div>
     ${b ? renderPlayerDiff(D, a, b) : ""}`;
 }
-function mapStrength(p: Player): string {
+// 맵별 성적 표 (영웅 구분 없이 맵 단위). 출전 수·승률·저표본 경고.
+function mapTable(p: Player): string {
   const maps = Object.values(p.maps).sort((a, b) => b.n - a.n);
   if (!maps.length) return nod("아직 맵 기록이 없어요.");
   const mx = Math.max(1, ...maps.map((m) => m.n));
-  return maps.map((m) => {
+  return `<table><thead><tr><th>맵</th><th class="num">출전</th><th class="num">승-패</th><th class="num">승률</th><th>빈도</th></tr></thead><tbody>${maps.map((m) => {
     const wr = m.n ? Math.round((m.w / m.n) * 100) : 0;
-    return `<div class="bar"><span class="lab">${mk(m.map)}</span><div class="tr"><div class="fl ${wrCls(wr)}-fl" style="width:${Math.round((m.n / mx) * 100)}%"></div></div><span class="vl">${m.w}-${m.n - m.w}${m.n >= 3 ? `·${wr}%` : ""}</span></div>`;
-  }).join("");
+    const low = m.n < 3;
+    return `<tr><td class="hname">${mk(m.map)}</td>
+      <td class="num">${m.n}${low ? ' <span class="lowsmp" title="표본 적음">⚠</span>' : ""}</td>
+      <td class="num">${m.w}-${m.n - m.w}</td>
+      <td class="num">${low ? '<span class="mini">표본&lt;3</span>' : `<span class="wr ${wrCls(wr)}">${wr}%</span>`}</td>
+      <td><div class="tr mini-tr"><div class="fl" style="width:${Math.round((m.n / mx) * 100)}%"></div></div></td></tr>`;
+  }).join("")}</tbody></table>`;
 }
 
 // ===== PLAYER DIFF (14) =====
