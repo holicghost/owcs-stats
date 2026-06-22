@@ -1185,7 +1185,6 @@ function setDetail(D: DataBundle, s: SetRec): string {
   const banLine = (b: typeof fb, label: string) => b
     ? `<span class="bd-ban"><span class="mini">${label}</span> <b>${esc(b.team)}</b> 밴 ${heroChip(b.hero)}</span>`
     : `<span class="bd-ban"><span class="mini">${label}</span> <span class="mini">기록 없음</span></span>`;
-  const canLoad = s.top === D.us || s.bottom === D.us;
   return `<div class="setdetail">
     <div class="bd-meta">
       <span><span class="mini">맵</span> <b>${mk(s.map)}</b> · ${esc(MODE_KO[s.mode] || s.mode)}</span>
@@ -1197,7 +1196,7 @@ function setDetail(D: DataBundle, s: SetRec): string {
     <div class="sub-note" style="margin:10px 0 4px">출전 라인업 <span class="mini">첫픽(오프닝) 기준</span></div>
     <div class="bd-lineups">${lineupDetail(s.top, s.picks.top, s.top === D.us)}${lineupDetail(s.bottom, s.picks.bottom, s.bottom === D.us)}</div>
     ${s.memo ? `<div class="sub-note" style="margin:10px 0 4px">경기 중 교체 · 메모</div><div class="memobox">${renderMemo(s.memo)}</div>` : ""}
-    ${canLoad ? `<div style="margin-top:10px"><button class="loadbtn" data-act="load-sim" data-val="${esc(setKey(s))}">이 경기로 시뮬레이션 채우기 ↗</button></div>` : ""}
+    <div style="margin-top:10px"><button class="loadbtn" data-act="load-sim" data-val="${esc(setKey(s))}">이 경기로 시뮬레이션 채우기 ↗</button></div>
   </div>`;
 }
 // 메모에서 선수별 교체 영웅 추출. 형식: "선수: 영웅1, 영웅2" 또는 "선수 → 영웅1 → 영웅2" (줄/세미콜론 구분)
@@ -1405,11 +1404,6 @@ export function renderScenario(D: DataBundle): string {
   const st = standOf(D, D.us);
   const rem = D.schedule.filter((g) => g.status === "upcoming" && !g.tbd && g.phase === "regular");
   const zGames = rem.filter((g) => g.a === D.us || g.b === D.us);
-  const cards =
-    stat("현재 전적", st ? `<span class="ww">${st.win}</span><small> - ${st.lose}</small>` : "—", true) +
-    stat("현재 순위", st ? tieRank(D, st) : "—", true) +
-    stat("잔여 경기", `${zGames.length}`, true) +
-    stat("정규 잔여 (리그)", `${rem.length}`, true);
 
   const remain = zGames.length
     ? zGames.map((g) => {
