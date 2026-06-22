@@ -327,7 +327,7 @@ export function renderMatchday(D: DataBundle, weakExpand: string): string {
     const pTot = op.pushW + op.pushL;
     if (pTot >= 3) {
       const pr = Math.round((op.pushW / pTot) * 100);
-      tend.push(`푸시 ${op.pushW}승 ${op.pushL}패(${pr}%)${pr >= 60 ? " — 푸시가 강한 편이에요." : "."}`);
+      tend.push(`밀기 ${op.pushW}승 ${op.pushL}패(${pr}%)${pr >= 60 ? " — 밀기가 강한 편이에요." : "."}`);
     }
   }
   const tendHtml = tend.length ? tend.map((t) => `<li>${t}</li>`).join("") : `<li class="mini">상대 표본이 적어 성향을 단정하기 일러요.</li>`;
@@ -651,7 +651,7 @@ export function renderMaps(D: DataBundle, mapsMode: string, mapsTeam: string): s
   return `
     <div class="panel">
       <h2>모드별 — ZANSIDE vs 리그 <span class="count">맵 단위 승률</span></h2>
-      <div class="sub-note">푸시는 거리 비교로 승패 판정. 승률 옆 괄호는 표본(맵 수)</div>
+      <div class="sub-note">밀기는 거리 비교로 승패를 판정해요. 승률 옆 괄호는 표본(맵 수)</div>
       <table>
         <thead><tr><th>모드</th><th class="num">우리 전적</th><th class="num">우리 승률</th><th class="num">리그 평균 맵수</th></tr></thead>
         <tbody>${modeBody}</tbody>
@@ -842,11 +842,10 @@ export function renderScenario(D: DataBundle): string {
 export interface PlayerUI {
   playerA: string;
   playerB: string;
-  search: string;
-  role: "all" | "Tank" | "DPS" | "Support";
-  compareAll: boolean;
-  openTeams: string[]; // 펼친 팀 그룹 (작업2)
-  heroExpand: string; // 펼친 영웅 행 (작업1)
+  search: string; // 고른 팀 안에서만 검색
+  pickTeam: string; // 선수 선택용 팀
+  pickTeamB: string; // 비교 대상 팀
+  heroExpand: string; // 펼친 영웅 행
 }
 function playerWR(hs: { n: number; w: number }) {
   return hs.n ? Math.round((hs.w / hs.n) * 100) : 0;
@@ -864,27 +863,22 @@ function strongMaps(p: Player, k: number) {
     .slice(0, k);
 }
 
-// 팀별 그룹 — 기본 접힘, 헤더 클릭으로 펼침. 검색 중이거나 선택 선수의 팀은 자동 펼침 (작업2)
-function plTeamGroups(D: DataBundle, players: Player[], selName: string, act: string, ui: PlayerUI): string {
-  if (!players.length) return nod("조건에 맞는 선수가 없어요. 검색어나 역할 필터를 바꿔 보세요.");
-  const byTeam = new Map<string, Player[]>();
-  players.forEach((p) => {
-    const arr = byTeam.get(p.team) || [];
-    arr.push(p);
-    byTeam.set(p.team, arr);
-  });
-  const order = [...D.teamNames.filter((t) => byTeam.has(t)), ...[...byTeam.keys()].filter((t) => !D.teamNames.includes(t))];
-  const searching = !!ui.search.trim();
-  return order.map((t) => {
-    const ps = byTeam.get(t)!.sort((a, b) => b.n - a.n);
-    const open = searching || ui.openTeams.includes(t) || ps.some((p) => p.name === selName);
-    const chips = open
-      ? `<div class="plchips">${ps.map((p) => `<button class="plchip ${p.name === selName ? "on" : ""}" data-act="${act}" data-val="${esc(p.name)}">${esc(p.name)} <span class="mini">${p.n}</span></button>`).join("")}</div>`
-      : "";
-    return `<div class="plteam">
-      <button class="plteam-h ${t === D.us ? "zan" : ""}" data-act="team-toggle" data-val="${esc(t)}"><span class="caret">${open ? "▾" : "▸"}</span> ${esc(t)} <span class="mini">${ps.length}명</span></button>
-      ${chips}</div>`;
-  }).join("");
+// 팀 먼저 → 그 팀 선수만. 왼쪽 팀 목록, 오른쪽 선수 칩 (모바일은 위/아래로).
+function teamPicker(D: DataBundle, opts: { pickTeam: string; search: string; selName: string; teamAct: string; playerAct: string; exclude?: string }): string {
+  const teams = D.teamNames;
+  const cur = opts.pickTeam && teams.includes(opts.pickTeam) ? opts.pickTeam : teams[0] || "";
+  let players = D.playerNames.map((n) => D.players[n]).filter((p) => p.team === cur && p.name !== opts.exclude);
+  const q = (opts.search || "").trim().toLowerCase();
+  if (q) players = players.filter((p) => p.name.toLowerCase().includes(q));
+  players.sort((a, b) => b.n - a.n);
+  const teamList = teams.map((t) => `<button class="teamitem ${t === cur ? "on" : ""} ${t === D.us ? "zan" : ""}" data-act="${opts.teamAct}" data-val="${esc(t)}">${esc(t)}</button>`).join("");
+  const chips = players.length
+    ? players.map((p) => `<button class="plchip ${p.name === opts.selName ? "on" : ""}" data-act="${opts.playerAct}" data-val="${esc(p.name)}">${esc(p.name)} <span class="mini">${p.n}</span></button>`).join("")
+    : nod(q ? `'${esc(opts.search)}'에 맞는 선수가 없어요.` : "이 팀은 아직 선수 기록이 없어요.");
+  return `<div class="picker">
+    <div class="picker-teams">${teamList}</div>
+    <div class="picker-players"><div class="plchips">${chips}</div></div>
+  </div>`;
 }
 
 function playerCard(D: DataBundle, p: Player): string {
@@ -1094,26 +1088,48 @@ function renderPlayerDiff(D: DataBundle, a: Player, b: Player): string {
 
 
 // ===== 시뮬레이션 (맞대결 승률 추정) =====
-// 입력: 맵 + 우리 5인 영웅 + 상대 팀 + 상대 5인 선수 + 각 선수 영웅. 가중 합산 추정(학습 모델 아님).
+// 입력: 맵 + 양 팀 각 자리(선수+영웅). 우리/상대 완전 동일한 형태. 가중 합산 추정(학습 모델 아님).
 export interface EstInput {
   map: string;
-  us: string[]; // 5: dps1, dps2, tank, sup1, sup2
+  usPlayers: string[]; // 5: dps1, dps2, tank, sup1, sup2
+  usHeroes: string[];
   oppTeam: string;
-  oppPlayers: string[]; // 5
-  oppHeroes: string[]; // 5
+  oppPlayers: string[];
+  oppHeroes: string[];
 }
 const EST_SLOTS: Array<{ role: "DPS" | "Tank" | "Support"; label: string }> = [
   { role: "DPS", label: "딜러 1" }, { role: "DPS", label: "딜러 2" }, { role: "Tank", label: "탱커" },
   { role: "Support", label: "서포터 1" }, { role: "Support", label: "서포터 2" },
 ];
-function estHeroSelect(act: string, role: "DPS" | "Tank" | "Support", val: string, label: string): string {
-  return `<label class="estfield"><span class="estlabel">${label}</span><select data-act="${act}"><option value="" ${!val ? "selected" : ""}>— 선택 —</option>${HEROES[role].map((h) => `<option value="${esc(h)}" ${h === val ? "selected" : ""}>${esc(heroKo(h))}</option>`).join("")}</select></label>`;
-}
-function estPlayerSelect(D: DataBundle, act: string, team: string, role: string, val: string, label: string): string {
-  let opts = D.playerNames.map((n) => D.players[n]).filter((p) => p.team === team);
+// 선수 옵션: 팀이 있으면 그 팀으로 좁히고, 없으면 전체. 역할에 맞는 선수가 있으면 그 역할로 추가로 좁힘.
+function estPlayerOpts(D: DataBundle, team: string, role: string, val: string): string {
+  let opts = D.playerNames.map((n) => D.players[n]);
+  if (team) opts = opts.filter((p) => p.team === team);
   const byRole = opts.filter((p) => repRole(p.roles) === role);
   if (byRole.length) opts = byRole;
-  return `<label class="estfield"><span class="estlabel">${label}</span><select data-act="${act}"${team ? "" : " disabled"}><option value="" ${!val ? "selected" : ""}>${team ? "— 선수 —" : "상대 팀 먼저"}</option>${opts.map((p) => `<option value="${esc(p.name)}" ${p.name === val ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select></label>`;
+  opts.sort((a, b) => b.n - a.n);
+  return `<option value="" ${!val ? "selected" : ""}>— 선수 —</option>${opts.map((p) => `<option value="${esc(p.name)}" ${p.name === val ? "selected" : ""}>${esc(team ? p.name : `${p.name} · ${p.team}`)}</option>`).join("")}`;
+}
+function estHeroOpts(role: "DPS" | "Tank" | "Support", val: string): string {
+  return `<option value="" ${!val ? "selected" : ""}>— 영웅 —</option>${HEROES[role].map((h) => `<option value="${esc(h)}" ${h === val ? "selected" : ""}>${esc(heroKo(h))}</option>`).join("")}`;
+}
+function estRows(D: DataBundle, kind: "us" | "opp", team: string, players: string[], heroes: string[]): string {
+  return EST_SLOTS.map((s, i) => `<div class="estrow">
+    <span class="estrow-lab">${s.label}</span>
+    <select data-act="est-${kind}player-${i}">${estPlayerOpts(D, team, s.role, players[i] || "")}</select>
+    <select data-act="est-${kind}hero-${i}">${estHeroOpts(s.role, heroes[i] || "")}</select>
+  </div>`).join("");
+}
+function pairWinrate(D: DataBundle, players: string[], heroes: string[]) {
+  let w = 0, n = 0;
+  players.forEach((pl, i) => {
+    const hero = heroes[i];
+    if (!pl || !hero) return;
+    const P = D.players[pl];
+    const hs = P && P.heroes[hero];
+    if (hs && hs.n > 0) { w += hs.w; n += hs.n; }
+  });
+  return { w, n };
 }
 interface EstFactor { label: string; w: number; active: boolean; contrib: number; note: string; sample: number; }
 function h2hEstimate(D: DataBundle, e: EstInput) {
@@ -1121,7 +1137,6 @@ function h2hEstimate(D: DataBundle, e: EstInput) {
   const us = D.teams[D.us], op = e.oppTeam ? D.teams[e.oppTeam] : null;
   const factors: EstFactor[] = [];
 
-  // 1) 맵·모드 상성
   if (mode && us) {
     const pick = (t: typeof us) => {
       const mp = e.map && t.maps[e.map];
@@ -1134,25 +1149,25 @@ function h2hEstimate(D: DataBundle, e: EstInput) {
     if (u) factors.push({ label: "맵·모드 상성", w: 0.3, active: true, contrib: o ? (u.wr - o.wr) / 2 : u.wr - 0.5, note: `우리 ${Math.round(u.wr * 100)}%${o ? ` vs 상대 ${Math.round(o.wr * 100)}%` : " (상대 표본 부족)"}`, sample: Math.min(u.s, o ? o.s : u.s) });
     else factors.push({ label: "맵·모드 상성", w: 0.3, active: false, contrib: 0, note: "표본 부족", sample: 0 });
   }
-  // 2) 최근 폼
   const fu = recentForm(D, D.us), fo = e.oppTeam ? recentForm(D, e.oppTeam) : null;
   if (fu != null) factors.push({ label: "최근 폼", w: 0.2, active: true, contrib: fo != null ? fu - fo : fu - 0.5, note: `우리 ${Math.round(fu * 100)}%${fo != null ? ` vs 상대 ${Math.round(fo * 100)}%` : ""}`, sample: 4 });
-  // 3) 우리 영웅 성적
-  const usHeroes = e.us.filter(Boolean);
-  if (usHeroes.length) {
-    let w = 0, l = 0;
-    usHeroes.forEach((h) => { const s = D.usHeroSignal[h]; if (s) { w += s.w; l += s.l; } });
+
+  // 우리 선수·영웅 성적 (선택 선수 기준, 부족하면 ZANSIDE 영웅 신호로 보완)
+  const pwUs = pairWinrate(D, e.usPlayers, e.usHeroes);
+  const usHeroesSel = e.usHeroes.filter(Boolean);
+  let usWr: number | null = null, usSample = 0, usNote = "표본 부족";
+  if (pwUs.n >= 3) { usWr = pwUs.w / pwUs.n; usSample = pwUs.n; usNote = `선택 선수 ${pwUs.n}경기 평균 ${Math.round(usWr * 100)}%`; }
+  else if (usHeroesSel.length) {
+    let w = 0, l = 0; usHeroesSel.forEach((h) => { const s = D.usHeroSignal[h]; if (s) { w += s.w; l += s.l; } });
     const ap = w + l;
-    if (ap >= 5) factors.push({ label: "우리 영웅 성적", w: 0.2, active: true, contrib: w / ap - 0.5, note: `선택 영웅 누적 ${ap}경기`, sample: ap });
-    else factors.push({ label: "우리 영웅 성적", w: 0.2, active: false, contrib: 0, note: `표본 부족 (${ap})`, sample: ap });
+    if (ap >= 5) { usWr = w / ap; usSample = ap; usNote = `영웅 누적 ${ap}경기`; } else usNote = `표본 부족 (${ap})`;
   }
-  // 4) 상대 선수의 영웅 성적
-  const pairs = e.oppPlayers.map((pl, i) => ({ pl, hero: e.oppHeroes[i] })).filter((x) => x.pl && x.hero);
-  if (pairs.length) {
-    let w = 0, n = 0;
-    pairs.forEach(({ pl, hero }) => { const P = D.players[pl]; const hs = P && P.heroes[hero]; if (hs && hs.n > 0) { w += hs.w; n += hs.n; } });
-    if (n >= 3) factors.push({ label: "상대 선수 영웅 성적", w: 0.3, active: true, contrib: 0.5 - w / n, note: `상대 핵심 ${n}경기 평균 ${Math.round((w / n) * 100)}%`, sample: n });
-    else factors.push({ label: "상대 선수 영웅 성적", w: 0.3, active: false, contrib: 0, note: `표본 부족 (${n})`, sample: n });
+  if (usHeroesSel.length || pwUs.n) factors.push({ label: "우리 선수·영웅 성적", w: 0.2, active: usWr != null, contrib: usWr != null ? usWr - 0.5 : 0, note: usNote, sample: usSample });
+
+  const pwOpp = pairWinrate(D, e.oppPlayers, e.oppHeroes);
+  if (e.oppPlayers.some(Boolean) || e.oppHeroes.some(Boolean)) {
+    if (pwOpp.n >= 3) factors.push({ label: "상대 선수·영웅 성적", w: 0.3, active: true, contrib: 0.5 - pwOpp.w / pwOpp.n, note: `상대 핵심 ${pwOpp.n}경기 평균 ${Math.round((pwOpp.w / pwOpp.n) * 100)}%`, sample: pwOpp.n });
+    else factors.push({ label: "상대 선수·영웅 성적", w: 0.3, active: false, contrib: 0, note: `표본 부족 (${pwOpp.n})`, sample: pwOpp.n });
   }
 
   const active = factors.filter((f) => f.active);
@@ -1160,19 +1175,18 @@ function h2hEstimate(D: DataBundle, e: EstInput) {
   if (e.map && active.length) {
     const wsum = active.reduce((a, f) => a + f.w, 0);
     const contrib = active.reduce((a, f) => a + f.w * f.contrib, 0) / wsum;
-    let p = Math.max(0.08, Math.min(0.92, 0.5 + contrib));
+    const p = Math.max(0.08, Math.min(0.92, 0.5 + contrib));
     minS = Math.min(...active.map((f) => f.sample || 0));
     const band = minS >= 8 ? 8 : minS >= 5 ? 12 : 18;
     pct = Math.round(p * 100);
     lo = Math.max(0, pct - band); hi = Math.min(100, pct + band);
     conf = minS >= 8 ? "보통" : minS >= 4 ? "낮음" : "매우 낮음";
   }
-
   const missing: string[] = [];
   if (!e.map) missing.push("맵");
-  if (usHeroes.length < 5) missing.push(`우리 영웅 ${5 - usHeroes.length}자리`);
+  if (e.usHeroes.filter(Boolean).length < 5) missing.push(`우리 영웅 ${5 - e.usHeroes.filter(Boolean).length}자리`);
   if (!e.oppTeam) missing.push("상대 팀");
-  else if (pairs.length < 5) missing.push(`상대 선수·영웅 ${5 - pairs.length}자리`);
+  if (e.oppHeroes.filter(Boolean).length < 5) missing.push(`상대 영웅 ${5 - e.oppHeroes.filter(Boolean).length}자리`);
 
   return { factors, pct, lo, hi, conf, minS, missing };
 }
@@ -1180,12 +1194,7 @@ export function renderEstimator(D: DataBundle, e: EstInput): string {
   setIcons(D.heroIcons);
   const maps = Object.keys(D.mapInfo).sort((a, b) => (D.mapInfo[a] || "").localeCompare(D.mapInfo[b] || "") || a.localeCompare(b));
   const mapSel = `<select data-act="est-map"><option value="" ${!e.map ? "selected" : ""}>— 맵 선택 —</option>${maps.map((m) => `<option value="${esc(m)}" ${m === e.map ? "selected" : ""}>${esc(mapKo(m))} (${MODE_KO[D.mapInfo[m]] || D.mapInfo[m]})</option>`).join("")}</select>`;
-  const oppSel = `<select data-act="est-oppteam"><option value="" ${!e.oppTeam ? "selected" : ""}>— 상대 팀 —</option>${D.teamNames.filter((n) => n !== D.us).map((n) => `<option value="${esc(n)}" ${n === e.oppTeam ? "selected" : ""}>${esc(n)}</option>`).join("")}</select>`;
-
-  const usInputs = EST_SLOTS.map((s, i) => estHeroSelect(`est-us-${i}`, s.role, e.us[i] || "", s.label)).join("");
-  const oppInputs = EST_SLOTS.map((s, i) =>
-    `<div class="oppslot">${estPlayerSelect(D, `est-oppplayer-${i}`, e.oppTeam, s.role, e.oppPlayers[i] || "", s.label)}${estHeroSelect(`est-opphero-${i}`, s.role, e.oppHeroes[i] || "", "영웅")}</div>`
-  ).join("");
+  const oppSel = `<select data-act="est-oppteam"><option value="" ${!e.oppTeam ? "selected" : ""}>— 상대 팀(선택) —</option>${D.teamNames.filter((n) => n !== D.us).map((n) => `<option value="${esc(n)}" ${n === e.oppTeam ? "selected" : ""}>${esc(n)}</option>`).join("")}</select>`;
 
   const r = h2hEstimate(D, e);
   let result: string;
@@ -1204,11 +1213,11 @@ export function renderEstimator(D: DataBundle, e: EstInput): string {
   return `
     <div class="panel">
       <h2>맞대결 시뮬레이션 <span class="count">학습 모델 아님 · 투명한 가중 합산</span></h2>
-      <div class="sub-note">맵과 양 팀 구성을 고르면 그 매치업의 <b>예상 승률</b>과 근거를 보여줘요. 덜 채우면 채운 만큼만 추정해요.</div>
+      <div class="sub-note">맵과 양 팀 구성(자리마다 선수+영웅)을 고르면 그 매치업의 <b>예상 승률</b>과 근거를 보여줘요. 덜 채우면 채운 만큼만 추정해요.</div>
       <label class="estfield" style="max-width:360px;margin-bottom:14px"><span class="estlabel">맵 (모드 자동)</span>${mapSel}</label>
       <div class="grid2 h2h-inputs">
-        <div class="h2h-side"><div class="h2h-h zan">ZANSIDE</div><div class="estgrid">${usInputs}</div></div>
-        <div class="h2h-side"><div class="h2h-h">상대</div><label class="estfield" style="margin-bottom:10px"><span class="estlabel">상대 팀</span>${oppSel}</label><div class="oppslots">${oppInputs}</div></div>
+        <div class="h2h-side"><div class="h2h-h zan">ZANSIDE</div><div class="estrows">${estRows(D, "us", D.us, e.usPlayers, e.usHeroes)}</div></div>
+        <div class="h2h-side"><div class="h2h-h">상대 <span style="font-weight:500;font-size:12px">${oppSel}</span></div><div class="estrows">${estRows(D, "opp", e.oppTeam, e.oppPlayers, e.oppHeroes)}</div></div>
       </div>
     </div>
     <div class="grid2">

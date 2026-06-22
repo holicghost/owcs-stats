@@ -18,9 +18,11 @@ export const C = {
   winner: 16, wscore: 17, loser: 18, lscore: 19,
 } as const;
 
+// 화면 표시용 모드 한글 라벨 (시트 원본은 영어 그대로, 표시할 때만 변환).
 export const MODE_KO: Record<string, string> = {
-  Control: "쟁탈", Flashpoint: "플래시포인트", Push: "푸시", Escort: "호위", Hybrid: "혼합", Clash: "격돌",
+  Control: "쟁탈", Flashpoint: "플래시포인트", Push: "밀기", Escort: "호위", Hybrid: "혼합", Clash: "격돌",
 };
+export const modeKo = (m: string) => MODE_KO[m] || m;
 
 // 영웅 한글명. 시트의 영어 표기 → 공식 한글명. 없으면 원본 그대로 표시.
 export const HERO_KO: Record<string, string> = {
