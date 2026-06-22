@@ -551,22 +551,26 @@ function renderScoutDeep(D: DataBundle, team: string, deep: DeepUI): string {
     }
   });
   const teamMaps = teamSets.length;
-  let heroArr = Object.entries(heroAgg).map(([hero, r]) => ({ hero, ...r, wr: r.n ? Math.round((r.w / r.n) * 100) : 0, rate: teamMaps ? Math.round((r.n / teamMaps) * 100) : 0 }));
-  if (deep.smp) heroArr = heroArr.filter((h) => h.n >= deep.smp);
+  const heroArr = Object.entries(heroAgg).map(([hero, r]) => ({ hero, ...r, wr: r.n ? Math.round((r.w / r.n) * 100) : 0, rate: teamMaps ? Math.round((r.n / teamMaps) * 100) : 0 }));
   heroArr.sort((a, b) => deep.sort === "wr" ? (b.wr - a.wr || b.n - a.n) : (b.n - a.n || b.wr - a.wr));
   const seg = (act: string, cur: string, opts: Array<[string, string]>) => `<div class="seg">${opts.map(([v, lb]) => `<button class="${cur === v ? "on" : ""}" data-act="${act}" data-val="${v}">${lb}</button>`).join("")}</div>`;
   const hasSwapData = teamSets.some((s) => Object.keys(swapsByPlayer(s.memo)).length > 0);
   const block2Toggles = `<div class="metabar">
     <span class="flabel">기준</span>${seg("deep-agg", deep.agg, [["main", "메인 픽"], ["swap", "교체 포함"]])}
     <span class="flabel">정렬</span>${seg("deep-sort", deep.sort, [["pick", "픽 많은 순"], ["wr", "승률 높은 순"]])}
-    <span class="flabel">표본</span>${seg("deep-smp", String(deep.smp), [["0", "전체"], ["2", "2맵+"], ["3", "3맵+"]])}
   </div>${deep.agg === "swap" && !hasSwapData ? `<div class="sub-note">⚠ 시트 메모(교체)가 비어 있어 "교체 포함"이 메인 픽과 같아요. 메모를 <b>선수: 영웅1, 영웅2</b> 형식으로 채우면 교체가 합산돼요.</div>` : ""}`;
-  const block2 = heroArr.length
-    ? `<table class="herodeep"><thead><tr><th>영웅</th><th>역할</th><th class="num">픽</th><th class="num">픽률</th><th>승률</th><th class="num">전적</th></tr></thead><tbody>${heroArr.map((h) => {
+  // 포지션별로 묶어서 메인 구성
+  const heroByRole: Record<string, typeof heroArr> = { DPS: [], Tank: [], Support: [] };
+  heroArr.forEach((h) => (heroByRole[h.role] || heroByRole.DPS).push(h));
+  const block2 = (["DPS", "Tank", "Support"] as const).map((role) => {
+    const arr = heroByRole[role];
+    if (!arr.length) return "";
+    return `<div class="possum"><div class="possum-role">${ROLE_KO[role]}</div>
+      <table class="herodeep"><thead><tr><th>영웅</th><th class="num">픽</th><th class="num">픽률</th><th>승률</th><th class="num">전적</th></tr></thead><tbody>${arr.map((h) => {
         const low = h.n < 3;
-        return `<tr class="${low ? "lowsmp-row" : ""}"><td class="hname">${heroChip(h.hero)}</td><td>${roleBadge(h.role)}</td><td class="num">${h.n}</td><td class="num">${h.rate}%</td><td><div class="tr"><div class="fl ${wrCls(h.wr)}-fl" style="width:${h.wr}%"></div></div></td><td class="num">${h.w}-${h.n - h.w} <b>${h.wr}%</b>${low ? ' <span class="lowsmp">표본&lt;3</span>' : ""}</td></tr>`;
-      }).join("")}</tbody></table>`
-    : nod("조건에 맞는 영웅이 없어요.");
+        return `<tr class="${low ? "lowsmp-row" : ""}"><td class="hname">${heroChip(h.hero)}</td><td class="num">${h.n}</td><td class="num">${h.rate}%</td><td><div class="tr"><div class="fl ${wrCls(h.wr)}-fl" style="width:${h.wr}%"></div></div></td><td class="num">${h.w}-${h.n - h.w} <b>${h.wr}%</b>${low ? ' <span class="lowsmp">표본&lt;3</span>' : ""}</td></tr>`;
+      }).join("")}</tbody></table></div>`;
+  }).join("") || nod("영웅 기록이 없어요.");
 
   // ── 블록 3: 맵 선택권 영향 ──
   const pk = { team: { w: 0, l: 0 }, opp: { w: 0, l: 0 }, none: { w: 0, l: 0 } };
@@ -623,8 +627,10 @@ function renderScoutDeep(D: DataBundle, team: string, deep: DeepUI): string {
       <div class="wrlines">${block1}</div></div>
     <div class="panel"><h2>② 영웅별 픽률·승률 <span class="count">${esc(team)} 사용 영웅</span></h2>
       ${block2Toggles}${block2}</div>
-    <div class="panel"><h2>③ 맵 선택권 영향 <span class="count">누가 맵을 골랐나</span></h2><div class="wrlines">${block3}</div></div>
-    <div class="panel"><h2>④ 밴 순서별 승률 <span class="count">선밴권 / 후밴권</span></h2><div class="wrlines">${block4}</div></div>
+    <div class="grid2">
+      <div class="panel"><h2>③ 맵 선택권 영향 <span class="count">누가 맵을 골랐나</span></h2><div class="wrlines">${block3}</div></div>
+      <div class="panel"><h2>④ 밴 순서별 승률 <span class="count">선밴권 / 후밴권</span></h2><div class="wrlines">${block4}</div></div>
+    </div>
     <div class="panel"><h2>⑤ 밴 경향 <span class="count">칩을 누르면 어느 경기인지 펼침</span></h2><div class="bangrps">${block5}</div></div>`;
 }
 
