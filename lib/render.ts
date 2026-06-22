@@ -863,21 +863,17 @@ function strongMaps(p: Player, k: number) {
     .slice(0, k);
 }
 
-// 팀 먼저 → 그 팀 선수만. 왼쪽 팀 목록, 오른쪽 선수 칩 (모바일은 위/아래로).
-function teamPicker(D: DataBundle, opts: { pickTeam: string; search: string; selName: string; teamAct: string; playerAct: string; exclude?: string }): string {
+// 팀 드롭다운 → 그 팀 선수 드롭다운 두 개. 옵션에 출전 맵 수·저표본(⚠) 유지.
+function playerSelect2(D: DataBundle, opts: { pickTeam: string; selName: string; teamAct: string; playerAct: string; exclude?: string }): string {
   const teams = D.teamNames;
   const cur = opts.pickTeam && teams.includes(opts.pickTeam) ? opts.pickTeam : teams[0] || "";
-  let players = D.playerNames.map((n) => D.players[n]).filter((p) => p.team === cur && p.name !== opts.exclude);
-  const q = (opts.search || "").trim().toLowerCase();
-  if (q) players = players.filter((p) => p.name.toLowerCase().includes(q));
-  players.sort((a, b) => b.n - a.n);
-  const teamList = teams.map((t) => `<button class="teamitem ${t === cur ? "on" : ""} ${t === D.us ? "zan" : ""}" data-act="${opts.teamAct}" data-val="${esc(t)}">${esc(t)}</button>`).join("");
-  const chips = players.length
-    ? players.map((p) => `<button class="plchip ${p.name === opts.selName ? "on" : ""}" data-act="${opts.playerAct}" data-val="${esc(p.name)}">${esc(p.name)} <span class="mini">${p.n}</span></button>`).join("")
-    : nod(q ? `'${esc(opts.search)}'에 맞는 선수가 없어요.` : "이 팀은 아직 선수 기록이 없어요.");
-  return `<div class="picker">
-    <div class="picker-teams">${teamList}</div>
-    <div class="picker-players"><div class="plchips">${chips}</div></div>
+  const players = D.playerNames.map((n) => D.players[n]).filter((p) => p.team === cur && p.name !== opts.exclude).sort((a, b) => b.n - a.n);
+  const teamOpts = teams.map((t) => `<option value="${esc(t)}" ${t === cur ? "selected" : ""}>${esc(t)}${t === D.us ? " (ZANSIDE)" : ""}</option>`).join("");
+  const playerOpts = `<option value="" ${!opts.selName ? "selected" : ""}>— 선수 —</option>` +
+    players.map((p) => `<option value="${esc(p.name)}" ${p.name === opts.selName ? "selected" : ""}>${esc(p.name)} · ${p.n}맵${p.n < 3 ? " ⚠" : ""}</option>`).join("");
+  return `<div class="psel">
+    <label class="estfield"><span class="estlabel">팀</span><select data-act="${opts.teamAct}">${teamOpts}</select></label>
+    <label class="estfield"><span class="estlabel">선수</span><select data-act="${opts.playerAct}">${playerOpts}</select></label>
   </div>`;
 }
 
@@ -985,11 +981,20 @@ export function renderPlayers(D: DataBundle, ui: PlayerUI): string {
   const pickTeam = ui.pickTeam && D.teamNames.includes(ui.pickTeam) ? ui.pickTeam : a.team;
   const pickTeamB = ui.pickTeamB && D.teamNames.includes(ui.pickTeamB) ? ui.pickTeamB : (b ? b.team : D.teamNames.find((t) => t !== a.team) || a.team);
 
+  // 전체 선수 이름 검색 결과 (고르면 드롭다운이 그 선수에 맞춰짐)
+  const q = ui.search.trim().toLowerCase();
+  const results = q ? all.filter((p) => p.name.toLowerCase().includes(q)).sort((x, y) => y.n - x.n) : [];
+  const searchResults = q
+    ? `<div class="sub-note" style="margin-bottom:8px">'${esc(ui.search)}' 검색 결과 — 누르면 선택돼요</div>
+       <div class="plchips" style="margin-bottom:14px">${results.length ? results.slice(0, 30).map((p) => `<button class="plchip ${p.name === a.name ? "on" : ""}" data-act="player" data-val="${esc(p.name)}">${esc(p.name)} <span class="mini">${esc(p.team)} · ${p.n}맵${p.n < 3 ? " ⚠" : ""}</span></button>`).join("") : nod(`'${esc(ui.search)}'에 맞는 선수가 없어요.`)}</div>`
+    : "";
+
   return `
     <div class="panel">
       <h2>선수 선택</h2>
-      <div class="sub-note">팀을 고르면 그 팀 선수만 보여요. 위 검색창은 고른 팀 안에서 찾아요. 칩 옆 숫자는 출전 맵 수예요.</div>
-      ${teamPicker(D, { pickTeam, search: ui.search, selName: a.name, teamAct: "pick-team", playerAct: "player" })}
+      <div class="sub-note">맨 위 검색창은 전체 선수에서 이름으로 찾아요. 또는 아래에서 팀 → 선수 순으로 골라도 돼요. 숫자는 출전 맵 수, ⚠는 경기 수가 적다는 뜻이에요.</div>
+      ${searchResults}
+      ${playerSelect2(D, { pickTeam, selName: a.name, teamAct: "pick-team", playerAct: "pick-player" })}
     </div>
     <div class="panel">${playerCard(D, a)}
       <div class="sub-note" style="margin-top:8px">경기 시작 조합(오프닝) 기준이에요. 경기 도중 바꾼 영웅은 빠져 있어요. 표본이 적은 항목엔 ⚠를 달아요.</div></div>
@@ -997,9 +1002,9 @@ export function renderPlayers(D: DataBundle, ui: PlayerUI): string {
     <div class="panel"><h2>② 맵별 성적 <span class="count">맵 단위 · 출전 수·승률</span></h2>${mapTable(a)}</div>
     <div class="panel"><h2>③ 영웅 × 맵 강점 <span class="count">어떤 영웅을 어떤 맵에서 잘하는지</span></h2>${heroMapHeatmap(a)}</div>
     <div class="panel">
-      <h2>선수 비교 <span class="count">${b ? `${esc(a.name)} vs ${esc(b.name)}` : "팀을 고르고 비교할 선수를 누르세요"}</span></h2>
+      <h2>선수 비교 <span class="count">${b ? `${esc(a.name)} vs ${esc(b.name)}` : "팀과 선수를 고르면 좌우 비교"}</span></h2>
       ${b ? `<button class="clearbtn" data-act="compareclear" style="margin-bottom:12px">비교 닫기 ✕</button>` : ""}
-      ${teamPicker(D, { pickTeam: pickTeamB, search: "", selName: ui.playerB, teamAct: "comp-team", playerAct: "compare", exclude: a.name })}
+      ${playerSelect2(D, { pickTeam: pickTeamB, selName: ui.playerB, teamAct: "comp-team", playerAct: "comp-player", exclude: a.name })}
     </div>
     ${b ? renderPlayerDiff(D, a, b) : ""}`;
 }

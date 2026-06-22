@@ -112,10 +112,9 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "goscout": setScoutTeam(val); go("scout"); break;
       case "goplayer": setPlayerA(val); setPlayerB(""); setPickTeam(D.players[val]?.team || pickTeam); go("players"); break;
       case "logz": setLogF((f) => ({ ...f, z: val as LogFilter["z"] })); break;
-      case "player": setPlayerA(val); setPlayerB(""); setHeroExpand(""); break;
-      case "pick-team": setPickTeam(val); setPlayerSearch(""); break;
-      case "comp-team": setPickTeamB(val); break;
-      case "compare": setPlayerB(val); break;
+      case "player": // 검색 결과 클릭 → 선수 선택 + 드롭다운 자동 맞춤 + 검색 비움
+        setPlayerA(val); setPlayerB(""); setHeroExpand(""); setPickTeam(D.players[val]?.team || pickTeam); setPlayerSearch("");
+        break;
       case "compareclear": setPlayerB(""); break;
       case "hero-expand": setHeroExpand((c) => (c === val ? "" : val)); break;
       case "ban-role": setBanRole(val as "all" | Role); break;
@@ -149,6 +148,15 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "ban-topn": setBanTopN(+v); break;
       case "ban-team": setBanTeam(v); setBanExpand(""); break;
       case "ban-map": setBanMap(v); setBanExpand(""); break;
+      case "pick-team": {
+        const top = D.playerNames.map((n) => D.players[n]).filter((p) => p.team === v).sort((a, b) => b.n - a.n)[0];
+        setPickTeam(v); setHeroExpand("");
+        if (top) setPlayerA(top.name);
+        break;
+      }
+      case "pick-player": if (v) { setPlayerA(v); setHeroExpand(""); } break;
+      case "comp-team": setPickTeamB(v); break;
+      case "comp-player": setPlayerB(v); break;
       case "est-map": setEst((s) => ({ ...s, map: v })); break;
       case "est-oppteam": setEst((s) => ({ ...s, oppTeam: v, oppPlayers: ["", "", "", "", ""], oppHeroes: ["", "", "", "", ""] })); break;
     }
@@ -212,7 +220,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       <main onClick={onClick} onChange={onChange} onKeyDown={onKeyDown}>
         {mod === "owcs" && tab === "players" && (
           <div className="metabar">
-            <input className="searchbox" type="search" placeholder={`${pickTeam || "선택한 팀"} 선수 검색…`} value={playerSearch} onChange={(e) => setPlayerSearch((e.target as HTMLInputElement).value)} />
+            <input className="searchbox" type="search" placeholder="전체 선수 이름 검색…" value={playerSearch} onChange={(e) => setPlayerSearch((e.target as HTMLInputElement).value)} />
           </div>
         )}
         {mod === "owcs"
