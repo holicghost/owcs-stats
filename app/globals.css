@@ -256,8 +256,15 @@ select:focus{outline:2px solid var(--accent-dim);outline-offset:1px}
 .plteams{display:flex;flex-direction:column;gap:12px}
 .plteam-h{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--tx-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
 .plteam-h.zan{color:var(--accent)}
-.pc-tags{font-size:13px;color:var(--tx-mid);margin-top:7px}
+.pc-tags{font-size:13.5px;color:var(--tx);margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .pc-tags b{color:var(--tx);font-weight:700}
+.pc-lab{font-family:var(--mono);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--tx-dim)}
+.logtable td{vertical-align:middle}
+.logtable .logrow{cursor:pointer}
+.logtable .logrow:hover{background:var(--panel-2)}
+.logtable .logrow.open{background:var(--panel-2)}
+.logtable .caret{color:var(--tx-dim);width:20px}
+.logtable .zan{color:var(--accent);font-weight:600}
 .linkbtn{font-family:inherit;font-size:13.5px;font-weight:600;color:var(--accent);background:transparent;border:none;cursor:pointer;padding:0}
 .linkbtn:hover{text-decoration:underline}
 .diffrow.gap{border-color:var(--accent-dim)}
