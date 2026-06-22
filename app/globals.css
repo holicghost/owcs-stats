@@ -246,9 +246,11 @@ select:focus{outline:2px solid var(--accent-dim);outline-offset:1px}
 .lowsmp{color:var(--gold);font-family:var(--mono);cursor:help}
 .modeban{min-width:0}
 .modebans{display:flex;flex-direction:column;gap:16px}
-.modeban-grp{border-top:1px solid var(--line-soft);padding-top:12px}
-.modeban-grp:first-child{border-top:none;padding-top:0}
-.modeban-mode{font-family:var(--mono);font-size:11.5px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px}
+.modeban-grp{border-top:1px solid var(--line);padding-top:16px;margin-top:4px}
+.modeban-grp:first-child{border-top:none;padding-top:0;margin-top:0}
+.modeban-mode{display:inline-block;font-size:17px;font-weight:800;color:var(--bg);background:var(--accent);border-radius:7px;padding:4px 12px;letter-spacing:.01em;margin-bottom:14px}
+.modeban-map-blk{background:var(--panel-2);border:1px solid var(--line-soft);border-radius:9px;padding:10px 12px}
+.modeban-map{font-size:14.5px;font-weight:700;color:var(--tx);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--line-soft)}
 .notes{display:flex;flex-direction:column;gap:9px;font-size:13.5px;line-height:1.6;color:var(--tx-mid)}
 .notes p{margin:0}
 .notes b{color:var(--tx)}
@@ -328,6 +330,96 @@ table.heatmap .hm-corner{text-align:left;white-space:nowrap;color:var(--tx-dim);
 .mdcard.accent .mdc-v{font-family:var(--mono);color:var(--accent)}
 .mdc-pct{font-size:15px;color:var(--tx-mid);font-weight:600}
 .mdc-s{font-size:12px;color:var(--tx-dim);margin-top:6px;line-height:1.4}
+
+/* ===== 다음 경기 개편 ===== */
+.sectit{font-size:18px;font-weight:700;margin:6px 0 10px}
+/* 경기 헤더 VS */
+.nm-meta-top{font-family:var(--mono);font-size:12px;color:var(--tx-mid);margin-bottom:12px}
+.nm-vsgrid{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:14px;margin-bottom:12px}
+.nm-team{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;min-width:0}
+.nm-logo{display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:12px;background:var(--panel-3);border:1px solid var(--line);font-family:var(--mono);font-weight:800;font-size:17px;color:var(--tx-mid)}
+.nm-team.us .nm-logo{background:rgba(25,227,192,.12);border-color:var(--accent-dim);color:var(--accent)}
+.nm-team .nm-name{font-size:19px;font-weight:800;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm-team.us .nm-name{color:var(--accent)}
+.nm-team .nm-rec{font-family:var(--mono);font-size:12px;color:var(--tx-mid)}
+.nm-vsgrid .nm-vs{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--tx-dim)}
+/* 표본 배너 */
+.samplebanner{background:rgba(231,170,60,.08);border:1px solid rgba(231,170,60,.3);border-radius:12px;padding:12px 16px;margin-bottom:16px}
+.sb-main{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.sb-tag{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--gold);border:1px solid rgba(231,170,60,.5);border-radius:6px;padding:2px 7px;white-space:nowrap}
+.sb-txt{font-size:13px;color:var(--tx-mid);line-height:1.5}
+.sb-more{margin-top:8px}
+.sb-more>summary{font-size:12.5px;color:var(--gold);cursor:pointer;font-weight:600;list-style:none}
+.sb-more>summary::-webkit-details-marker{display:none}
+.sb-more>summary::before{content:"▸ ";font-size:10px}
+.sb-more[open]>summary::before{content:"▾ "}
+.sb-list{margin:8px 0 0;padding-left:18px;font-size:12.5px;color:var(--tx-mid);line-height:1.6}
+.sb-list li{margin-bottom:3px}
+/* 매치업 전망 카드 */
+.mdcard.outlook .outlook-word{font-size:20px;font-weight:800;letter-spacing:-.01em;line-height:1.15;margin-bottom:8px}
+.outlook-word.good{color:var(--accent)} .outlook-word.even{color:var(--tx)} .outlook-word.warn{color:var(--gold)} .outlook-word.bad{color:var(--warn)}
+.mdcard.outlook.good{border-color:var(--accent-dim)} .mdcard.outlook.bad{border-color:rgba(255,93,115,.3)}
+.outlook-meta{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11.5px;color:var(--tx-dim)}
+.outlook-meta b{color:var(--tx-mid);font-family:var(--mono)}
+/* 모드 전략 카드 */
+.mdcard.modestrat .ms-line{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--line-soft)}
+.mdcard.modestrat .ms-line:last-child{border-bottom:none}
+.ms-tag{font-family:var(--mono);font-size:10.5px;font-weight:700;border-radius:5px;padding:2px 6px;white-space:nowrap;min-width:62px;text-align:center}
+.ms-mode{font-size:14px;font-weight:700}
+/* 판단 배지 색 (공통) */
+.v-attack{background:rgba(25,227,192,.14);color:var(--accent)}
+.v-cond{background:rgba(231,170,60,.14);color:var(--gold)}
+.v-avoid{background:rgba(255,93,115,.14);color:var(--warn)}
+.v-unknown{background:var(--panel-3);color:var(--tx-dim)}
+/* 추천 대응 */
+.actlist{list-style:none;counter-reset:act;margin:0;padding:0}
+.actlist li{counter-increment:act;display:flex;flex-direction:column;gap:1px;padding:9px 0 9px 30px;position:relative;border-bottom:1px solid var(--line-soft)}
+.actlist li:last-child{border-bottom:none}
+.actlist li::before{content:counter(act);position:absolute;left:0;top:9px;width:21px;height:21px;border-radius:50%;background:rgba(25,227,192,.12);color:var(--accent);font-family:var(--mono);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.act-t{font-size:14px;font-weight:700}
+.act-s{font-size:12px;color:var(--tx-dim);font-family:var(--mono)}
+/* 상대 핵심 성향 */
+.tendlist{display:flex;flex-direction:column;gap:4px}
+.tendrow{display:flex;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line-soft);flex-wrap:wrap}
+.tendrow:last-child{border-bottom:none}
+.tend-lab{font-family:var(--mono);font-size:11.5px;color:var(--tx-dim);min-width:84px}
+.tend-v{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px}
+.kvchip{background:var(--panel-3);border:1px solid var(--line);border-radius:6px;padding:2px 8px;font-size:12px}
+/* 모드 비교 */
+.modecompare{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:760px){.modecompare{grid-template-columns:1fr}}
+.mcrow{background:var(--panel-2);border:1px solid var(--line-soft);border-radius:10px;padding:11px 13px}
+.mc-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.mc-mode{font-size:14px;font-weight:700}
+.vbadge{font-family:var(--mono);font-size:10.5px;font-weight:700;border-radius:5px;padding:2px 7px;white-space:nowrap}
+.mc-line{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.mc-lab{font-family:var(--mono);font-size:11px;color:var(--tx-dim);min-width:62px}
+.mc-lab.zan{color:var(--accent)}
+.mcbar{flex:1;height:13px;background:var(--panel-3);border-radius:5px;overflow:hidden}
+.mcbar-fill{height:100%;border-radius:5px}
+.mcbar-fill.hi-fl{background:linear-gradient(90deg,rgba(25,227,192,.32),var(--accent))}
+.mcbar-fill.mid-fl{background:linear-gradient(90deg,rgba(164,171,189,.25),var(--tx-mid))}
+.mcbar-fill.lo-fl{background:linear-gradient(90deg,rgba(255,93,115,.3),var(--warn))}
+.mc-val{font-family:var(--mono);font-size:12px;min-width:62px;text-align:right}
+.mc-foot{display:flex;justify-content:space-between;gap:8px;margin-top:6px;font-size:11.5px;flex-wrap:wrap}
+.mc-gap{font-family:var(--mono);color:var(--tx-mid)}
+.mc-warn{color:var(--gold)}
+/* 근거 경기 테이블 */
+.tablewrap{overflow-x:auto}
+.evtable{width:100%;border-collapse:collapse;font-size:13px}
+.evtable th{text-align:left;font-family:var(--mono);font-size:11.5px;color:var(--tx-dim);font-weight:600;padding:6px 10px;border-bottom:1px solid var(--line)}
+.evtable th.num,.evtable td.num{text-align:right}
+.evtable td{padding:8px 10px;border-bottom:1px solid var(--line-soft)}
+.reslabel{font-family:var(--mono);font-size:11.5px;font-weight:700;border-radius:5px;padding:2px 8px}
+.reslabel.win{background:rgba(25,227,192,.14);color:var(--accent)}
+.reslabel.loss{background:rgba(255,93,115,.12);color:var(--warn)}
+/* 계산 기준 아코디언 */
+.calc>summary{cursor:pointer;list-style:none;display:flex;flex-direction:column;gap:2px}
+.calc>summary::-webkit-details-marker{display:none}
+.calc-sum{font-size:15px;font-weight:700}
+.calc-body{margin-top:12px;display:flex;flex-direction:column;gap:6px}
+.calc-row{font-family:var(--mono);font-size:12.5px;color:var(--tx-mid)}
+.calc-row.strong{color:var(--tx);font-weight:700;padding-top:6px;border-top:1px solid var(--line-soft)}
 .mdlist{list-style:none;display:flex;flex-direction:column;gap:9px}
 .mdlist li{font-size:13.5px;line-height:1.55;padding-left:15px;position:relative}
 .mdlist li::before{content:"·";position:absolute;left:3px;color:var(--accent);font-weight:800}
