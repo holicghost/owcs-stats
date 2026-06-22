@@ -371,14 +371,27 @@ table.heatmap .hm-corner{min-width:60px}
 .hd-line{display:flex;flex-wrap:wrap;gap:5px}
 .lu-p{display:inline-flex;align-items:center;gap:4px}
 
+/* 팀 먼저 고르는 선수 picker (좌: 팀, 우: 선수) */
+.picker{display:grid;grid-template-columns:190px 1fr;gap:14px}
+@media(max-width:640px){.picker{grid-template-columns:1fr}}
+.picker-teams{display:flex;flex-direction:column;gap:4px;max-height:380px;overflow:auto}
+@media(max-width:640px){.picker-teams{flex-direction:row;flex-wrap:wrap;max-height:none}}
+.teamitem{font-family:inherit;font-size:13.5px;font-weight:600;color:var(--tx-mid);background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:9px 12px;cursor:pointer;text-align:left;transition:.12s;white-space:nowrap}
+.teamitem:hover{border-color:var(--accent-dim);color:var(--tx)}
+.teamitem.zan:not(.on){color:var(--accent)}
+.teamitem.on{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+.picker-players{min-width:0}
+
 /* 맞대결 시뮬레이션 입력 */
 .h2h-inputs{align-items:start}
 .h2h-side{background:var(--panel-2);border:1px solid var(--line-soft);border-radius:12px;padding:14px}
-.h2h-h{font-weight:800;font-size:15px;margin-bottom:12px}
+.h2h-h{font-weight:800;font-size:15px;margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .h2h-h.zan{color:var(--accent)}
-.oppslots{display:flex;flex-direction:column;gap:10px}
-.oppslot{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.oppslot .estfield{margin:0}
+.estrows{display:flex;flex-direction:column;gap:8px}
+.estrow{display:grid;grid-template-columns:62px 1fr 1fr;gap:8px;align-items:center}
+.estrow-lab{font-family:var(--mono);font-size:11px;color:var(--tx-dim)}
+.estrow select{width:100%;min-width:0}
+@media(max-width:480px){.estrow{grid-template-columns:48px 1fr 1fr}}
 
 .state{text-align:center;padding:60px 20px;color:var(--tx-mid)}
 .state .spin{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;margin:0 auto 16px;animation:sp .8s linear infinite}
