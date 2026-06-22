@@ -1228,11 +1228,12 @@ function renderMemo(memo: string): string {
     return `<div class="memo-raw">${esc(line)}</div>`;
   }).join("");
 }
-// 세트 → 시뮬레이션 입력 (ZANSIDE 쪽을 우리로, 상대를 상대로)
+// 세트 → 시뮬레이션 입력. ZANSIDE가 있으면 ZANSIDE를 우리 쪽으로,
+// 아니면(리그 타팀 경기·상대 정찰) 상단 팀을 우리 슬롯에 넣어 매치업 인스펙터로 사용.
 export function setToEstInput(D: DataBundle, key: string): EstInput | null {
   const s = findSetByKey(D, key);
   if (!s) return null;
-  const usTop = s.top === D.us;
+  const usTop = s.bottom === D.us ? false : true; // ZANSIDE가 bottom이면 bottom, 그 외엔 top을 우리 쪽
   const usSide = usTop ? s.picks.top : s.picks.bottom;
   const opSide = usTop ? s.picks.bottom : s.picks.top;
   const oppName = usTop ? s.bottom : s.top;
@@ -1812,44 +1813,6 @@ function h2hEstimate(D: DataBundle, e: EstInput) {
 
   return { factors, pct, lo, hi, conf, minS, missing };
 }
-// 추천 드릴다운: 그 맵에서 ZANSIDE가 그 영웅을 쓴 대표 경기
-function findUsHeroGame(D: DataBundle, map: string, hero: string): string {
-  const s = D.sets.find((x) => {
-    const side = x.top === D.us ? x.picks.top : x.bottom === D.us ? x.picks.bottom : null;
-    return side && x.map === map && side.some((p) => p.hero === hero);
-  });
-  return s ? setKey(s) : "";
-}
-// 우리 추천: 자리별로 "그 선수"가 잘하는 영웅을 데이터로 추천 (선수 본인 전적 기준)
-function recommendUs(D: DataBundle, e: EstInput) {
-  const base = h2hEstimate(D, e);
-  const basePct = base.pct ?? 50;
-  const slots = EST_SLOTS.map((slot, i) => {
-    // 자리에 지정된 선수 → 없으면 그 역할의 ZANSIDE 주전(가장 많이 출전)
-    let player = e.usPlayers[i];
-    if (!player) {
-      const cand = D.playerNames.map((n) => D.players[n]).filter((p) => p.team === D.us && repRole(p.roles) === slot.role).sort((a, b) => b.n - a.n)[0];
-      player = cand ? cand.name : "";
-    }
-    const P = player ? D.players[player] : null;
-    // 그 선수가 실제로 다룬 영웅(역할 일치) 중 본인 승률·표본 순
-    let cands: Array<{ hero: string; pct: number; delta: number; sample: number; pw: number; gameKey: string }> = [];
-    if (P) {
-      cands = Object.values(P.heroes)
-        .filter((hs) => HERO_ROLE[hs.hero] === slot.role && hs.n >= 1)
-        .map((hs) => {
-          const trial = { ...e, usPlayers: e.usPlayers.map((x, j) => (j === i ? player : x)), usHeroes: e.usHeroes.map((x, j) => (j === i ? hs.hero : x)) };
-          const est = h2hEstimate(D, trial);
-          return { hero: hs.hero, pct: est.pct ?? basePct, delta: (est.pct ?? basePct) - basePct, sample: hs.n, pw: hs.n ? Math.round((hs.w / hs.n) * 100) : 0, gameKey: findUsHeroGame(D, e.map, hs.hero) };
-        })
-        .sort((a, b) => b.pw - a.pw || b.sample - a.sample)
-        .slice(0, 3);
-    }
-    return { label: slot.label, player, top: cands };
-  });
-  return { basePct, slots };
-}
-// 맵 추천: 현재 우리 구성에서 어떤 맵이 유리한지 (맵만 바꿔 예상 승률 비교)
 // 조합 추천: "이 상대 · 이 맵"에서 예상 승률이 높은 ZANSIDE 실제 조합 (과거에 실제로 굴린 5인 조합)
 function recommendComp(D: DataBundle, e: EstInput) {
   if (!e.map) return [];
