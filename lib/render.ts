@@ -3,7 +3,7 @@
 import {
   MODE_KO, MODE_ORDER, ROLE_KO, HEROES, EST_WEIGHTS, EST_THRESH, heroKo, mapKo, HERO_ROLE,
 } from "./constants";
-import type { DataBundle, Pick, Player, SetRec, Series, Standing, Team } from "./types";
+import type { DataBundle, ModeRec, Pick, Player, SetRec, Series, Standing, Team } from "./types";
 import { dimensions, crossEdge, WEAK_MARGIN, WEAK_SAMPLE_MIN, type Weak } from "./weakness";
 import { esc, wrCls, nod, hk, mk, heroChip, heroIcon, setIcons } from "./ui";
 export { esc, setIcons };
@@ -248,6 +248,71 @@ function dateKey(d: string): number {
   const md = (d || "").match(/(\d{1,2})\/(\d{1,2})/);
   if (md) return 99990000 + +md[1] * 100 + +md[2]; // 연도 미상 → 연도 무관 월/일 비교
   return 9 ** 9;
+}
+// ===== 모드 판단 엔진 (절대 성적 ↔ 상대 비교 분리) =====
+// 임계값(보고서 기재): 최소표본 3맵 · 상대비교 ±10%p · 자체 높음 50% / 낮음 35%
+const MODE_MIN_SAMPLE = 3;
+const MODE_REL_MARGIN = 0.10;
+const MODE_SELF_HI = 0.50;
+const MODE_SELF_LO = 0.35;
+type ModeVerdict = "attack" | "conditional" | "avoid" | "unknown";
+interface ModeEval {
+  mode: string; verdict: ModeVerdict;
+  self: "high" | "mid" | "low" | "na";
+  rel: "adv" | "dis" | "even" | "na";
+  uw: number; ow: number | null; ut: number; ot: number;
+  gap: number | null; selfWarn: boolean;
+}
+const VERDICT_KO: Record<ModeVerdict, string> = { attack: "우선 공략", conditional: "조건부 공략", avoid: "우선 회피", unknown: "표본 부족" };
+const VERDICT_CLS: Record<ModeVerdict, string> = { attack: "v-attack", conditional: "v-cond", avoid: "v-avoid", unknown: "v-unknown" };
+// 자체 성적(절대)과 상대 비교(상대)를 각각 산출한 뒤 최종 판단을 한 곳에서 결정한다.
+function classifyMode(mode: string, u?: ModeRec, o?: ModeRec): ModeEval {
+  const ut = u ? u.t : 0, ot = o ? o.t : 0;
+  const uw = ut ? u!.w / ut : 0;
+  const ow = ot ? o!.w / ot : null;
+  if (ut < MODE_MIN_SAMPLE) return { mode, verdict: "unknown", self: "na", rel: "na", uw, ow, ut, ot, gap: null, selfWarn: false };
+  const self = uw >= MODE_SELF_HI ? "high" : uw >= MODE_SELF_LO ? "mid" : "low";
+  // 상대 표본이 부족하면 상대 비교 없이 자체 성적만으로 판단
+  if (ot < MODE_MIN_SAMPLE || ow == null) {
+    const verdict: ModeVerdict = self === "high" ? "attack" : self === "low" ? "avoid" : "conditional";
+    return { mode, verdict, self, rel: "na", uw, ow, ut, ot, gap: null, selfWarn: self === "low" && verdict !== "avoid" };
+  }
+  const gap = uw - ow; // 우리 − 상대 (양수 = 우리 우위)
+  const rel: ModeEval["rel"] = gap >= MODE_REL_MARGIN ? "adv" : gap <= -MODE_REL_MARGIN ? "dis" : "even";
+  let verdict: ModeVerdict;
+  if (rel === "dis") verdict = "avoid";                              // 상대가 분명히 앞섬 → 회피
+  else if (rel === "adv") verdict = self === "low" ? "conditional" : "attack"; // 우위지만 자체 낮으면 조건부
+  else verdict = self === "high" ? "conditional" : self === "low" ? "avoid" : "conditional"; // 비슷
+  const selfWarn = verdict !== "avoid" && self === "low";
+  return { mode, verdict, self, rel, uw, ow, ut, ot, gap, selfWarn };
+}
+function modeEvals(D: DataBundle, us?: Team, op?: Team): ModeEval[] {
+  return MODE_ORDER.map((m) => classifyMode(m, us?.modes[m], op?.modes[m])).filter((e) => e.ut > 0);
+}
+// 매치업 전망 판단 문구 (확정적 예측처럼 보이지 않게 단어 우선)
+function matchVerdict(pct: number): { word: string; cls: string } {
+  if (pct >= 63) return { word: "우세 가능성 있음", cls: "good" };
+  if (pct >= 54) return { word: "약우세", cls: "good" };
+  if (pct >= 46) return { word: "백중세", cls: "even" };
+  if (pct >= 37) return { word: "약열세", cls: "warn" };
+  return { word: "열세 가능성 있음", cls: "bad" };
+}
+// 모드 비교 막대 (CSS 막대, 차트 라이브러리 미사용)
+function modeCompareRows(evs: ModeEval[]): string {
+  const ord: Record<ModeVerdict, number> = { attack: 0, conditional: 1, avoid: 2, unknown: 3 };
+  const sorted = evs.slice().sort((a, b) => ord[a.verdict] - ord[b.verdict] || b.uw - a.uw);
+  const bar = (wr: number, pct: number) => `<div class="mcbar"><div class="mcbar-fill ${wrCls(pct)}-fl" style="width:${Math.round(wr * 100)}%"></div></div>`;
+  return sorted.map((e) => {
+    const uwP = Math.round(e.uw * 100);
+    const owP = e.ow != null ? Math.round(e.ow * 100) : null;
+    const gapTxt = e.gap != null ? `상대 대비 ${e.gap >= 0 ? "+" : ""}${Math.round(e.gap * 100)}%p` : "상대 표본 부족";
+    return `<div class="mcrow">
+      <div class="mc-head"><span class="mc-mode">${esc(MODE_KO[e.mode] || e.mode)}</span><span class="vbadge ${VERDICT_CLS[e.verdict]}">${VERDICT_KO[e.verdict]}</span></div>
+      <div class="mc-line"><span class="mc-lab zan">ZANSIDE</span>${bar(e.uw, uwP)}<span class="mc-val">${uwP}% <span class="mini">${e.ut}맵</span></span></div>
+      ${owP != null ? `<div class="mc-line"><span class="mc-lab">상대</span>${bar(e.ow!, owP)}<span class="mc-val">${owP}% <span class="mini">${e.ot}맵</span></span></div>` : ""}
+      <div class="mc-foot"><span class="mc-gap">${gapTxt}</span>${e.selfWarn ? `<span class="mc-warn">자체 성적 낮음 · 주의</span>` : ""}</div>
+    </div>`;
+  }).join("");
 }
 export function renderMatchday(D: DataBundle, weakExpand: string): string {
   const up = D.schedule
