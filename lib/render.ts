@@ -981,23 +981,15 @@ export function renderPlayers(D: DataBundle, ui: PlayerUI): string {
   }
   const all = D.playerNames.map((n) => D.players[n]);
   const a = D.players[ui.playerA] || all[0];
-  const q = ui.search.trim().toLowerCase();
-
-  let listP = all;
-  if (q) listP = listP.filter((p) => p.name.toLowerCase().includes(q));
-  if (ui.role !== "all") listP = listP.filter((p) => repRole(p.roles) === ui.role);
-
-  let cand = all.filter((p) => p.name !== a.name);
-  if (q) cand = cand.filter((p) => p.name.toLowerCase().includes(q));
-  if (!ui.compareAll) cand = cand.filter((p) => repRole(p.roles) === repRole(a.roles));
-
   const b = ui.playerB && ui.playerB !== a.name ? D.players[ui.playerB] : null;
+  const pickTeam = ui.pickTeam && D.teamNames.includes(ui.pickTeam) ? ui.pickTeam : a.team;
+  const pickTeamB = ui.pickTeamB && D.teamNames.includes(ui.pickTeamB) ? ui.pickTeamB : (b ? b.team : D.teamNames.find((t) => t !== a.team) || a.team);
 
   return `
     <div class="panel">
-      <h2>선수 선택 <span class="count">${listP.length}/${D.playerNames.length}명 · 첫 조합(오프닝) 기준</span></h2>
-      <div class="sub-note">위에서 이름으로 검색하거나 역할로 거를 수 있어요. 팀 이름을 누르면 그 팀 선수가 펼쳐져요.</div>
-      <div class="plteams">${plTeamGroups(D, listP, a.name, "player", ui)}</div>
+      <h2>선수 선택</h2>
+      <div class="sub-note">팀을 고르면 그 팀 선수만 보여요. 위 검색창은 고른 팀 안에서 찾아요. 칩 옆 숫자는 출전 맵 수예요.</div>
+      ${teamPicker(D, { pickTeam, search: ui.search, selName: a.name, teamAct: "pick-team", playerAct: "player" })}
     </div>
     <div class="panel">
       ${playerCard(D, a)}
@@ -1012,13 +1004,9 @@ export function renderPlayers(D: DataBundle, ui: PlayerUI): string {
       ${heroMapHeatmap(a)}
     </div>
     <div class="panel">
-      <h2>선수 비교 <span class="count">${b ? `${esc(a.name)} vs ${esc(b.name)}` : "대상을 고르면 좌우 비교"}</span></h2>
-      <div class="metabar" style="margin-bottom:12px">
-        <span class="flabel">후보</span>
-        <button class="clearbtn" data-act="compare-all-toggle">${ui.compareAll ? "같은 역할만 보기" : "전체 역할 보기"}</button>
-        ${b ? `<button class="clearbtn" data-act="compareclear">비교 닫기 ✕</button>` : ""}
-      </div>
-      <div class="plteams">${plTeamGroups(D, cand, ui.playerB, "compare", ui)}</div>
+      <h2>선수 비교 <span class="count">${b ? `${esc(a.name)} vs ${esc(b.name)}` : "팀을 고르고 비교할 선수를 누르세요"}</span></h2>
+      ${b ? `<button class="clearbtn" data-act="compareclear" style="margin-bottom:12px">비교 닫기 ✕</button>` : ""}
+      ${teamPicker(D, { pickTeam: pickTeamB, search: "", selName: ui.playerB, teamAct: "comp-team", playerAct: "compare", exclude: a.name })}
     </div>
     ${b ? renderPlayerDiff(D, a, b) : ""}`;
 }
