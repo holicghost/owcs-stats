@@ -49,7 +49,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
     return opps.includes(o) ? o : null;
   }, [D, opps]);
 
-  const [mod, setMod] = useState<"owcs" | "scrim">("owcs");
+  const [mod, setMod] = useState<"owcs" | "scrim" | "zanside">("owcs");
   const [tab, setTab] = useState<TabId>("home");
 
   // 팀별 분석 / 맵 / 로그
@@ -102,6 +102,8 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       default: return "";
     }
   }, [D, tab, scoutTeam, scoutTab, weakExpand, playerA, playerB, playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel, logF, logExpand, banRole, banTopN, banTeam, banMap, banExpand, mapsMode, mapsTeam, est]);
+
+  const zansideHtml = useMemo(() => { setIcons(D.heroIcons); return renderZanside(D, weakExpand); }, [D, weakExpand]);
 
   const toTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
   function go(id: TabId) { setMod("owcs"); setTab(id); toTop(); }
@@ -245,23 +247,23 @@ export default function Dashboard({ data }: { data: DataBundle }) {
         </nav>
       )}
 
-      <main onClick={onClick} onChange={onChange} onKeyDown={onKeyDown}>
+      <main ref={mainRef}>
         {mod === "owcs" && tab === "players" && (
           <div className="metabar">
             <input className="searchbox" type="search" placeholder="전체 선수 이름 검색…" value={playerSearch} onChange={(e) => setPlayerSearch((e.target as HTMLInputElement).value)} />
           </div>
         )}
-        {mod === "owcs"
-          ? <section dangerouslySetInnerHTML={{ __html: html }} />
-          : (
-            <div className="panel" style={{ marginTop: 16 }}>
-              <h2>스크림 데이터</h2>
-              <div className="datawait" style={{ marginTop: 4 }}>
-                <div className="dw-i">아직 연결되지 않았어요</div>
-                <div className="sub-note" style={{ margin: "6px 0 0" }}>스크림은 민감한 내부 데이터라 따로 연결해야 해요. 사용할 스크림 시트와 권한을 정해 주시면 여기에 붙여 드릴게요.</div>
-              </div>
+        {mod === "owcs" && <section dangerouslySetInnerHTML={{ __html: html }} />}
+        {mod === "zanside" && <section dangerouslySetInnerHTML={{ __html: zansideHtml }} />}
+        {mod === "scrim" && (
+          <div className="panel" style={{ marginTop: 16 }}>
+            <h2>스크림 데이터</h2>
+            <div className="datawait" style={{ marginTop: 4 }}>
+              <div className="dw-i">아직 연결되지 않았어요</div>
+              <div className="sub-note" style={{ margin: "6px 0 0" }}>스크림은 민감한 내부 데이터라 따로 연결해야 해요. 사용할 스크림 시트와 권한을 정해 주시면 여기에 붙여 드릴게요.</div>
             </div>
-          )}
+          </div>
+        )}
       </main>
 
       <footer>
