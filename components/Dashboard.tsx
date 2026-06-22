@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import type { DataBundle } from "@/lib/types";
 import {
   renderMatchday, renderScout, renderBanAnalysis, renderMaps, renderLog,
-  renderScenario, renderPlayers, renderEstimator, renderZanside, setIcons, setToEstInput,
+  renderScenario, renderPlayers, renderEstimator, renderZanside, setIcons, setToEstInput, setToEstUs, setToEstOpp,
   type LogFilter, type EstInput, type BanUI,
 } from "@/lib/render";
 

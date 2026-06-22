@@ -1547,41 +1547,75 @@ export function renderEstimator(D: DataBundle, e: EstInput): string {
     ? r.factors.map((f) => `<div class="frow ${f.active ? "" : "off"}"><span class="fl-label">${f.label}<span class="fw">가중치 ${Math.round(f.w * 100)}%</span></span><span class="fl-contrib">${f.active ? `${f.contrib >= 0 ? "+" : ""}${Math.round(f.w * f.contrib * 100)}p` : "—"}</span><span class="fl-note mini">${f.note}</span></div>`).join("")
     : nod("맵과 양 팀 구성을 채우면 요인이 나와요.");
 
+  // 저표본 표시: <3맵이면 ⚠ 아이콘, 딱 1맵일 때만 '표본부족' 글자
+  const smpTag = (n: number) => n >= 3 ? "" : (n === 1 ? ' <span class="lowsmp">⚠ 표본부족</span>' : ' <span class="lowsmp">⚠</span>');
+
+  // 불러오기 셀렉트 (과거 ZANSIDE 경기)
+  const usGames = D.sets.filter((s) => s.top === D.us || s.bottom === D.us).slice().reverse();
+  const gameOpt = (s: SetRec) => `<option value="${esc(setKey(s))}">${fmtDate(s.date)} vs ${esc(s.top === D.us ? s.bottom : s.top)} · ${esc(mapKo(s.map))}</option>`;
+  const usLoad = `<select data-act="est-load-us" class="loadsel"><option value="">⤓ 경기 불러오기</option>${usGames.map(gameOpt).join("")}</select>`;
+  const oppLoad = `<select data-act="est-load-opp" class="loadsel"><option value="">⤓ 경기 불러오기</option>${usGames.map(gameOpt).join("")}</select>`;
+
   // 우리 추천 (맵 입력 시)
   let recPanel = "";
   if (e.map) {
     const rec = recommendUs(D, e);
     const recHtml = rec.slots.map((sl) => `<div class="recslot"><div class="recslot-h">${sl.label}</div>${sl.top.length
-      ? sl.top.map((c) => { const low = c.sample < 5; return `<div class="recitem${c.gameKey ? " clickable" : ""}"${c.gameKey ? ` data-act="load-sim" data-val="${esc(c.gameKey)}"` : ""}>${heroChip(c.hero)} <span class="wr ${wrCls(c.pct)}">${c.pct}%</span> <span class="recdelta ${c.delta >= 0 ? "up" : "down"}">${c.delta >= 0 ? "+" : ""}${c.delta}p</span> <span class="mini">${c.sample}경기${low ? " ⚠표본부족" : ""}</span></div>`; }).join("")
+      ? sl.top.map((c) => `<div class="recitem${c.gameKey ? " clickable" : ""}"${c.gameKey ? ` data-act="load-sim" data-val="${esc(c.gameKey)}"` : ""}>${heroChip(c.hero)} <span class="wr ${wrCls(c.pct)}">${c.pct}%</span> <span class="recdelta ${c.delta >= 0 ? "up" : "down"}">${c.delta >= 0 ? "+" : ""}${c.delta}p</span> <span class="mini">${c.sample}경기</span>${smpTag(c.sample)}</div>`).join("")
       : nod("표본 있는 후보가 없어요.")}</div>`).join("");
     recPanel = `<div class="panel"><h2>우리 추천 <span class="count">자리별 · 예상 승률 높은 순</span></h2>
       <div class="sub-note">현재 추정 ${rec.basePct}% 기준. 각 자리에 이 영웅을 쓰면 예상 승률이 이렇게 변해요.</div>
       <div class="recgrid">${recHtml}</div>
-      <div class="sub-note causenote">상관일 뿐 인과가 아니에요. 상대·맵·밴에 따라 달라질 수 있고, 표본 5경기 미만은 신뢰도 낮음(⚠). 항목을 누르면 근거 경기를 불러와요.</div></div>`;
+      <div class="sub-note causenote">상관일 뿐 인과가 아니에요. 상대·맵·밴에 따라 달라질 수 있고, 표본이 적은 항목(⚠)은 믿음을 낮추세요. 항목을 누르면 근거 경기를 불러와요.</div></div>`;
   }
-  // 상대 민감도 (맵 + 상대 팀 입력 시)
+  // 상대 조합별 승률 (맵 + 상대 팀 입력 시)
   let sensPanel = "";
   if (e.map && e.oppTeam) {
     const sens = oppSensitivity(D, e);
     const fav = sens.slice(0, 4);
     const unfav = sens.slice().reverse().filter((x) => !fav.includes(x)).slice(0, 4);
     const sensItem = (x: typeof sens[number]) => `<div class="sensitem clickable" data-act="load-sim" data-val="${esc(x.key)}"><span class="mini">${fmtDate(x.date)} · ${mk(x.map)}</span> <span class="senshe">${x.heroes.map((h) => heroChip(h)).join(" ")}</span> <span class="wr ${wrCls(x.pct)}">우리 ${x.pct}%</span></div>`;
-    sensPanel = `<div class="panel"><h2>상대 민감도 <span class="count">${esc(e.oppTeam)} 과거 조합별 우리 예상 승률</span></h2>
+    sensPanel = `<div class="panel"><h2>상대 조합별 승률 <span class="count">${esc(e.oppTeam)} 과거 조합 → 우리 예상 승률</span></h2>
       <div class="grid2">
-        <div><div class="sub-note" style="color:var(--accent)">우리에게 유리한 상대 조합</div>${fav.length ? fav.map(sensItem).join("") : nod("표본 부족")}</div>
-        <div><div class="sub-note" style="color:var(--warn)">우리에게 불리한 상대 조합</div>${unfav.length ? unfav.map(sensItem).join("") : nod("표본 부족")}</div>
+        <div><div class="sub-note" style="color:var(--accent)">우리에게 유리한 상대 조합</div>${fav.length ? fav.map(sensItem).join("") : nod("기록이 적어요")}</div>
+        <div><div class="sub-note" style="color:var(--warn)">우리에게 불리한 상대 조합</div>${unfav.length ? unfav.map(sensItem).join("") : nod("기록이 적어요")}</div>
       </div>
-      <div class="sub-note causenote">과거 관측 경향이에요(인과 아님). 표본이 얇으면 들쭉날쭉할 수 있어요. 누르면 그 경기를 시뮬레이션에 불러와요.</div></div>`;
+      <div class="sub-note causenote">과거 관측 경향이에요(인과 아님). 표본이 얇으면 들쭉날쭉할 수 있어요. 누르면 그 경기를 불러와요.</div></div>`;
+  }
+  // 예측 검증 (백테스트)
+  const bt = backtestUs(D);
+  let verifPanel = "";
+  if (bt.n) {
+    let single = "";
+    if (e.srcKey) {
+      const s = findSetByKey(D, e.srcKey);
+      const cur = h2hEstimate(D, e);
+      if (s && s.winner && cur.pct != null) {
+        const won = s.winner === D.us;
+        const hit = (cur.pct > 50) === won;
+        single = `<div class="verif-single ${hit ? "vhit" : "vmiss"}"><b>${fmtDate(s.date)} vs ${esc(s.top === D.us ? s.bottom : s.top)}</b> · 모델 예측 <span class="wr ${wrCls(cur.pct)}">${cur.pct}%</span> → 실제 <b>${won ? "ZANSIDE 승" : "ZANSIDE 패"}</b> · ${hit ? "예측 적중 ✓" : "예측 빗나감 ✗"}</div>`;
+      }
+    }
+    verifPanel = `<div class="panel"><h2>예측 검증 <span class="count">과거 ZANSIDE 경기로 모델 검증</span></h2>
+      ${single}
+      <div class="statrow" style="grid-template-columns:repeat(3,1fr);margin:10px 0 0">
+        <div class="stat"><div class="k">예측 경기</div><div class="v">${bt.n}</div></div>
+        <div class="stat"><div class="k">적중률</div><div class="v">${Math.round((bt.hits / bt.n) * 100)}%<small> ${bt.hits}/${bt.n}</small></div></div>
+        <div class="stat"><div class="k">Brier</div><div class="v">${bt.brier.toFixed(3)}</div></div>
+      </div>
+      <div class="sub-note">${bt.n < 10 ? `표본 ${bt.n}경기로 적어요 — 적중률을 단정하지 마세요. ` : ""}같은 데이터로 만든 모델을 같은 경기에 검증한 값(인-샘플)이라 실제보다 낙관적일 수 있어요. Brier는 0에 가까울수록 정확.</div>
+      <div class="verif-list">${bt.items.slice(0, 12).map((i) => `<div class="verif-row clickable" data-act="load-sim" data-val="${esc(i.key)}"><span class="mini">${fmtDate(i.date)} vs ${esc(i.opp)}</span> <span class="wr ${wrCls(i.pct)}">${i.pct}%</span> <span class="${i.won ? "ww" : "ll"}">${i.won ? "승" : "패"}</span> <span class="${i.hit ? "vhit" : "vmiss"}">${i.hit ? "✓" : "✗"}</span></div>`).join("")}</div>
+    </div>`;
   }
 
   return `
     <div class="panel">
       <h2>맞대결 시뮬레이션 <span class="count">학습 모델 아님 · 투명한 가중 합산</span></h2>
-      <div class="sub-note">맵과 양 팀 구성(자리마다 선수+영웅)을 고르면 그 매치업의 <b>예상 승률</b>과 근거를 보여줘요. 덜 채우면 채운 만큼만 추정해요.</div>
+      <div class="sub-note">맵과 양 팀 구성(자리마다 선수+영웅)을 고르면 그 매치업의 <b>예상 승률</b>과 근거를 보여줘요. 같은 경기를 양쪽에서 불러오면 그 매치업이 그대로 재현돼요.</div>
       <label class="estfield" style="max-width:360px;margin-bottom:14px"><span class="estlabel">맵 (모드 자동)</span>${mapSel}</label>
       <div class="grid2 h2h-inputs">
-        <div class="h2h-side"><div class="h2h-h zan">ZANSIDE</div><div class="estrows">${estRows(D, "us", D.us, e.usPlayers, e.usHeroes)}</div></div>
-        <div class="h2h-side"><div class="h2h-h">상대 <span style="font-weight:500;font-size:12px">${oppSel}</span></div><div class="estrows">${estRows(D, "opp", e.oppTeam, e.oppPlayers, e.oppHeroes)}</div></div>
+        <div class="h2h-side"><div class="h2h-h zan">ZANSIDE ${usLoad}</div><div class="estrows">${estRows(D, "us", D.us, e.usPlayers, e.usHeroes)}</div></div>
+        <div class="h2h-side"><div class="h2h-h">상대 ${oppSel} ${oppLoad}</div><div class="estrows">${estRows(D, "opp", e.oppTeam, e.oppPlayers, e.oppHeroes)}</div></div>
       </div>
     </div>
     <div class="grid2">
@@ -1589,6 +1623,7 @@ export function renderEstimator(D: DataBundle, e: EstInput): string {
       <div class="panel"><h2>요인 분해 <span class="count">기여 = 가중치 × (승률−50%)</span></h2><div class="frows">${rows}</div>
         <div class="sub-note" style="margin-top:10px">활성 요인의 가중치 합으로 정규화해 50%에 더해요.</div></div>
     </div>
+    ${verifPanel}
     ${recPanel}
     ${sensPanel}`;
 }
