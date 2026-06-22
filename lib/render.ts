@@ -551,6 +551,78 @@ export function renderBanpick(D: DataBundle, bpTeam: string): string {
     </div>`;
 }
 
+// ===== ZANSIDE 데이터 (우리 팀 집약 대시보드) =====
+export function renderZanside(D: DataBundle, weakExpand: string): string {
+  const T = D.teams[D.us];
+  const st = standOf(D, D.us);
+  if (!T) return `<div class="panel">${nod("ZANSIDE 데이터가 아직 없어요.")}</div>`;
+  const diff = T.mapW - T.mapL;
+  const up = usUpcoming(D);
+  const cards =
+    stat("매치 전적", st ? `<span class="ww">${st.win}</span><small> - ${st.lose}</small>` : "—", true) +
+    stat("순위", st ? tieRank(D, st) : "—", true) +
+    stat("맵 득실", `${diff > 0 ? "+" : ""}${diff}<small> (${T.mapW}-${T.mapL})</small>`, true) +
+    stat("잔여 경기", `${up.length}`, true);
+
+  const last = usSeries(D).slice(-6).reverse();
+  const form = last.length
+    ? last.map((S) => {
+        const us = S.top === D.us ? S.topW : S.bottomW;
+        const op = S.top === D.us ? S.bottomW : S.topW;
+        const opp = S.top === D.us ? S.bottom : S.top;
+        const won = us > op;
+        return `<div class="fcard ${won ? "w" : "l"}"><div class="res">${won ? "WIN" : "LOSS"}</div><div class="opp">vs ${esc(opp)}</div><div class="meta">${us}-${op} · ${fmtDate(S.date)}</div></div>`;
+      }).join("")
+    : nod("아직 치른 경기가 없어요.");
+
+  const upcoming = up.length
+    ? up.map((g) => {
+        const opp = g.a === D.us ? g.b : g.a;
+        return `<div class="ucard" tabindex="0" data-act="goscout" data-val="${esc(opp)}"><div class="udt">${esc(g.date)} · ${esc(g.label)}</div><div class="uvs">vs</div><div class="uopp">${esc(opp)}</div><div class="ugo">팀별 분석 보기 →</div></div>`;
+      }).join("")
+    : nod("예정된 다음 경기가 없어요.");
+
+  const roleOfR = (roles: Record<string, number>) => { const e = Object.entries(roles).sort((a, b) => b[1] - a[1])[0]; return e ? ROLE_KO[e[0]] || e[0] : ""; };
+  const rosterHtml = T.roster.length
+    ? T.roster.map((p) => `<div class="rcard"><div class="rn">${esc(p.name)}</div><div class="rr">${esc(roleOfR(p.roles))} · ${p.n}맵</div></div>`).join("")
+    : nod("로스터 데이터가 없어요.");
+
+  const ms = modeWinrate(T);
+  const mmx = Math.max(1, ...ms.map((m) => m[1].t));
+  const modesHtml = ms.length ? ms.map(([m, d]) => barWR(MODE_KO[m] || m, d.w, d.t, mmx)).join("") : nod();
+
+  const made: Record<string, number> = { ...T.firstBan };
+  Object.entries(T.secondBan).forEach(([h, n]) => (made[h] = (made[h] || 0) + n));
+
+  const usPlayers = D.playerNames.map((n) => D.players[n]).filter((p) => p.team === D.us).sort((a, b) => b.n - a.n);
+  const playerHtml = usPlayers.length
+    ? usPlayers.map((p) => {
+        const th = Object.values(p.heroes).sort((a, b) => b.n - a.n)[0];
+        const role = Object.entries(p.roles).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
+        return `<button class="plchip" data-act="goplayer" data-val="${esc(p.name)}">${esc(p.name)} <span class="mini">${ROLE_KO[role] || role} · ${p.n}맵${th ? ` · ${esc(heroKo(th.hero))}` : ""}</span></button>`;
+      }).join("")
+    : nod("선수 데이터가 없어요.");
+
+  return `
+    <div class="statrow">${cards}</div>
+    <div class="panel"><h2>최근 폼 <span class="count">최근 ${last.length}경기</span></h2><div class="form">${form}</div></div>
+    <div class="panel"><h2>잔여 일정 · 다음 상대 <span class="count">카드를 누르면 팀별 분석</span></h2><div class="upc">${upcoming}</div></div>
+    <div class="grid2">
+      <div class="panel"><h2>현재 로스터 <span class="count">${T.roster.length}명 · 첫픽 기준</span></h2><div class="roster">${rosterHtml}</div></div>
+      <div class="panel"><h2>모드별 성적 <span class="count">맵 단위</span></h2><div class="bars">${modesHtml}</div></div>
+    </div>
+    <div class="grid2">
+      <div class="panel"><h2>맵별 성적 <span class="count">출전·승률</span></h2>${teamMapSummary(T)}</div>
+      <div class="panel"><h2>영웅별 요약 <span class="count">자주 꺼낸 영웅</span></h2><div class="bars">${heroPickBars(teamHeroPicks(D, D.us), 8)}</div></div>
+    </div>
+    ${weaknessPanel(D, D.us, true, weakExpand)}
+    <div class="grid2">
+      <div class="panel"><h2>자주 거는 밴 <span class="count">${sum(made)}회</span> <button class="linkbtn" data-act="goto" data-val="ban">전체 →</button></h2><div class="bars">${countBars(made, "ban")}</div></div>
+      <div class="panel"><h2>자주 당하는 밴 <span class="count">${sum(T.banAgainst)}회</span></h2><div class="bars">${countBars(T.banAgainst, "ban")}</div></div>
+    </div>
+    <div class="panel"><h2>선수별 요약 <span class="count">누르면 선수별 분석으로</span></h2><div class="plchips">${playerHtml}</div></div>`;
+}
+
 // ===== 영웅 밴 분석 (밴픽 + 옛 영웅 메타의 밴 뷰 통합) =====
 export interface BanUI {
   role: "all" | "Tank" | "DPS" | "Support";
