@@ -162,7 +162,6 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "comp-player": setPlayerB(v); break;
       case "est-map": setEst((s) => ({ ...s, map: v })); break;
       case "est-oppteam": setEst((s) => ({ ...s, oppTeam: v, oppPlayers: ["", "", "", "", ""], oppHeroes: ["", "", "", "", ""] })); break;
-      case "est-load": if (v) { const inp = setToEstInput(D, v); if (inp) setEst(inp); } break;
     }
   }
 

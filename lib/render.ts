@@ -908,6 +908,7 @@ export interface PlayerUI {
   pickTeam: string; // 선수 선택용 팀
   pickTeamB: string; // 비교 대상 팀
   heroExpand: string; // 펼친 영웅 행
+  heroMapSel: string; // 펼친 영웅 안에서 고른 맵 (오른쪽 상세)
 }
 function playerWR(hs: { n: number; w: number }) {
   return hs.n ? Math.round((hs.w / hs.n) * 100) : 0;

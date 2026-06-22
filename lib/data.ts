@@ -248,6 +248,7 @@ function derive(sets: SetRec[], standings: Standing[]): {
 
   // 선수 집계 (명세 13)
   const players: Record<string, Player> = {};
+  const playerTeamN: Record<string, Record<string, number>> = {}; // 선수별 팀 출전 횟수 (소속=최다 출전 팀)
   const player = (name: string, teamName: string): Player => {
     if (!players[name]) {
       players[name] = { name, team: teamName, roles: {}, n: 0, heroes: {}, maps: {}, modes: {}, cells: {} };
@@ -323,6 +324,7 @@ function derive(sets: SetRec[], standings: Standing[]): {
           const pl = player(p.player, nm);
           pl.n++;
           pl.roles[p.role] = (pl.roles[p.role] || 0) + 1;
+          (playerTeamN[p.player] = playerTeamN[p.player] || {})[nm] = (playerTeamN[p.player][nm] || 0) + 1;
           if (p.hero) {
             const hs = (pl.heroes[p.hero] = pl.heroes[p.hero] || { hero: p.hero, n: 0, w: 0 });
             hs.n++;
@@ -371,6 +373,12 @@ function derive(sets: SetRec[], standings: Standing[]): {
     const ra = rankOf(a) ?? 99;
     const rb = rankOf(b) ?? 99;
     return ra - rb || a.localeCompare(b);
+  });
+
+  // 소속 팀 = 가장 많이 출전한 팀 (이적·교체로 여러 팀에 걸친 경우 보정)
+  Object.keys(players).forEach((nm) => {
+    const tc = playerTeamN[nm];
+    if (tc) players[nm].team = Object.entries(tc).sort((a, b) => b[1] - a[1])[0][0];
   });
 
   const playerNames = Object.keys(players).sort((a, b) =>
