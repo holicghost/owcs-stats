@@ -278,6 +278,7 @@ table.heatmap .hm-corner{min-width:60px}
 .hm.hm-lo{background:rgba(255,93,115,.2)} .hm.hm-lo .hm-wr{color:var(--warn)}
 .hm.hm-low{background:var(--panel-3)}
 .hm.hm-low .hm-n{color:var(--tx-mid)}
+.hm.hm-lowsmp{opacity:.55}
 
 /* ===== 팀 밴 확장 테이블 (24) ===== */
 .bantable tbody tr.banrow{cursor:pointer}

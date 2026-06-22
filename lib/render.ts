@@ -438,13 +438,13 @@ function teamMapSummary(T: Team): string {
   return `<table><thead><tr><th>맵</th><th class="num">출전</th><th class="num">승-패</th><th class="num">승률</th></tr></thead><tbody>${maps.map((m) => {
     const wr = m.n ? Math.round((m.w / m.n) * 100) : 0;
     const low = m.n < 3;
-    return `<tr><td class="hname">${mk(m.map)}</td><td class="num">${m.n}${low ? ' <span class="lowsmp">⚠</span>' : ""}</td><td class="num">${m.w}-${m.l}</td><td class="num">${low ? '<span class="mini">표본&lt;3</span>' : `<span class="wr ${wrCls(wr)}">${wr}%</span>`}</td></tr>`;
+    return `<tr><td class="hname">${mk(m.map)}</td><td class="num">${m.n}${low ? ' <span class="lowsmp">⚠</span>' : ""}</td><td class="num">${m.w}-${m.l}</td><td class="num"><span class="wr ${wrCls(wr)}">${wr}%</span></td></tr>`;
   }).join("")}</tbody></table>`;
 }
 
 // 선수 한 명: 강점 영웅(승률 상위 2~3) + 약점 영웅(승률 하위)
 function playerHeroRow(p: Player): string {
-  const heroes = Object.values(p.heroes).filter((h) => h.n >= 2).map((h) => ({ ...h, wr: Math.round((h.w / h.n) * 100) }));
+  const heroes = Object.values(p.heroes).filter((h) => h.n >= 1).map((h) => ({ ...h, wr: Math.round((h.w / h.n) * 100) }));
   const byWr = heroes.slice().sort((a, b) => b.wr - a.wr || b.n - a.n);
   const strong = byWr.slice(0, 3);
   const strongSet = new Set(strong.map((h) => h.hero));
@@ -467,8 +467,8 @@ function scoutMapByMode(D: DataBundle, team: string, T: Team): string {
   if (!modes.length) return nod("맵 기록이 없어요.");
   return modes.map((m) => {
     const maps = byMode[m].slice().sort((a, b) => b.wr - a.wr);
-    const high = maps.filter((x) => x.n >= 2 && x.wr >= 50);
-    const low = maps.filter((x) => x.n >= 2 && x.wr < 50);
+    const high = maps.filter((x) => x.n >= 1 && x.wr >= 50);
+    const low = maps.filter((x) => x.n >= 1 && x.wr < 50);
     const bans = topN(banByMode[m] || {}, 3);
     const line = (arr: typeof maps) => arr.length ? arr.map((x) => `${mk(x.map)} <span class="wr ${wrCls(x.wr)}">${x.wr}%</span><span class="mini">(${x.n})</span>`).join(" · ") : '<span class="mini">—</span>';
     return `<div class="modesum">
@@ -1127,7 +1127,7 @@ const repRole = (roles: Record<string, number>) => {
 const topHero = (p: Player) => Object.values(p.heroes).sort((a, b) => b.n - a.n)[0];
 function strongMaps(p: Player, k: number) {
   return Object.values(p.maps)
-    .filter((m) => m.n >= 3)
+    .filter((m) => m.n >= 1)
     .map((m) => ({ ...m, wr: Math.round((m.w / m.n) * 100) }))
     .sort((a, b) => b.wr - a.wr)
     .slice(0, k);
@@ -1166,7 +1166,7 @@ function heroDetail(D: DataBundle, p: Player, hero: string, selMap: string): str
         const wr = c.n ? Math.round((c.w / c.n) * 100) : 0;
         const low = c.n < 3;
         const on = c.map === selMap;
-        return `<button class="hd-mapbtn ${on ? "on" : ""}" data-act="heromap-sel" data-val="${esc(c.map)}"><span class="hd-mapn">${mk(c.map)}</span><span class="mini">${c.w}-${c.n - c.w}</span><span class="${low ? "mini" : "wr " + wrCls(wr)}">${low ? "표본&lt;3" : wr + "%"}</span></button>`;
+        return `<button class="hd-mapbtn ${on ? "on" : ""}" data-act="heromap-sel" data-val="${esc(c.map)}"><span class="hd-mapn">${mk(c.map)}</span><span class="mini">${c.w}-${c.n - c.w}</span><span class="wr ${wrCls(wr)}">${wr}%${low ? '<span class="lowsmp"> ⚠</span>' : ""}</span></button>`;
       }).join("")
     : nod("맵 기록이 없어요.");
 
@@ -1211,7 +1211,7 @@ function heroTable(D: DataBundle, p: Player, heroExpand: string, heroMapSel: str
       <td class="hname">${heroChip(h.hero)}</td>
       <td class="num">${h.n}</td>
       <td class="num">${h.w}-${h.n - h.w}</td>
-      <td class="num">${h.n >= 3 ? `<span class="wr ${wrCls(wr)}">${wr}%</span>` : '<span class="mini">표본&lt;3</span>'}</td>
+      <td class="num"><span class="wr ${wrCls(wr)}">${wr}%</span>${h.n < 3 ? ' <span class="lowsmp">⚠</span>' : ""}</td>
       <td><div class="tr mini-tr"><div class="fl" style="width:${Math.round((h.n / mx) * 100)}%"></div></div></td>
       <td class="num caret">${open ? "▾" : "▸"}</td></tr>`;
     return open ? row + `<tr class="herodetail"><td colspan="6">${heroDetail(D, p, h.hero, heroMapSel)}</td></tr>` : row;
@@ -1237,8 +1237,8 @@ function heroMapHeatmap(p: Player): string {
       const c = cm[`${h} ${m}`];
       if (!c) return `<td class="hm empty">·</td>`;
       const wr = c.n ? Math.round((c.w / c.n) * 100) : 0;
-      const cls = c.n >= 3 ? `hm-${wrCls(wr)}` : "hm-low";
-      return `<td class="hm ${cls}" title="${esc(heroKo(h))} @ ${esc(mapKo(m))} — ${c.w}승 ${c.n - c.w}패">${c.n >= 3 ? `<span class="hm-wr">${wr}%</span>` : ""}<span class="hm-n">${c.n}</span></td>`;
+      const cls = `hm-${wrCls(wr)}${c.n < 3 ? " hm-lowsmp" : ""}`;
+      return `<td class="hm ${cls}" title="${esc(heroKo(h))} @ ${esc(mapKo(m))} — ${c.w}승 ${c.n - c.w}패">${`<span class="hm-wr">${wr}%</span>`}<span class="hm-n">${c.n}</span></td>`;
     }).join("");
     return `<tr><th class="hm-rh">${heroChip(h)}</th>${tds}</tr>`;
   }).join("");
@@ -1299,7 +1299,7 @@ function mapTable(p: Player): string {
     return `<tr><td class="hname">${mk(m.map)}</td>
       <td class="num">${m.n}${low ? ' <span class="lowsmp" title="표본 적음">⚠</span>' : ""}</td>
       <td class="num">${m.w}-${m.n - m.w}</td>
-      <td class="num">${low ? '<span class="mini">표본&lt;3</span>' : `<span class="wr ${wrCls(wr)}">${wr}%</span>`}</td>
+      <td class="num"><span class="wr ${wrCls(wr)}">${wr}%</span></td>
       <td><div class="tr mini-tr"><div class="fl" style="width:${Math.round((m.n / mx) * 100)}%"></div></div></td></tr>`;
   }).join("")}</tbody></table>`;
 }
@@ -1328,9 +1328,9 @@ function renderPlayerDiff(D: DataBundle, a: Player, b: Player): string {
       const small = ha.n < 3 || hb.n < 3;
       const gap = !small ? Math.abs(wa - wb) >= 20 : false;
       return `<div class="diffrow${gap ? " gap" : ""}">
-        <div class="dr-a"><span class="dr-wr ${small ? "mini" : wrCls(wa)}">${ha.n >= 3 ? wa + "%" : "표본&lt;3"}</span> <span class="mini">${ha.w}-${ha.n - ha.w}</span></div>
+        <div class="dr-a"><span class="dr-wr ${wrCls(wa)}">${wa}%${ha.n < 3 ? "⚠" : ""}</span> <span class="mini">${ha.w}-${ha.n - ha.w}</span></div>
         <div class="dr-hero">${heroChip(h)}</div>
-        <div class="dr-b"><span class="mini">${hb.w}-${hb.n - hb.w}</span> <span class="dr-wr ${small ? "mini" : wrCls(wb)}">${hb.n >= 3 ? wb + "%" : "표본&lt;3"}</span></div>
+        <div class="dr-b"><span class="mini">${hb.w}-${hb.n - hb.w}</span> <span class="dr-wr ${wrCls(wb)}">${wb}%${hb.n < 3 ? "⚠" : ""}</span></div>
       </div>`;
     }).join("");
   }
