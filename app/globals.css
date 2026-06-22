@@ -445,12 +445,14 @@ table.heatmap .hm-corner{min-width:60px}
 .gc-head .zan2{color:var(--accent)}
 
 /* 경기별 분석 4줄 압축 카드 */
-.gamecard2{padding:14px 16px}
+.gamecard2{padding:14px 16px 14px 18px;border-left:5px solid var(--line)}
+.gamecard2.win{border-left-color:var(--accent);background:linear-gradient(90deg,rgba(25,227,192,.06),transparent 45%)}
+.gamecard2.loss{border-left-color:var(--line);background:var(--panel-2)}
 .gamecard2>div{margin-bottom:11px}
 .gamecard2>div:last-child{margin-bottom:0}
-.gc2-l1{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:14px}
+.gc2-l1{display:flex;align-items:center;gap:11px;flex-wrap:wrap;font-size:14px}
 .gc2-l1 b{color:var(--tx)}
-.gc2-res{font-weight:800;font-family:var(--mono)}
+.gc2-res{font-size:22px;font-weight:800;letter-spacing:-.01em;line-height:1}
 .gc2-res.win{color:var(--accent)} .gc2-res.loss{color:var(--tx-dim)}
 .gc2-rep{margin-left:auto;display:inline-flex;align-items:center;gap:6px}
 .gc2-l2{font-size:14px} .gc2-l2 b{font-weight:700}

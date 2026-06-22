@@ -496,8 +496,8 @@ function scoutGameCard(D: DataBundle, s: SetRec, focus: string): string {
     return `<div class="gl-row"><span class="gl-team ${isFocus ? "zan2" : ""}">${esc(name)}</span>${sorted.map((p) => `<span class="gl-p">${heroIcon(p.hero || "")}<span>${esc(p.player || "?")}</span><span class="mini">${ROLE_KO[p.role] || ""}</span></span>`).join("")}</div>`;
   };
   const copyIcon = s.replay ? `<span class="gc2-rep"><span class="repcode">${esc(s.replay)}</span><button class="copyb copyicon" data-act="copy" data-val="${esc(s.replay)}" title="리플레이 코드 복사"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button></span>` : "";
-  return `<div class="panel gamecard2">
-    <div class="gc2-l1"><span class="gc2-res ${won ? "win" : "loss"}">${won ? "승" : "패"}</span> <span class="mini">${esc(s.match)} · ${fmtDate(s.date)}</span> <span>vs <b>${esc(opp)}</b></span>${copyIcon}</div>
+  return `<div class="panel gamecard2 ${won ? "win" : "loss"}">
+    <div class="gc2-l1"><span class="gc2-res ${won ? "win" : "loss"}">${won ? "승리" : "패배"}</span> <span class="mini">${esc(s.match)} · ${fmtDate(s.date)}</span> <span>vs <b>${esc(opp)}</b></span>${copyIcon}</div>
     <div class="gc2-l2"><b>${mk(s.map)}</b> <span class="mini">(${esc(MODE_KO[s.mode] || s.mode)})</span>${picker ? ` · <span class="mini">맵 픽 ${esc(picker)}</span>` : ""} · <span class="mono">${fScore}-${oScore}</span></div>
     <div class="gc2-l3">${fb ? `<span class="mini">선밴</span> ${heroChip(fb.hero)}` : ""}${fb && sb ? ' <span class="mini">·</span> ' : ""}${sb ? `<span class="mini">후밴</span> ${heroChip(sb.hero)}` : ""}${!fb && !sb ? '<span class="mini">밴 없음</span>' : ""}</div>
     <div class="gc2-l4"><div class="mini" style="margin-bottom:5px">오프닝 픽</div>${lineupRow(s.top, s.picks.top, s.top === focus)}${lineupRow(s.bottom, s.picks.bottom, s.bottom === focus)}</div>
