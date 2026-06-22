@@ -1,10 +1,10 @@
 "use client";
-import { useEffect, useMemo, useState, Fragment, type ChangeEvent, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import type { DataBundle } from "@/lib/types";
 import {
   renderMatchday, renderScout, renderBanAnalysis, renderMaps, renderLog,
-  renderScenario, renderPlayers, renderEstimator, setIcons, setToEstInput,
+  renderScenario, renderPlayers, renderEstimator, renderZanside, setIcons, setToEstInput,
   type LogFilter, type EstInput, type BanUI,
 } from "@/lib/render";
 
@@ -106,8 +106,8 @@ export default function Dashboard({ data }: { data: DataBundle }) {
   const toTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
   function go(id: TabId) { setMod("owcs"); setTab(id); toTop(); }
 
-  function onClick(ev: MouseEvent<HTMLElement>) {
-    const el = (ev.target as HTMLElement).closest<HTMLElement>("[data-act]");
+  function onClick(ev: Event) {
+    const el = (ev.target as HTMLElement).closest?.<HTMLElement>("[data-act]");
     if (!el) return;
     const act = el.dataset.act;
     const val = el.dataset.val ?? "";
@@ -138,9 +138,9 @@ export default function Dashboard({ data }: { data: DataBundle }) {
     }
   }
 
-  function onChange(ev: ChangeEvent<HTMLElement>) {
+  function onChange(ev: Event) {
     const el = ev.target as HTMLSelectElement;
-    const act = el.dataset.act;
+    const act = el.dataset?.act;
     if (!act) return;
     const v = el.value;
     if (act.startsWith("est-usplayer-")) { const i = +act.slice(13); setEst((s) => { const a = [...s.usPlayers]; a[i] = v; return { ...s, usPlayers: a }; }); return; }
@@ -171,14 +171,32 @@ export default function Dashboard({ data }: { data: DataBundle }) {
     }
   }
 
-  function onKeyDown(ev: React.KeyboardEvent<HTMLElement>) {
-    if (ev.key !== "Enter" && ev.key !== " ") return;
-    const el = (ev.target as HTMLElement).closest<HTMLElement>('[data-act="goscout"]');
+  function onKeyDown(ev: Event) {
+    const k = ev as KeyboardEvent;
+    if (k.key !== "Enter" && k.key !== " ") return;
+    const el = (ev.target as HTMLElement).closest?.<HTMLElement>('[data-act="goscout"]');
     if (!el) return;
     ev.preventDefault();
     setScoutTeam(el.dataset.val ?? "");
     go("scout");
   }
+
+  // select onChange 가 React 위임으로 안 잡히는 환경 대응 — 네이티브 리스너로 직접 처리.
+  // 최신 핸들러를 ref 로 호출해 stale closure 를 막는다.
+  const mainRef = useRef<HTMLElement>(null);
+  const handlers = useRef({ onClick, onChange, onKeyDown });
+  handlers.current = { onClick, onChange, onKeyDown };
+  useEffect(() => {
+    const el = mainRef.current;
+    if (!el) return;
+    const c = (e: Event) => handlers.current.onClick(e);
+    const ch = (e: Event) => handlers.current.onChange(e);
+    const k = (e: Event) => handlers.current.onKeyDown(e);
+    el.addEventListener("click", c);
+    el.addEventListener("change", ch);
+    el.addEventListener("keydown", k);
+    return () => { el.removeEventListener("click", c); el.removeEventListener("change", ch); el.removeEventListener("keydown", k); };
+  }, []);
 
   const st = D.standings.find((x) => x.team === D.us);
   const sameRank = st ? D.standings.filter((x) => x.rank === st.rank).length : 0;
@@ -210,6 +228,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       <div className="modnav">
         <button className={`modbtn ${mod === "owcs" ? "on" : ""}`} onClick={() => setMod("owcs")}>OWCS 데이터</button>
         <button className={`modbtn ${mod === "scrim" ? "on" : ""}`} onClick={() => setMod("scrim")}>스크림 데이터</button>
+        <button className={`modbtn ${mod === "zanside" ? "on" : ""}`} onClick={() => { setMod("zanside"); toTop(); }}>ZANSIDE 데이터</button>
       </div>
 
       {mod === "owcs" && (
