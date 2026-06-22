@@ -396,12 +396,26 @@ async function fetchMain(): Promise<string> {
     return await fetchText(MAIN_GVIZ);
   }
 }
+// 영웅 아이콘(초상화) 맵 — overfast-api. 실패해도 화면은 정상(아이콘만 생략).
+async function fetchHeroIcons(): Promise<Record<string, string>> {
+  try {
+    const r = await fetch("https://overfast-api.tekrop.fr/heroes", { next: { revalidate: 86400 } });
+    if (!r.ok) return {};
+    const list = (await r.json()) as Array<{ key?: string; portrait?: string }>;
+    const out: Record<string, string> = {};
+    for (const h of list) if (h.key && h.portrait) out[h.key] = h.portrait;
+    return out;
+  } catch {
+    return {};
+  }
+}
 
 export async function getData(): Promise<DataBundle> {
-  const [mainTxt, brkTxt, stTxt] = await Promise.all([
+  const [mainTxt, brkTxt, stTxt, heroIcons] = await Promise.all([
     fetchMain(),
     fetchText(BRACKET_URL),
     fetchText(STANDINGS_URL),
+    fetchHeroIcons(),
   ]);
   const parsed = parseMain(mainTxt);
   if (!parsed.length) throw new Error("경기 데이터 행을 찾지 못했습니다.");
@@ -426,7 +440,7 @@ export async function getData(): Promise<DataBundle> {
   return {
     sets, series: d.series, teams: d.teams, standings, schedule,
     teamNames: d.teamNames, players: d.players, playerNames: d.playerNames,
-    usHeroSignal: d.usHeroSignal, mapInfo: d.mapInfo, health,
+    usHeroSignal: d.usHeroSignal, mapInfo: d.mapInfo, health, heroIcons,
     fetchedAt: new Date().toISOString(), us: US,
   };
 }

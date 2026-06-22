@@ -1,10 +1,12 @@
 // 렌더 레이어 — 순수 함수가 섹션 HTML 문자열을 만든다 (React 의존 없음).
 // 상호작용 컨트롤은 data-act / data-val 속성을 달고, Dashboard 가 위임 처리한다.
 import {
-  MODE_KO, MODE_ORDER, ROLE_KO, HEROES, EST_WEIGHTS, EST_THRESH,
+  MODE_KO, MODE_ORDER, ROLE_KO, HEROES, EST_WEIGHTS, EST_THRESH, heroKo, mapKo,
 } from "./constants";
 import type { DataBundle, Player, SetRec, Series, Standing, Team } from "./types";
 import { dimensions, crossEdge, WEAK_MARGIN, WEAK_SAMPLE_MIN, type Weak } from "./weakness";
+import { esc, wrCls, nod, hk, mk, heroChip, heroIcon, setIcons } from "./ui";
+export { esc, setIcons };
 
 const rankOf = (D: DataBundle, name: string) => {
   const s = D.standings.find((x) => x.team === name);
@@ -12,10 +14,6 @@ const rankOf = (D: DataBundle, name: string) => {
 };
 
 // ===== 공통 헬퍼 =====
-export const esc = (s: unknown) =>
-  String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
-const wrCls = (wr: number) => (wr >= 55 ? "hi" : wr >= 45 ? "mid" : "lo");
-const nod = (t?: string) => `<div class="nodata">${t || "데이터 없음"}</div>`;
 const fmtDate = (d: string) => {
   const p = (d || "").split("-");
   return p.length === 3 ? `${+p[1]}/${+p[2]}` : d;
@@ -34,11 +32,14 @@ function barWR(label: string, w: number, total: number, max: number, cls?: strin
 function barCount(label: string, n: number, max: number, cls?: string) {
   return `<div class="bar"><span class="lab">${esc(label)}</span><div class="tr"><div class="fl ${cls || ""}" style="width:${Math.round((n / max) * 100)}%"></div></div><span class="vl">${n}</span></div>`;
 }
+// 영웅 카운트 막대 (아이콘 + 한글명). 키는 영웅명이라고 가정.
 function countBars(obj: Record<string, number>, cls?: string, n?: number) {
   const arr = topN(obj, n || 8);
   if (!arr.length) return nod();
   const mx = Math.max(1, ...arr.map((x) => x[1]));
-  return arr.map(([k, v]) => barCount(k, v, mx, cls)).join("");
+  return arr.map(([k, v]) =>
+    `<div class="bar"><span class="lab">${heroChip(k)}</span><div class="tr"><div class="fl ${cls || ""}" style="width:${Math.round((v / mx) * 100)}%"></div></div><span class="vl">${v}</span></div>`
+  ).join("");
 }
 function roleOf(roles: Record<string, number>) {
   const e = Object.entries(roles).sort((a, b) => b[1] - a[1])[0];
