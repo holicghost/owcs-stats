@@ -373,6 +373,12 @@ table.heatmap .hm-corner{min-width:60px}
 .hd-line{display:flex;flex-wrap:wrap;gap:5px}
 .lu-p{display:inline-flex;align-items:center;gap:4px}
 
+/* 선수 선택 드롭다운 2개 (팀 → 선수) */
+.psel{display:grid;grid-template-columns:1fr 1.4fr;gap:10px;max-width:580px}
+.psel .estfield{margin:0}
+.psel select{width:100%}
+@media(max-width:480px){.psel{grid-template-columns:1fr}}
+
 /* 팀 먼저 고르는 선수 picker (좌: 팀, 우: 선수) */
 .picker{display:grid;grid-template-columns:190px 1fr;gap:14px}
 @media(max-width:640px){.picker{grid-template-columns:1fr}}
