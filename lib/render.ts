@@ -490,10 +490,14 @@ function scoutGameCard(D: DataBundle, s: SetRec, focus: string): string {
   const fb = s.bans.find((b) => b.phase === "first");
   const sb = s.bans.find((b) => b.phase === "second");
   const order: Record<string, number> = { Tank: 0, DPS: 1, Support: 2 };
+  const swaps = swapsByPlayer(s.memo); // 메모에서 선수별 교체 영웅
   const lineupRow = (name: string, picks: Pick[], isFocus: boolean) => {
     if (!picks.length) return `<div class="gl-row"><span class="gl-team ${isFocus ? "zan2" : ""}">${esc(name)}</span> <span class="mini">라인업 미기록</span></div>`;
     const sorted = picks.slice().sort((a, b) => (order[a.role] ?? 9) - (order[b.role] ?? 9));
-    return `<div class="gl-row"><span class="gl-team ${isFocus ? "zan2" : ""}">${esc(name)}</span>${sorted.map((p) => `<span class="gl-p">${heroIcon(p.hero || "")}<span>${esc(p.player || "?")}</span><span class="mini">${ROLE_KO[p.role] || ""}</span></span>`).join("")}</div>`;
+    return `<div class="gl-row"><span class="gl-team ${isFocus ? "zan2" : ""}">${esc(name)}</span>${sorted.map((p) => {
+      const sw = swaps[p.player] || [];
+      return `<span class="gl-p">${heroIcon(p.hero || "")}<span>${esc(p.player || "?")}</span><span class="mini">${ROLE_KO[p.role] || ""}</span>${sw.map((h) => `<span class="swp">→${heroIcon(h)}</span>`).join("")}</span>`;
+    }).join("")}</div>`;
   };
   const copyIcon = s.replay ? `<span class="gc2-rep"><span class="repcode">${esc(s.replay)}</span><button class="copyb copyicon" data-act="copy" data-val="${esc(s.replay)}" title="리플레이 코드 복사"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button></span>` : "";
   return `<div class="panel gamecard2 ${won ? "win" : "loss"}">
@@ -931,6 +935,23 @@ function setDetail(D: DataBundle, s: SetRec): string {
     ${s.memo ? `<div class="sub-note" style="margin:10px 0 4px">경기 중 교체 · 메모</div><div class="memobox">${renderMemo(s.memo)}</div>` : ""}
     ${canLoad ? `<div style="margin-top:10px"><button class="loadbtn" data-act="load-sim" data-val="${esc(setKey(s))}">이 경기로 시뮬레이션 채우기 ↗</button></div>` : ""}
   </div>`;
+}
+// 메모에서 선수별 교체 영웅 추출. 형식: "선수: 영웅1, 영웅2" 또는 "선수 → 영웅1 → 영웅2" (줄/세미콜론 구분)
+function swapsByPlayer(memo: string): Record<string, string[]> {
+  const map: Record<string, string[]> = {};
+  if (!memo) return map;
+  memo.split(/[\n;]+/).forEach((line) => {
+    const t = line.trim();
+    if (!t) return;
+    let name = "", rest = "";
+    const colon = t.split(/[:：]/);
+    if (colon.length >= 2) { name = colon[0].trim(); rest = colon.slice(1).join(":"); }
+    else { const arr = t.split(/→|->/); if (arr.length >= 2) { name = arr[0].trim(); rest = arr.slice(1).join("→"); } }
+    if (!name) return;
+    const heroes = rest.split(/[,，]|→|->/).map((x) => x.trim()).filter(Boolean);
+    if (heroes.length) map[name] = heroes;
+  });
+  return map;
 }
 // 메모 파싱: "선수 → 영웅" 같은 교체 패턴을 뽑고, 안 되면 원문 그대로.
 function renderMemo(memo: string): string {

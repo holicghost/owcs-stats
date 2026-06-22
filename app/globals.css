@@ -482,6 +482,8 @@ table.heatmap .hm-corner{text-align:left;white-space:nowrap;color:var(--tx-dim);
 .gl-team{font-family:var(--mono);font-size:11.5px;font-weight:700;color:var(--tx-mid);min-width:96px}
 .gl-team.zan2{color:var(--accent)}
 .gl-p{display:inline-flex;align-items:center;gap:4px;font-size:12.5px}
+.gl-p .swp{display:inline-flex;align-items:center;gap:1px;color:var(--tx-dim);font-size:11px;margin-left:1px}
+.gl-p .swp .hicon{width:16px;height:16px}
 .copyicon{display:inline-flex;align-items:center;justify-content:center;padding:4px 6px;line-height:0}
 .copyb.done{color:var(--accent);border-color:var(--accent)}
 .gc2-memo{font-size:13px;color:var(--tx-mid);background:var(--panel);border:1px solid var(--line-soft);border-radius:8px;padding:8px 10px}
