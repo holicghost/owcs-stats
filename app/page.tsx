@@ -14,13 +14,13 @@ export default async function Page() {
     return (
       <div className="wrap">
         <div className="state err" style={{ marginTop: 80 }}>
-          시트를 불러오지 못했습니다.
-          <br />
-          <span style={{ color: "var(--tx-dim)", fontSize: 13 }}>{msg}</span>
+          시트를 불러오지 못했어요.
           <br />
           <span style={{ color: "var(--tx-dim)", fontSize: 13 }}>
-            시트 공유 설정이 &ldquo;링크가 있는 모든 사용자&rdquo;인지 확인하세요.
+            구글 시트 공유가 &ldquo;링크가 있는 누구나 — 뷰어&rdquo;로 돼 있는지 확인해 주세요. 그래도 안 되면 잠시 뒤 새로고침해 보세요.
           </span>
+          <br />
+          <span style={{ color: "var(--tx-dim)", fontSize: 12 }}>{msg}</span>
         </div>
       </div>
     );

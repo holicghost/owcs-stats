@@ -290,6 +290,58 @@ table.heatmap .hm-corner{min-width:60px}
 .lu-team.zan{color:var(--accent)}
 .lu-p{font-size:12px;background:var(--panel-2);border:1px solid var(--line-soft);border-radius:7px;padding:4px 8px}
 
+/* ===== Match Day 홈 (29) ===== */
+.scopebar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;font-size:12.5px;color:var(--tx-mid);background:var(--panel-2);border:1px solid var(--line-soft);border-radius:10px;padding:10px 14px;margin-bottom:14px}
+.scopebar b{color:var(--tx)}
+.hl-ok{color:var(--accent)} .hl-warn{color:var(--gold)} .hl-bad{color:var(--warn)}
+.nextmatch{background:linear-gradient(180deg,rgba(25,227,192,.07),var(--panel));border-color:var(--accent-dim)}
+.nm-eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+.nm-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.nm-us{font-size:22px;font-weight:800;color:var(--accent)}
+.nm-vs{font-family:var(--mono);font-size:13px;color:var(--tx-dim)}
+.nm-opp{font-size:22px;font-weight:800}
+.nm-meta{margin-top:8px;font-family:var(--mono);font-size:12px;color:var(--tx-mid);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.mdcards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+@media(max-width:760px){.mdcards{grid-template-columns:repeat(2,1fr)}}
+.mdcard{background:var(--panel);border:1px solid var(--line-soft);border-radius:12px;padding:15px}
+.mdcard.accent{border-color:var(--accent-dim);background:linear-gradient(180deg,rgba(25,227,192,.06),transparent)}
+.mdcard.warn{border-color:rgba(255,93,115,.3)}
+.mdc-k{font-family:var(--mono);font-size:11px;color:var(--tx-dim);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+.mdc-v{font-size:24px;font-weight:800;letter-spacing:-.01em;line-height:1.1}
+.mdcard.accent .mdc-v{font-family:var(--mono);color:var(--accent)}
+.mdc-pct{font-size:15px;color:var(--tx-mid);font-weight:600}
+.mdc-s{font-size:12px;color:var(--tx-dim);margin-top:6px;line-height:1.4}
+.mdlist{list-style:none;display:flex;flex-direction:column;gap:9px}
+.mdlist li{font-size:13.5px;line-height:1.55;padding-left:15px;position:relative}
+.mdlist li::before{content:"·";position:absolute;left:3px;color:var(--accent);font-weight:800}
+.mdlist li b{color:var(--accent);font-weight:700}
+
+/* ===== 약점 분석 (42) ===== */
+.weakpanel{border-color:var(--line)}
+.weakitem{border-bottom:1px solid var(--line-soft);padding:4px 0}
+.weakitem:last-of-type{border-bottom:none}
+.weakrow{display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;padding:8px 4px}
+.weakrow.open{background:var(--panel-2);border-radius:8px}
+.wk-main{display:flex;align-items:center;gap:8px}
+.wk-label{font-weight:600;font-size:14px}
+.edge{font-family:var(--mono);font-size:10px;font-weight:700;color:var(--bg);background:var(--accent);border-radius:5px;padding:2px 6px;letter-spacing:.02em}
+.wk-nums{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.wk-nums .caret{color:var(--tx-dim);width:14px;text-align:center}
+.wk-action{font-size:12.5px;color:var(--tx-mid);padding:0 4px 8px;line-height:1.5}
+.wkdetail{display:flex;flex-direction:column;gap:5px;padding:4px 8px 12px}
+.wkset{font-size:12.5px;background:var(--panel-2);border:1px solid var(--line-soft);border-radius:7px;padding:7px 10px}
+.wkset .ww{color:var(--accent);font-weight:700} .wkset .ll{color:var(--tx-dim);font-weight:700}
+.lowlist{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.causenote{margin-top:14px;border-top:1px solid var(--line-soft);padding-top:10px;color:var(--tx-dim)}
+
+/* ===== 데이터 점검 (28.5) ===== */
+.issuelist{display:flex;flex-direction:column;gap:6px}
+.issue{display:flex;gap:10px;align-items:baseline;font-size:13px;background:var(--panel-2);border-radius:8px;padding:8px 11px;border-left:3px solid var(--line)}
+.issue.warn{border-left-color:var(--gold)} .issue.error{border-left-color:var(--warn)}
+.iss-code{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--tx-mid);white-space:nowrap}
+.iss-where{white-space:nowrap}
+.iss-msg{color:var(--tx-mid)}
+
 .state{text-align:center;padding:60px 20px;color:var(--tx-mid)}
 .state .spin{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;margin:0 auto 16px;animation:sp .8s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}

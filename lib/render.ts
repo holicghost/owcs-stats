@@ -843,9 +843,10 @@ export function renderPlayers(D: DataBundle, ui: PlayerUI): string {
     </div>
     <div class="panel">
       ${playerCard(D, a)}
+      <div class="sub-note" style="margin-top:8px">경기 시작 조합(오프닝) 기준이에요. 경기 도중 바꾼 영웅은 빠져 있어요.</div>
       <div class="grid2" style="margin-top:14px">
         <div><h2 style="margin-bottom:10px">영웅별 성적</h2>${heroTable(a)}</div>
-        <div><h2 style="margin-bottom:10px">맵별 강점 <span class="count">막대=사용량, 승률 표본 3+</span></h2><div class="bars">${mapStrength(a)}</div></div>
+        <div><h2 style="margin-bottom:10px">맵별 강점 <span class="count">막대=사용량, 승률은 3경기 이상일 때</span></h2><div class="bars">${mapStrength(a)}</div></div>
       </div>
     </div>
     <div class="panel">
