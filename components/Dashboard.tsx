@@ -62,6 +62,10 @@ export default function Dashboard({ data }: { data: DataBundle }) {
   // 팀별 분석 / 맵 / 로그
   const [scoutTeam, setScoutTeam] = useState(nextOpp || opps[0] || "");
   const [scoutTab, setScoutTab] = useState<ScoutTab>("summary");
+  const [deepAgg, setDeepAgg] = useState<"main" | "swap">("main");
+  const [deepSort, setDeepSort] = useState<"pick" | "wr">("pick");
+  const [deepSmp, setDeepSmp] = useState(0);
+  const [deepBanExpand, setDeepBanExpand] = useState("");
   const [mapsMode, setMapsMode] = useState("all");
   const [mapsTeam, setMapsTeam] = useState("ZANSIDE");
   const [logF, setLogF] = useState<LogFilter>({ z: "all", team: "", mode: "", map: "", date: "" });
@@ -99,7 +103,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
   const html = useMemo(() => {
     setIcons(D.heroIcons);
     switch (tab) {
-      case "scout": return renderScout(D, scoutTeam, scoutTab);
+      case "scout": return renderScout(D, scoutTeam, scoutTab, { agg: deepAgg, sort: deepSort, smp: deepSmp, banExpand: deepBanExpand });
       case "players": return renderPlayers(D, { playerA, playerB, search: playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel });
       case "log": return renderLog(D, logF, logExpand, logSort);
       case "ban": return renderBanAnalysis(D, { role: banRole, topN: banTopN, team: banTeam, banMap, banExpand } as BanUI);
@@ -107,7 +111,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "estimator": return renderEstimator(D, est);
       default: return "";
     }
-  }, [D, tab, scoutTeam, scoutTab, playerA, playerB, playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel, logF, logExpand, logSort, banRole, banTopN, banTeam, banMap, banExpand, mapsMode, mapsTeam, est]);
+  }, [D, tab, scoutTeam, scoutTab, deepAgg, deepSort, deepSmp, deepBanExpand, playerA, playerB, playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel, logF, logExpand, logSort, banRole, banTopN, banTeam, banMap, banExpand, mapsMode, mapsTeam, est]);
 
   const zansideHtml = useMemo(() => {
     setIcons(D.heroIcons);
@@ -131,6 +135,10 @@ export default function Dashboard({ data }: { data: DataBundle }) {
     switch (act) {
       case "scout": setScoutTeam(val); break;
       case "scout-tab": setScoutTab(val as ScoutTab); break;
+      case "deep-agg": setDeepAgg(val as "main" | "swap"); break;
+      case "deep-sort": setDeepSort(val as "pick" | "wr"); break;
+      case "deep-smp": setDeepSmp(+val); break;
+      case "deep-ban-expand": setDeepBanExpand((c) => (c === val ? "" : val)); break;
       case "goscout": setScoutTeam(val); go("scout"); break;
       case "goto": setMod("owcs"); setTab(val as TabId); toTop(); break;
       case "goplayer": setPlayerA(val); setPlayerB(""); setHeroExpand(""); setHeroMapSel(""); setPickTeam(D.players[val]?.team || pickTeam); go("players"); break;

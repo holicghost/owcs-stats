@@ -509,7 +509,125 @@ function scoutGameCard(D: DataBundle, s: SetRec, focus: string): string {
     <div class="gc2-load"><button class="loadbtn" data-act="load-sim" data-val="${esc(setKey(s))}">이 경기로 시뮬레이션 채우기 ↗</button></div>
   </div>`;
 }
-export function renderScout(D: DataBundle, curScout: string, scoutTab: string): string {
+export interface DeepUI { agg: "main" | "swap"; sort: "pick" | "wr"; smp: number; banExpand: string; }
+// 승률 한 줄 (막대 + % + N승-N패 + 표본). 0이면 '결정 경기 없음', <3맵이면 회색+표본<3
+function wrLine(label: string, w: number, l: number, max: number, suffix = ""): string {
+  const n = w + l;
+  if (n === 0) return `<div class="wrline empty"><span class="wl-lab">${label}</span><span class="wl-val mini">결정 경기 없음${suffix}</span></div>`;
+  const wr = Math.round((w / n) * 100);
+  const low = n < 3;
+  return `<div class="wrline ${low ? "lowsmp-row" : ""}"><span class="wl-lab">${label}</span><div class="wl-bar"><div class="fl ${wrCls(wr)}-fl" style="width:${Math.round((n / Math.max(1, max)) * 100)}%"></div></div><span class="wl-val"><b>${wr}%</b> <span class="mini">${w}-${l} · ${n}맵${low ? ' <span class="lowsmp">표본&lt;3</span>' : ""}</span>${suffix}</span></div>`;
+}
+const roleBadge = (r: string) => `<span class="rtag ${r}">${({ Tank: "탱", DPS: "딜", Support: "힐" } as Record<string, string>)[r] || "?"}</span>`;
+
+function renderScoutDeep(D: DataBundle, team: string, deep: DeepUI): string {
+  const teamSets = D.sets.filter((s) => s.top === team || s.bottom === team);
+  const sideOf = (s: SetRec) => (s.top === team ? s.picks.top : s.picks.bottom);
+  const oppOf = (s: SetRec) => (s.top === team ? s.bottom : s.top);
+
+  // ── 블록 1: 쟁탈 맵 승률 (거점 세부는 시트에 없어 맵 단위) ──
+  const ctrl: Record<string, { w: number; l: number; u: number }> = {};
+  teamSets.filter((s) => s.mode === "Control").forEach((s) => {
+    const m = (ctrl[s.map] = ctrl[s.map] || { w: 0, l: 0, u: 0 });
+    const w = setWinner(s);
+    if (!w) m.u++; else if (w === team) m.w++; else m.l++;
+  });
+  const ctrlRows = Object.entries(ctrl).sort((a, b) => (b[1].w + b[1].l) - (a[1].w + a[1].l));
+  const ctrlMax = Math.max(1, ...ctrlRows.map(([, r]) => r.w + r.l));
+  const block1 = ctrlRows.length
+    ? ctrlRows.map(([map, r]) => wrLine(mk(map), r.w, r.l, ctrlMax, r.u ? ` <span class="mini">· ${r.u}미기록</span>` : "")).join("")
+    : nod("쟁탈 경기 기록이 없어요.");
+
+  // ── 블록 2: 영웅별 픽률·승률 ──
+  const heroAgg: Record<string, { n: number; w: number; role: string }> = {};
+  teamSets.forEach((s) => {
+    const won = setWinner(s) === team;
+    const seen = new Set<string>();
+    const add = (hero: string, role: string) => { if (!hero || seen.has(hero)) return; seen.add(hero); const a = (heroAgg[hero] = heroAgg[hero] || { n: 0, w: 0, role }); a.n++; if (won) a.w++; };
+    sideOf(s).forEach((p) => add(p.hero, p.role));
+    if (deep.agg === "swap") {
+      const sw = swapsByPlayer(s.memo);
+      sideOf(s).forEach((p) => (sw[p.player] || []).forEach((h) => add(h, p.role)));
+    }
+  });
+  const teamMaps = teamSets.length;
+  let heroArr = Object.entries(heroAgg).map(([hero, r]) => ({ hero, ...r, wr: r.n ? Math.round((r.w / r.n) * 100) : 0, rate: teamMaps ? Math.round((r.n / teamMaps) * 100) : 0 }));
+  if (deep.smp) heroArr = heroArr.filter((h) => h.n >= deep.smp);
+  heroArr.sort((a, b) => deep.sort === "wr" ? (b.wr - a.wr || b.n - a.n) : (b.n - a.n || b.wr - a.wr));
+  const seg = (act: string, cur: string, opts: Array<[string, string]>) => `<div class="seg">${opts.map(([v, lb]) => `<button class="${cur === v ? "on" : ""}" data-act="${act}" data-val="${v}">${lb}</button>`).join("")}</div>`;
+  const block2Toggles = `<div class="metabar">
+    <span class="flabel">기준</span>${seg("deep-agg", deep.agg, [["main", "메인 픽"], ["swap", "교체 포함"]])}
+    <span class="flabel">정렬</span>${seg("deep-sort", deep.sort, [["pick", "픽 많은 순"], ["wr", "승률 높은 순"]])}
+    <span class="flabel">표본</span>${seg("deep-smp", String(deep.smp), [["0", "전체"], ["2", "2맵+"], ["3", "3맵+"]])}
+  </div>`;
+  const block2 = heroArr.length
+    ? `<table class="herodeep"><thead><tr><th>영웅</th><th>역할</th><th class="num">픽</th><th class="num">픽률</th><th>승률</th><th class="num">전적</th></tr></thead><tbody>${heroArr.map((h) => {
+        const low = h.n < 3;
+        return `<tr class="${low ? "lowsmp-row" : ""}"><td class="hname">${heroChip(h.hero)}</td><td>${roleBadge(h.role)}</td><td class="num">${h.n}</td><td class="num">${h.rate}%</td><td><div class="tr"><div class="fl ${wrCls(h.wr)}-fl" style="width:${h.wr}%"></div></div></td><td class="num">${h.w}-${h.n - h.w} <b>${h.wr}%</b>${low ? ' <span class="lowsmp">표본&lt;3</span>' : ""}</td></tr>`;
+      }).join("")}</tbody></table>`
+    : nod("조건에 맞는 영웅이 없어요.");
+
+  // ── 블록 3: 맵 선택권 영향 ──
+  const pk = { team: { w: 0, l: 0 }, opp: { w: 0, l: 0 }, none: { w: 0, l: 0 } };
+  teamSets.forEach((s) => {
+    const w = setWinner(s); if (!w) return; const won = w === team;
+    const b = (!s.picker || s.picker === "ADMIN") ? pk.none : s.picker === team ? pk.team : pk.opp;
+    b[won ? "w" : "l"]++;
+  });
+  const pkMax = Math.max(1, pk.team.w + pk.team.l, pk.opp.w + pk.opp.l, pk.none.w + pk.none.l);
+  const block3 = wrLine("우리가 맵 선택", pk.team.w, pk.team.l, pkMax) + wrLine("상대가 맵 선택", pk.opp.w, pk.opp.l, pkMax) + wrLine("선택권 없음(쟁탈 등)", pk.none.w, pk.none.l, pkMax);
+
+  // ── 블록 4: 밴 순서별 승률 ──
+  const bo = { first: { w: 0, l: 0 }, second: { w: 0, l: 0 } };
+  teamSets.forEach((s) => {
+    const w = setWinner(s); if (!w) return; const won = w === team;
+    const fb = s.bans.find((b) => b.phase === "first");
+    const sb = s.bans.find((b) => b.phase === "second");
+    if (fb && fb.team === team) bo.first[won ? "w" : "l"]++;
+    if (sb && sb.team === team) bo.second[won ? "w" : "l"]++;
+  });
+  const boMax = Math.max(1, bo.first.w + bo.first.l, bo.second.w + bo.second.l);
+  const block4 = wrLine("선밴권일 때", bo.first.w, bo.first.l, boMax) + wrLine("후밴권일 때", bo.second.w, bo.second.l, boMax);
+
+  // ── 블록 5: 밴 경향 (5묶음, 칩 클릭 펼침) ──
+  const groups: Record<string, Record<string, number>> = { tf: {}, ts: {}, of: {}, os: {}, lg: {} };
+  const banGames: Record<string, Array<{ date: string; map: string; opp: string; key: string }>> = {};
+  const rec = (g: string, hero: string, s: SetRec) => {
+    groups[g][hero] = (groups[g][hero] || 0) + 1;
+    const k = `${g}|${hero}`;
+    (banGames[k] = banGames[k] || []).push({ date: s.date, map: s.map, opp: oppOf(s), key: setKey(s) });
+  };
+  teamSets.forEach((s) => s.bans.forEach((b) => {
+    if (!b.hero) return;
+    if (b.team === team) rec(b.phase === "first" ? "tf" : "ts", b.hero, s);
+    else if (b.team === oppOf(s)) rec(b.phase === "first" ? "of" : "os", b.hero, s);
+  }));
+  D.sets.forEach((s) => s.bans.forEach((b) => { if (b.hero) groups.lg[b.hero] = (groups.lg[b.hero] || 0) + 1; }));
+  const banGroup = (g: string, title: string) => {
+    const arr = Object.entries(groups[g]).sort((a, b) => b[1] - a[1]).slice(0, 12);
+    if (!arr.length) return `<div class="bangrp"><div class="bangrp-h">${title}</div>${nod("기록 없음")}</div>`;
+    const chips = arr.map(([h, n]) => {
+      const k = `${g}|${h}`;
+      const open = deep.banExpand === k;
+      const games = open && banGames[k] ? `<div class="banexp">${banGames[k].slice().reverse().map((x) => `<div class="banexp-row clickable" data-act="load-sim" data-val="${esc(x.key)}"><span class="mini">${fmtDate(x.date)}</span> <b>${mk(x.map)}</b> <span class="mini">vs ${esc(x.opp)}</span></div>`).join("")}</div>` : "";
+      return `<button class="banchip ${open ? "on" : ""}" data-act="deep-ban-expand" data-val="${esc(k)}">${heroChip(h)} <span class="mini">${n}</span></button>${games}`;
+    }).join("");
+    return `<div class="bangrp"><div class="bangrp-h">${title}</div><div class="banchips">${chips}</div></div>`;
+  };
+  const block5 = banGroup("tf", `${esc(team)} 선밴`) + banGroup("ts", `${esc(team)} 후밴`) + banGroup("of", `상대가 ${esc(team)}에게 선밴`) + banGroup("os", `상대가 ${esc(team)}에게 후밴`) + banGroup("lg", "전체 최다 피밴");
+
+  return `
+    <div class="panel"><h2>① 쟁탈 맵 승률 <span class="count">맵 단위 · 거점 세부는 시트에 없음</span></h2>
+      <div class="sub-note">막대=표본(맵 수), 오른쪽에 승률·전적·미기록. 시트에 거점(등대/우물 등) 데이터가 없어 맵 단위로 집계해요.</div>
+      <div class="wrlines">${block1}</div></div>
+    <div class="panel"><h2>② 영웅별 픽률·승률 <span class="count">${esc(team)} 사용 영웅</span></h2>
+      ${block2Toggles}${block2}</div>
+    <div class="panel"><h2>③ 맵 선택권 영향 <span class="count">누가 맵을 골랐나</span></h2><div class="wrlines">${block3}</div></div>
+    <div class="panel"><h2>④ 밴 순서별 승률 <span class="count">선밴권 / 후밴권</span></h2><div class="wrlines">${block4}</div></div>
+    <div class="panel"><h2>⑤ 밴 경향 <span class="count">칩을 누르면 어느 경기인지 펼침</span></h2><div class="bangrps">${block5}</div></div>`;
+}
+
+export function renderScout(D: DataBundle, curScout: string, scoutTab: string, deep: DeepUI): string {
   const opps = D.teamNames.filter((n) => n !== D.us);
   const chips = opps.map((n) => {
     const isNext = usUpcoming(D).some((g) => g.a === n || g.b === n);
@@ -540,34 +658,7 @@ export function renderScout(D: DataBundle, curScout: string, scoutTab: string): 
       ? teamSets.map((s) => scoutGameCard(D, s, curScout)).join("")
       : nod("이 팀의 경기 기록이 없어요.");
   } else if (tab === "deep") {
-    const pn = sum(T.pickMaps);
-    const pmModes = topN(T.pickModes, 5);
-    const pmMaps = topN(T.pickMaps, 6);
-    const pickHtml = pn
-      ? `<div class="sub-note" style="margin:0 0 8px">모드</div>` +
-        (pmModes.length ? (() => { const mx = Math.max(1, ...pmModes.map((x) => x[1])); return pmModes.map(([m, n]) => barCount(MODE_KO[m] || m, n, mx, "blu")).join(""); })() : nod()) +
-        `<div class="sub-note" style="margin:12px 0 8px">맵</div>` +
-        (pmMaps.length ? (() => { const mx = Math.max(1, ...pmMaps.map((x) => x[1])); return pmMaps.map(([m, n]) => barCount(mapKo(m), n, mx, "blu")).join(""); })() : nod())
-      : nod("맵 픽권 표본이 없어요 (ADMIN/공란 제외).");
-    const ms = modeWinrate(T);
-    const mmx = Math.max(1, ...ms.map((m) => m[1].t));
-    const modesHtml = ms.length ? ms.map(([m, d]) => barWR(MODE_KO[m] || m, d.w, d.t, mmx)).join("") : nod();
-    body = `
-      <div class="grid2">
-        <div class="panel"><h2>맵을 고를 때 선호 (맵 픽권 보유 시) <span class="count">표본 ${pn}회</span></h2>
-          <div class="sub-note">ADMIN·공란(주최/불명) 선택은 제외</div>
-          <div class="bars">${pickHtml}</div>
-        </div>
-        <div class="panel"><h2>모드별 승률 <span class="count">맵 단위</span></h2><div class="bars">${modesHtml}</div></div>
-      </div>
-      <div class="grid2">
-        <div class="panel"><h2>선밴 경향 (우리가 막힐 픽) <span class="count">표본 ${fbN}회</span></h2><div class="bars">${countBars(T.firstBan, "ban")}</div></div>
-        <div class="panel"><h2>후밴 경향</h2><div class="bars">${countBars(T.secondBan, "ban")}</div></div>
-      </div>
-      <div class="panel">
-        <h2>ZANSIDE와 맞대결 전적 <span class="count">${D.sets.filter((s) => (s.top === D.us && s.bottom === curScout) || (s.top === curScout && s.bottom === D.us)).length}세트</span></h2>
-        <div>${renderH2H(D, curScout)}</div>
-      </div>`;
+    body = renderScoutDeep(D, curScout, deep);
   } else {
     const teamPlayers = D.playerNames.map((n) => D.players[n]).filter((p) => p.team === curScout);
     const byRole: Record<string, Player[]> = { Tank: [], DPS: [], Support: [] };

@@ -455,6 +455,33 @@ table.heatmap .hm-corner{text-align:left;white-space:nowrap;color:var(--tx-dim);
 .modesum-h{font-weight:700;margin-bottom:6px}
 .modesum-r{font-size:13px;margin:3px 0}
 
+/* 심층 통계 블록 */
+.wrlines{display:flex;flex-direction:column;gap:6px}
+.wrline{display:grid;grid-template-columns:150px 1fr auto;align-items:center;gap:12px;padding:5px 2px}
+.wrline.lowsmp-row{opacity:.55}
+.wrline.empty{grid-template-columns:150px 1fr}
+.wl-lab{font-size:13.5px;font-weight:600}
+.wl-bar{height:18px;background:var(--panel-2);border-radius:6px;overflow:hidden}
+.wl-bar .fl{height:100%;border-radius:6px}
+.wl-val{font-family:var(--mono);font-size:13px;text-align:right;white-space:nowrap}
+.wl-val b{font-weight:700}
+.lowsmp{font-family:var(--mono);font-size:10px;color:var(--gold)}
+table.herodeep .tr{height:16px;background:var(--panel-2);border-radius:5px;overflow:hidden;min-width:60px}
+table.herodeep .tr .fl{height:100%;border-radius:5px}
+table.herodeep tr.lowsmp-row{opacity:.6}
+.rtag.Tank{background:rgba(77,141,255,.16);color:var(--blue)}
+.rtag.DPS{background:rgba(255,93,115,.16);color:var(--warn)}
+.rtag.Support{background:rgba(255,207,92,.16);color:var(--gold)}
+.bangrps{display:flex;flex-direction:column;gap:14px}
+.bangrp-h{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--tx-dim);text-transform:uppercase;margin-bottom:7px}
+.banchips{display:flex;flex-wrap:wrap;gap:6px}
+.banchip{display:inline-flex;align-items:center;gap:5px;font-family:inherit;font-size:12.5px;background:var(--panel-2);border:1px solid var(--line-soft);border-radius:8px;padding:5px 9px;cursor:pointer}
+.banchip:hover{border-color:var(--accent-dim)}
+.banchip.on{border-color:var(--accent);background:rgba(25,227,192,.08)}
+.banexp{flex-basis:100%;display:flex;flex-direction:column;gap:3px;margin:2px 0 6px;padding-left:6px}
+.banexp-row{font-size:12.5px;padding:5px 9px;background:var(--panel);border:1px solid var(--line-soft);border-radius:7px;cursor:pointer}
+.banexp-row:hover{border-color:var(--accent-dim)}
+
 /* 팀별 분석 언더라인 서브탭 */
 .subtabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin:18px 0 16px;overflow-x:auto;scrollbar-width:none}
 .subtabs::-webkit-scrollbar{display:none}
