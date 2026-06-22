@@ -501,6 +501,7 @@ function scoutGameCard(D: DataBundle, s: SetRec, focus: string): string {
     <div class="gc2-l2"><b>${mk(s.map)}</b> <span class="mini">(${esc(MODE_KO[s.mode] || s.mode)})</span>${picker ? ` · <span class="mini">맵 픽 ${esc(picker)}</span>` : ""} · <span class="mono">${fScore}-${oScore}</span></div>
     <div class="gc2-l3">${fb ? `<span class="mini">선밴</span> ${heroChip(fb.hero)}` : ""}${fb && sb ? ' <span class="mini">·</span> ' : ""}${sb ? `<span class="mini">후밴</span> ${heroChip(sb.hero)}` : ""}${!fb && !sb ? '<span class="mini">밴 없음</span>' : ""}</div>
     <div class="gc2-l4"><div class="mini" style="margin-bottom:5px">오프닝 픽</div>${lineupRow(s.top, s.picks.top, s.top === focus)}${lineupRow(s.bottom, s.picks.bottom, s.bottom === focus)}</div>
+    ${s.memo ? `<div class="gc2-memo"><span class="mini">경기 중 교체·메모</span> ${renderMemo(s.memo)}</div>` : ""}
     <div class="gc2-load"><button class="loadbtn" data-act="load-sim" data-val="${esc(setKey(s))}">이 경기로 시뮬레이션 채우기 ↗</button></div>
   </div>`;
 }
@@ -975,28 +976,9 @@ export function renderLog(D: DataBundle, f: LogFilter, logExpand: string): strin
     return true;
   }).slice().reverse();
 
-  const body = arr.length
-    ? arr.map((s) => {
-        const w = setWinner(s);
-        const isUs = s.top === D.us || s.bottom === D.us;
-        const aCls = w === s.top ? "winner" : "loser";
-        const bCls = w === s.bottom ? "winner" : "loser";
-        const aZ = s.top === D.us ? "zan" : "";
-        const bZ = s.bottom === D.us ? "zan" : "";
-        const bans = s.bans.map((b) => heroChip(b.hero)).join(" ") || '<span class="mini">-</span>';
-        const open = logExpand === setKey(s);
-        const row = `<tr class="logrow ${isUs ? "zanrow" : ""} ${open ? "open" : ""}" data-act="log-expand" data-val="${esc(setKey(s))}">
-          <td class="mini">${fmtDate(s.date)}</td>
-          <td class="mini">${esc(s.match)}</td>
-          <td><span class="hname">${mk(s.map)}</span> <span class="mini">${esc(MODE_KO[s.mode] || s.mode)}</span></td>
-          <td><span class="${aCls} ${aZ}">${esc(s.top)}</span> <span class="mini">vs</span> <span class="${bCls} ${bZ}">${esc(s.bottom)}</span></td>
-          <td class="num">${scoreStr(s)}</td>
-          <td class="mini">${bans}</td>
-          <td class="num caret">${open ? "▾" : "▸"}</td>
-        </tr>`;
-        return open ? row + `<tr class="logdetailrow"><td colspan="7">${setDetail(D, s)}</td></tr>` : row;
-      }).join("")
-    : "";
+  // 승/패 기준 팀(focus): 팀 필터가 있으면 그 팀, 없으면 ZANSIDE가 낀 경기면 ZANSIDE, 아니면 상수팀
+  const focusOf = (s: SetRec) => (f.team && (s.top === f.team || s.bottom === f.team)) ? f.team : (s.top === D.us || s.bottom === D.us ? D.us : s.top);
+  const body = arr.length ? arr.map((s) => scoutGameCard(D, s, focusOf(s))).join("") : nod("필터에 해당하는 경기가 없어요.");
 
   return `
     <div class="fbar">
@@ -1007,14 +989,10 @@ export function renderLog(D: DataBundle, f: LogFilter, logExpand: string): strin
       <span class="flabel">맵</span>${mapSel}
       <span class="flabel">날짜</span>${dateSel}
     </div>
-    <div class="panel">
-      <h2>경기 기록 <span class="count">${arr.length}맵</span></h2>
-      <div class="sub-note">한 행 = 한 맵(세트). 행을 누르면 맵 선택팀·밴·양 팀 라인업·스코어·리플레이 상세가 펼쳐져요.</div>
-      <table>
-        <thead><tr><th>날짜</th><th>경기</th><th>맵 / 모드</th><th>대결</th><th class="num">스코어</th><th>밴(선·후)</th><th></th></tr></thead>
-        <tbody>${body}</tbody>
-      </table>
-      ${arr.length ? "" : `<div class="nodata">필터에 해당하는 경기가 없어요.</div>`}
+    <div class="panel" style="background:transparent;border:none;padding:0">
+      <h2 style="padding:0 2px">경기 기록 <span class="count">${arr.length}맵</span></h2>
+      <div class="sub-note" style="padding:0 2px">한 카드 = 한 맵(세트). 맵 선택팀·밴·양 팀 라인업·스코어·리플레이까지 한눈에. 카드 아래 버튼으로 시뮬레이션에 불러올 수 있어요.</div>
+      ${body}
     </div>`;
 }
 
