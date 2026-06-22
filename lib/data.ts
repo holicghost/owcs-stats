@@ -5,8 +5,10 @@ import {
   C, FULLPUSH, MAIN_EXPORT, MAIN_GVIZ, BRACKET_URL, STANDINGS_URL, REVALIDATE, US,
 } from "./constants";
 import type {
-  Ban, DataBundle, Game, Pick, Player, Score, SetRec, Series, Standing, Team,
+  Ban, DataBundle, DataHealth, Game, Pick, Player, Score, SetRec, Series, Standing, Team,
 } from "./types";
+import { PLAYER_NAME_FIX, PLAYER_CANON, TEAM_NAME_FIX } from "./aliases";
+import { validateSets, crossIssues } from "./validate";
 
 // ===== 파싱 헬퍼 =====
 function norm(s: unknown): string {
@@ -146,21 +148,39 @@ function canonicalizePlayers(sets: SetRec[]): void {
   }
   const rep = new Map<string, string>();
   for (const [k, m] of byKey) {
-    // 대표 선택: 소문자 포함(예쁜 표기) > 0 없음 > 빈도 > 짧음 > 알파벳
-    const best = [...m.entries()].sort((a, b) => {
-      const lowA = /[a-z]/.test(a[0]) ? 1 : 0, lowB = /[a-z]/.test(b[0]) ? 1 : 0;
-      const zA = a[0].includes("0") ? 1 : 0, zB = b[0].includes("0") ? 1 : 0;
-      return lowB - lowA || zA - zB || b[1] - a[1] || a[0].length - b[0].length || a[0].localeCompare(b[0]);
-    })[0][0];
+    // 수동 교정 우선 (aliases.ts), 없으면 자동 규칙으로 대표 선택
+    let best = PLAYER_CANON[k];
+    if (!best) {
+      // 소문자 포함(예쁜 표기) > 0 없음 > 빈도 > 짧음 > 알파벳
+      best = [...m.entries()].sort((a, b) => {
+        const lowA = /[a-z]/.test(a[0]) ? 1 : 0, lowB = /[a-z]/.test(b[0]) ? 1 : 0;
+        const zA = a[0].includes("0") ? 1 : 0, zB = b[0].includes("0") ? 1 : 0;
+        return lowB - lowA || zA - zB || b[1] - a[1] || a[0].length - b[0].length || a[0].localeCompare(b[0]);
+      })[0][0];
+    }
     rep.set(k, best);
   }
   for (const s of sets) {
     for (const side of [s.picks.top, s.picks.bottom]) {
       for (const p of side) {
-        if (p.player) p.player = rep.get(keyOf(p.player)) || p.player;
+        if (!p.player) continue;
+        p.player = PLAYER_NAME_FIX[p.player] || rep.get(keyOf(p.player)) || p.player;
       }
     }
   }
+}
+
+// 팀 이름 교정 (28.1). 기본은 no-op(설정이 비어 있으면 건드리지 않음).
+function canonicalizeTeams(sets: SetRec[], standings: Standing[], schedule: Game[]): void {
+  if (!Object.keys(TEAM_NAME_FIX).length) return;
+  const fix = (n: string) => TEAM_NAME_FIX[n] || n;
+  sets.forEach((s) => {
+    s.top = fix(s.top); s.bottom = fix(s.bottom); s.winner = fix(s.winner); s.loser = fix(s.loser);
+    if (s.picker && s.picker !== "ADMIN") s.picker = fix(s.picker);
+    s.bans.forEach((b) => (b.team = fix(b.team)));
+  });
+  standings.forEach((st) => (st.team = fix(st.team)));
+  schedule.forEach((g) => { g.a = fix(g.a); g.b = fix(g.b); });
 }
 
 // 승/패 판정: winner 컬럼 우선(푸시 포함 신뢰), 없으면 거리 비교
@@ -361,31 +381,6 @@ function derive(sets: SetRec[], standings: Standing[]): {
   return { series: plainSeries, teams, teamNames, players, playerNames, usHeroSignal, mapInfo };
 }
 
-// 교차검증 (8.5 / 4.4) — 콘솔 경고만 (서버 로그)
-function crossCheck(series: Series[], teams: Record<string, Team>, schedule: Game[], standings: Standing[]) {
-  schedule.filter((g) => g.status === "played" && !g.tbd).forEach((g) => {
-    const S = series.find(
-      (s) => (s.top === g.a && s.bottom === g.b) || (s.top === g.b && s.bottom === g.a)
-    );
-    if (!S) return;
-    const exp = S.top === g.a ? [S.topW, S.bottomW] : [S.bottomW, S.topW];
-    if (exp[0] !== g.sa || exp[1] !== g.sb) {
-      console.warn(
-        `[교차검증] 시리즈 스코어 불일치 ${g.date} ${g.a} ${g.sa}-${g.sb} ${g.b} / 세트합 ${exp[0]}-${exp[1]}`
-      );
-    }
-  });
-  standings.forEach((st) => {
-    const t = teams[st.team];
-    if (!t) return;
-    if (t.mw !== st.win || t.ml !== st.lose) {
-      console.warn(
-        `[교차검증] ${st.team} 매치 전적 불일치 — 순위표 ${st.win}-${st.lose} / 파생 ${t.mw}-${t.ml}`
-      );
-    }
-  });
-}
-
 // ===== fetch (ISR) =====
 async function fetchText(url: string): Promise<string> {
   const r = await fetch(url, { next: { revalidate: REVALIDATE } });
@@ -408,18 +403,30 @@ export async function getData(): Promise<DataBundle> {
     fetchText(BRACKET_URL),
     fetchText(STANDINGS_URL),
   ]);
-  const sets = parseMain(mainTxt);
-  if (!sets.length) throw new Error("경기 데이터 행을 찾지 못했습니다.");
-  canonicalizePlayers(sets); // 23.5 — 파생 전에 선수명 통일
+  const parsed = parseMain(mainTxt);
+  if (!parsed.length) throw new Error("경기 데이터 행을 찾지 못했습니다.");
   const standings = parseStandings(stTxt);
   const schedule = parseBracket(brkTxt);
+  canonicalizePlayers(parsed); // 23.5 — 파생 전에 선수명 통일
+  canonicalizeTeams(parsed, standings, schedule); // 28.1
+
+  // 28.5 검수: 치명적 오류 행은 통계에서 제외
+  const { clean: sets, issues: rowIssues, dropped } = validateSets(parsed);
   const d = derive(sets, standings);
-  crossCheck(d.series, d.teams, schedule, standings);
+  const cross = crossIssues(d.series, d.teams, schedule, standings);
+  const issues = [...rowIssues, ...cross];
+  const health: DataHealth = {
+    issues,
+    okRows: sets.length,
+    warn: issues.filter((i) => i.level === "warn").length,
+    error: issues.filter((i) => i.level === "error").length,
+    dropped,
+  };
 
   return {
     sets, series: d.series, teams: d.teams, standings, schedule,
     teamNames: d.teamNames, players: d.players, playerNames: d.playerNames,
-    usHeroSignal: d.usHeroSignal, mapInfo: d.mapInfo,
+    usHeroSignal: d.usHeroSignal, mapInfo: d.mapInfo, health,
     fetchedAt: new Date().toISOString(), us: US,
   };
 }

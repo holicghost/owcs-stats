@@ -4,6 +4,12 @@ import {
   MODE_KO, MODE_ORDER, ROLE_KO, HEROES, EST_WEIGHTS, EST_THRESH,
 } from "./constants";
 import type { DataBundle, Player, SetRec, Series, Standing, Team } from "./types";
+import { dimensions, crossEdge, WEAK_MARGIN, WEAK_SAMPLE_MIN, type Weak } from "./weakness";
+
+const rankOf = (D: DataBundle, name: string) => {
+  const s = D.standings.find((x) => x.team === name);
+  return s ? s.rank : null;
+};
 
 // ===== 공통 헬퍼 =====
 export const esc = (s: unknown) =>
@@ -136,6 +142,219 @@ export function renderHome(D: DataBundle): string {
     </div>`;
 }
 
+// ===== 약점 분석 (명세 42) =====
+function weakItem(D: DataBundle, item: Weak, isUs: boolean, edge: { edge: boolean; usWr: number | null }, open: boolean): string {
+  const badge = !isUs && edge.edge ? `<span class="edge">공략 포인트</span>` : "";
+  const deltaTxt = `<span class="mini">리그 대비 ${item.deltaLeague > 0 ? "+" : ""}${item.deltaLeague}%p</span>`;
+  const head = `<div class="weakrow ${open ? "open" : ""}" data-act="weak-expand" data-val="${esc(item.key)}">
+    <div class="wk-main"><span class="wk-label">${esc(item.label)}</span>${badge}</div>
+    <div class="wk-nums"><span class="wr ${item.wr >= 50 ? "mid" : "lo"}">${item.wr}%</span> ${deltaTxt} <span class="mini">${item.sample}맵</span> <span class="caret">${open ? "▾" : "▸"}</span></div>
+  </div>`;
+  const usNote = !isUs && edge.usWr != null ? ` <span class="mini">(우리 ${edge.usWr}%)</span>` : "";
+  const action = `<div class="wk-action">→ ${item.action(isUs)}${usNote}</div>`;
+  if (!open) return `<div class="weakitem">${head}${action}</div>`;
+  const sets = item.sets.slice().reverse().map((s) =>
+    `<div class="wkset"><span class="mini">${fmtDate(s.date)}</span> <b>${esc(s.map)}</b> <span class="mini">${esc(MODE_KO[s.mode] || s.mode)}</span> <span class="mini">vs</span> ${esc(s.opp)} <span class="${s.won ? "ww" : "ll"}">${s.won ? "승" : "패"}</span>${s.replay ? ` <span class="repcode">${esc(s.replay)}</span>` : ""}</div>`
+  ).join("");
+  return `<div class="weakitem">${head}${action}<div class="wkdetail">${sets || nod("근거 경기를 찾지 못했어요.")}</div></div>`;
+}
+/** 약점 패널 — ZANSIDE(isUs)면 우리 약점, 아니면 상대 약점(공략 포인트 강조). */
+export function weaknessPanel(D: DataBundle, team: string, isUs: boolean, weakExpand: string): string {
+  const dims = dimensions(D, team);
+  const usDims = isUs ? dims : dimensions(D, D.us);
+  const weak = dims.filter((d) => d.status === "weak").sort((a, b) => a.wr - b.wr);
+  const low = dims.filter((d) => d.status === "lowsample");
+  const who = isUs ? "ZANSIDE" : esc(team);
+
+  const weakHtml = weak.length
+    ? weak.map((it) => weakItem(D, it, isUs, crossEdge(usDims, it), weakExpand === it.key)).join("")
+    : `<div class="sub-note">리그 평균보다 뚜렷하게 낮은 약점은 아직 안 보여요. 경기가 더 쌓이면 다시 봐요.</div>`;
+  const lowHtml = low.length
+    ? `<div class="sub-note" style="margin-top:14px">아직 경기가 적어 약점이라 보긴 일러요 (참고용)</div>
+       <div class="lowlist">${low.map((it) => `<span class="utag">${esc(it.label)} <span class="mini">${it.wr}% · ${it.sample}맵</span></span>`).join("")}</div>`
+    : "";
+
+  return `<div class="panel weakpanel">
+    <h2>${who} 약점 <span class="count">리그 평균보다 ${WEAK_MARGIN}%p 넘게 낮고 ${WEAK_SAMPLE_MIN}맵 이상일 때만</span></h2>
+    <div class="sub-note">항목을 누르면 근거가 된 경기를 펼쳐 봅니다.</div>
+    ${weakHtml}${lowHtml}
+    <div class="sub-note causenote">약점은 결과의 흐름일 뿐 원인은 아니에요. 상대·맵·밴 상황에 따라 달라질 수 있으니 표본과 함께 참고만 하세요.</div>
+  </div>`;
+}
+
+// ===== MATCH DAY 홈 (명세 29) =====
+function teamMapWR(t: Team | undefined) {
+  if (!t) return 0.5;
+  const tot = t.mapW + t.mapL;
+  return tot ? t.mapW / tot : 0.5;
+}
+function recentForm(D: DataBundle, team: string) {
+  const ss = D.series.filter((s) => s.top === team || s.bottom === team).slice(-4);
+  if (!ss.length) return null;
+  return ss.filter((s) => s.winner === team).length / ss.length;
+}
+// 팀의 오프닝 선픽 영웅 집계 (맵세트·팀 중복제거)
+function oppOpeningPicks(D: DataBundle, team: string) {
+  const agg: Record<string, { n: number; w: number }> = {};
+  D.sets.forEach((s) => {
+    const side = s.top === team ? s.picks.top : s.bottom === team ? s.picks.bottom : null;
+    if (!side) return;
+    const w = s.winner === team || (!s.winner && false);
+    const seen = new Set<string>();
+    side.forEach((p) => {
+      if (!p.hero || seen.has(p.hero)) return;
+      seen.add(p.hero);
+      const a = (agg[p.hero] = agg[p.hero] || { n: 0, w: 0 });
+      a.n++;
+      if (s.winner === team) a.w++;
+    });
+  });
+  return Object.entries(agg).map(([hero, v]) => ({ hero, ...v })).sort((a, b) => b.n - a.n);
+}
+function matchEstimate(D: DataBundle, opp: string) {
+  const us = D.teams[D.us], op = D.teams[opp];
+  let p = 50;
+  const basis: string[] = [];
+  const ru = rankOf(D, D.us), ro = rankOf(D, opp);
+  if (ru && ro) {
+    const a = Math.max(-15, Math.min(15, (ro - ru) * 2.5));
+    p += a;
+    basis.push(`순위 ${ru}위 ↔ ${ro}위`);
+  }
+  const uwr = teamMapWR(us), owr = teamMapWR(op);
+  const b = Math.max(-15, Math.min(15, (uwr - owr) * 40));
+  p += b;
+  basis.push(`맵 승률 ${Math.round(uwr * 100)}% ↔ ${Math.round(owr * 100)}%`);
+  const fu = recentForm(D, D.us), fo = recentForm(D, opp);
+  if (fu != null && fo != null) {
+    p += Math.max(-10, Math.min(10, (fu - fo) * 20));
+    basis.push(`최근 폼 ${Math.round(fu * 100)}% ↔ ${Math.round(fo * 100)}%`);
+  }
+  p = Math.max(10, Math.min(90, p));
+  const minSample = Math.min(us?.seriesCount || 0, op?.seriesCount || 0);
+  const conf = minSample >= 8 ? "보통" : minSample >= 4 ? "낮음" : "매우 낮음";
+  const band = minSample >= 8 ? 10 : minSample >= 4 ? 15 : 20;
+  const pct = Math.round(p);
+  return { pct, lo: Math.max(0, pct - band), hi: Math.min(100, pct + band), conf, basis, minSample };
+}
+function mdCard(k: string, big: string, sub: string, cls?: string) {
+  return `<div class="mdcard ${cls || ""}"><div class="mdc-k">${k}</div><div class="mdc-v">${big}</div><div class="mdc-s">${sub}</div></div>`;
+}
+export function renderMatchday(D: DataBundle, weakExpand: string): string {
+  const up = D.schedule.filter((g) => g.status === "upcoming" && !g.tbd && g.phase === "regular" && (g.a === D.us || g.b === D.us));
+  const st = standOf(D, D.us);
+  const us = D.teams[D.us];
+  const scope = `<div class="scopebar">
+    <span><b>ZANSIDE</b> ${us ? us.seriesCount : 0}시리즈 · ${us ? us.mapW + us.mapL : 0}맵 · ${st ? `${st.win}승 ${st.lose}패` : "—"}</span>
+    <span class="dot"></span>
+    <span>분석 데이터 ${D.series.length}시리즈 · ${D.sets.length}맵 · ${D.teamNames.length}팀</span>
+    <span class="dot"></span>
+    <span class="${D.health.error ? "hl-bad" : D.health.warn ? "hl-warn" : "hl-ok"}">데이터 ${D.health.error ? `오류 ${D.health.error}` : D.health.warn ? `확인필요 ${D.health.warn}` : "정상"}</span>
+  </div>`;
+
+  if (!up.length) {
+    const last = usSeries(D).slice(-6).reverse();
+    const form = last.length ? last.map((S) => {
+      const w = S.top === D.us ? S.topW : S.bottomW;
+      const o = S.top === D.us ? S.bottomW : S.topW;
+      const opp = S.top === D.us ? S.bottom : S.top;
+      return `<div class="fcard ${w > o ? "w" : "l"}"><div class="res">${w > o ? "WIN" : "LOSS"}</div><div class="opp">vs ${esc(opp)}</div><div class="meta">${w}-${o} · ${fmtDate(S.date)}</div></div>`;
+    }).join("") : nod("아직 치른 경기가 없어요.");
+    return `${scope}<div class="panel"><h2>다음 경기</h2>${nod("잡힌 다음 경기가 없어요. 대진표가 갱신되면 여기에 표시됩니다.")}</div>
+      <div class="panel"><h2>최근 흐름</h2><div class="form">${form}</div></div>
+      ${weaknessPanel(D, D.us, true, weakExpand)}`;
+  }
+
+  const g = up[0];
+  const opp = g.a === D.us ? g.b : g.a;
+  const op = D.teams[opp];
+  const est = matchEstimate(D, opp);
+
+  // 추천 첫 밴 — 상대가 자주 꺼내는 오프닝 영웅
+  const oppPicks = op ? oppOpeningPicks(D, opp) : [];
+  const banPick = oppPicks[0];
+  const recBan = banPick
+    ? mdCard("추천 첫 밴", esc(banPick.hero), `${opp}이(가) ${banPick.n}번 꺼낸 핵심 픽`)
+    : mdCard("추천 첫 밴", "데이터 부족", `${opp} 선픽이 입력되면 추천해요`);
+
+  // 상대 예상 밴 — 상대 선밴 1순위
+  const oppMaps = op ? op.mapW + op.mapL : 0;
+  const oppFb = op ? Object.entries(op.firstBan).sort((a, b) => b[1] - a[1])[0] : null;
+  const expBan = oppFb
+    ? mdCard("상대 예상 밴", esc(oppFb[0]), `최근 ${Math.round((oppFb[1] / Math.max(1, oppMaps)) * 100)}% 빈도로 선밴`)
+    : mdCard("상대 예상 밴", "—", "밴 기록이 아직 적어요");
+
+  // 위험 모드 — 상대는 강하고 우리는 약한 모드
+  let riskMode = "—", riskSub = "표본이 더 필요해요";
+  if (us && op) {
+    let best: { m: string; gap: number; u: number; o: number } | null = null;
+    MODE_ORDER.forEach((m) => {
+      const u = us.modes[m], o = op.modes[m];
+      if (!u || !o || u.t < 3 || o.t < 3) return;
+      const uw = u.w / u.t, ow = o.w / o.t;
+      const gap = ow - uw;
+      if (!best || gap > best.gap) best = { m, gap, u: Math.round(uw * 100), o: Math.round(ow * 100) };
+    });
+    if (best) {
+      const bb = best as { m: string; gap: number; u: number; o: number };
+      riskMode = MODE_KO[bb.m] || bb.m;
+      riskSub = `우리 ${bb.u}% · 상대 ${bb.o}%`;
+    }
+  }
+
+  const estCard = mdCard("예상 승률", `${est.pct}<span class="mdc-pct">%</span>`,
+    `${est.lo}~${est.hi}% · 신뢰도 ${est.conf}`, "accent");
+
+  // 상대 핵심 성향 (좌)
+  const tend: string[] = [];
+  if (op) {
+    const pm = Object.entries(op.pickMaps).sort((a, b) => b[1] - a[1]).slice(0, 2).map((x) => x[0]);
+    if (pm.length) tend.push(`맵 선택권이 있으면 <b>${esc(pm.join(", "))}</b>을(를) 자주 골라요.`);
+    const fb = Object.entries(op.firstBan).sort((a, b) => b[1] - a[1]).slice(0, 2).map((x) => x[0]);
+    if (fb.length) tend.push(`선밴으로 <b>${esc(fb.join(", "))}</b>을(를) 자주 지워요.`);
+    const pTot = op.pushW + op.pushL;
+    if (pTot >= 3) {
+      const pr = Math.round((op.pushW / pTot) * 100);
+      tend.push(`푸시 ${op.pushW}승 ${op.pushL}패(${pr}%)${pr >= 60 ? " — 푸시가 강한 편이에요." : "."}`);
+    }
+  }
+  const tendHtml = tend.length ? tend.map((t) => `<li>${t}</li>`).join("") : `<li class="mini">상대 표본이 적어 성향을 단정하기 일러요.</li>`;
+
+  // ZANSIDE 대응 (우)
+  const resp: string[] = [];
+  if (us) {
+    const ms = MODE_ORDER.filter((m) => us.modes[m] && us.modes[m].t >= 3)
+      .map((m) => ({ m, wr: us.modes[m].w / us.modes[m].t }))
+      .sort((a, b) => b.wr - a.wr);
+    if (ms[0]) resp.push(`우리는 <b>${MODE_KO[ms[0].m]}</b>에서 강해요(${Math.round(ms[0].wr * 100)}%). 픽권이 있으면 우선 고려.`);
+    if (banPick) resp.push(`첫 밴은 <b>${esc(banPick.hero)}</b> 후보 — 상대 핵심 픽을 지워요.`);
+    if (riskMode !== "—") resp.push(`<b>${riskMode}</b>은 우리가 밀리는 구간이라 연습·회피를 검토해요.`);
+  }
+  const respHtml = resp.length ? resp.map((t) => `<li>${t}</li>`).join("") : `<li class="mini">표본이 더 쌓이면 대응을 제안할게요.</li>`;
+
+  // 근거 경기 — 최근 맞대결 또는 상대 최근 경기
+  const h2h = D.series.filter((s) => (s.top === D.us && s.bottom === opp) || (s.top === opp && s.bottom === D.us)).slice().reverse();
+  const oppRecent = D.series.filter((s) => s.top === opp || s.bottom === opp).slice(-4).reverse();
+  const refList = (h2h.length ? h2h : oppRecent).map((S) => seriesRow(D, S)).join("");
+
+  return `${scope}
+    <div class="panel nextmatch">
+      <div class="nm-eyebrow">다음 경기</div>
+      <div class="nm-row"><span class="nm-us">ZANSIDE</span><span class="nm-vs">vs</span><span class="nm-opp">${esc(opp)}</span></div>
+      <div class="nm-meta">${esc(g.date)} · ${esc(g.label)}${rankOf(D, opp) ? ` · 상대 ${rankOf(D, opp)}위` : ""} <button class="linkbtn" data-act="goscout" data-val="${esc(opp)}">상대 자세히 보기 ↗</button></div>
+    </div>
+    <div class="mdcards">${estCard}${recBan}${expBan}${mdCard("위험 모드", riskMode, riskSub, "warn")}</div>
+    <div class="grid2">
+      <div class="panel"><h2>상대 핵심 성향</h2><ul class="mdlist">${tendHtml}</ul></div>
+      <div class="panel"><h2>ZANSIDE 대응</h2><ul class="mdlist">${respHtml}</ul></div>
+    </div>
+    ${weaknessPanel(D, D.us, true, weakExpand)}
+    ${weaknessPanel(D, opp, false, weakExpand)}
+    <div class="panel"><h2>분석 근거 경기 <span class="count">${h2h.length ? "최근 맞대결" : `${esc(opp)} 최근 경기`}</span></h2><div class="sched">${refList || nod("표시할 경기가 없어요.")}</div></div>
+    <div class="panel"><h2>예상 승률 근거 <span class="count">학습 모델 아님 · 가중 합산</span></h2>
+      <div class="sub-note">${est.basis.map(esc).join(" · ")} → ${est.pct}% (신뢰도 ${est.conf}, 표본 ${est.minSample}시리즈). 소수점까지 믿지 마세요.</div></div>`;
+}
+
 // ===== SCOUT (5.2) =====
 function renderH2H(D: DataBundle, curScout: string): string {
   const sets = D.sets.filter(
@@ -161,7 +380,7 @@ function renderH2H(D: DataBundle, curScout: string): string {
     }).join("")}</div>`;
 }
 /** 상대 분석 칩 + 본문 전체. curScout 은 Dashboard 가 해석한 유효 팀명. */
-export function renderScout(D: DataBundle, curScout: string): string {
+export function renderScout(D: DataBundle, curScout: string, weakExpand: string): string {
   const opps = D.teamNames.filter((n) => n !== D.us);
   const chips = opps.map((n) => {
     const isNext = usUpcoming(D).some((g) => g.a === n || g.b === n);
@@ -199,6 +418,7 @@ export function renderScout(D: DataBundle, curScout: string): string {
   return `
     <div class="chiprow">${chips}</div>
     <div class="statrow">${cards}</div>
+    ${weaknessPanel(D, curScout, false, weakExpand)}
     <div class="grid2">
       <div class="panel"><h2>맵을 고를 때 선호 (맵 픽권 보유 시) <span class="count">표본 ${pn}회</span></h2>
         <div class="sub-note">ADMIN·공란(주최/불명) 선택은 제외</div>
@@ -606,7 +826,7 @@ export function renderPlayers(D: DataBundle, ui: PlayerUI): string {
   return `
     <div class="panel">
       <h2>선수 선택 <span class="count">${listP.length}/${D.playerNames.length}명 · 선픽(오프닝) 기준</span></h2>
-      <div class="sub-note">검색·역할 필터는 위 도구막대. 표본이 작으면 승률을 단정하지 마세요 (명세 15.2).</div>
+      <div class="sub-note">위 검색·역할 필터로 좁혀 보세요. 경기 수가 적은 선수는 승률을 가볍게 보세요.</div>
       <div class="plteams">${plChips(D, listP, a.name, "player")}</div>
     </div>
     <div class="panel">
