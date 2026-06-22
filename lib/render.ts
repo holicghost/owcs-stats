@@ -165,7 +165,7 @@ export function renderScout(D: DataBundle, curScout: string): string {
   const opps = D.teamNames.filter((n) => n !== D.us);
   const chips = opps.map((n) => {
     const isNext = usUpcoming(D).some((g) => g.a === n || g.b === n);
-    return `<button class="chip ${n === curScout ? "on" : ""}" data-act="scout" data-val="${esc(n)}">${esc(n)}${isNext ? '<span class="next">잔여</span>' : ""}</button>`;
+    return `<button class="chip ${n === curScout ? "on" : ""}" data-act="scout" data-val="${esc(n)}">${esc(n)}${isNext ? '<span class="next">다음 상대</span>' : ""}</button>`;
   }).join("");
 
   const T = D.teams[curScout];
@@ -489,81 +489,156 @@ export function renderScenario(D: DataBundle): string {
 }
 
 // ===== PLAYERS (13) =====
+export interface PlayerUI {
+  playerA: string;
+  playerB: string;
+  search: string;
+  role: "all" | "Tank" | "DPS" | "Support";
+  compareAll: boolean;
+}
 function playerWR(hs: { n: number; w: number }) {
   return hs.n ? Math.round((hs.w / hs.n) * 100) : 0;
 }
+const repRole = (roles: Record<string, number>) => {
+  const e = Object.entries(roles).sort((a, b) => b[1] - a[1])[0];
+  return e ? e[0] : "";
+};
+const topHero = (p: Player) => Object.values(p.heroes).sort((a, b) => b.n - a.n)[0];
+function strongMaps(p: Player, k: number) {
+  return Object.values(p.maps)
+    .filter((m) => m.n >= 3)
+    .map((m) => ({ ...m, wr: Math.round((m.w / m.n) * 100) }))
+    .sort((a, b) => b.wr - a.wr)
+    .slice(0, k);
+}
+
+// 팀별 그룹 칩 (23.2)
+function plChips(D: DataBundle, players: Player[], selName: string, act: string): string {
+  if (!players.length) return nod("해당 조건의 선수가 없습니다.");
+  const byTeam = new Map<string, Player[]>();
+  players.forEach((p) => {
+    const arr = byTeam.get(p.team) || [];
+    arr.push(p);
+    byTeam.set(p.team, arr);
+  });
+  const order = [...D.teamNames.filter((t) => byTeam.has(t)), ...[...byTeam.keys()].filter((t) => !D.teamNames.includes(t))];
+  return order.map((t) => {
+    const ps = byTeam.get(t)!.sort((a, b) => b.n - a.n);
+    return `<div class="plteam"><div class="plteam-h ${t === D.us ? "zan" : ""}">${esc(t)} <span class="mini">${ps.length}</span></div>
+      <div class="plchips">${ps.map((p) => `<button class="plchip ${p.name === selName ? "on" : ""}" data-act="${act}" data-val="${esc(p.name)}">${esc(p.name)} <span class="mini">${p.n}</span></button>`).join("")}</div></div>`;
+  }).join("");
+}
+
 function playerCard(D: DataBundle, p: Player): string {
-  const roleStr = roleOf(p.roles);
+  const th = topHero(p);
+  const sm = strongMaps(p, 2);
   return `<div class="pcard">
     <div class="pc-name">${esc(p.name)}</div>
-    <div class="pc-meta">${esc(roleStr)} · <span class="${p.team === D.us ? "zan" : ""}">${esc(p.team)}</span> · 표본 ${p.n}세트</div>
+    <div class="pc-meta">${esc(ROLE_KO[repRole(p.roles)] || repRole(p.roles))} · <span class="${p.team === D.us ? "zan" : ""}">${esc(p.team)}</span> · 표본 ${p.n}세트</div>
+    <div class="pc-tags">대표 영웅 <b>${th ? `${esc(th.hero)}` : "-"}</b>${th ? ` <span class="mini">${th.n}회</span>` : ""}
+      &nbsp;·&nbsp; 강점 맵 ${sm.length ? sm.map((m) => `${esc(m.map)} <span class="wr ${wrCls(m.wr)}">${m.wr}%</span>`).join(", ") : '<span class="mini">표본 부족</span>'}</div>
   </div>`;
 }
 function heroTable(p: Player): string {
   const heroes = Object.values(p.heroes).sort((a, b) => b.n - a.n);
-  if (!heroes.length) return nod("기록된 영웅이 없습니다.");
+  if (!heroes.length) return nod("기록된 경기 없음 — 선픽이 입력되면 표시됩니다.");
   const mx = Math.max(1, ...heroes.map((h) => h.n));
   return `<table><thead><tr><th>영웅</th><th class="num">사용</th><th class="num">승-패</th><th class="num">승률</th><th>빈도</th></tr></thead><tbody>${heroes.map((h) => {
     const wr = playerWR(h);
     return `<tr><td class="hname">${esc(h.hero)}</td>
       <td class="num">${h.n}</td>
       <td class="num">${h.w}-${h.n - h.w}</td>
-      <td class="num">${h.n >= 3 ? `<span class="wr ${wrCls(wr)}">${wr}%</span>` : '<span class="mini">표본<3</span>'}</td>
+      <td class="num">${h.n >= 3 ? `<span class="wr ${wrCls(wr)}">${wr}%</span>` : '<span class="mini">표본&lt;3</span>'}</td>
       <td><div class="tr mini-tr"><div class="fl" style="width:${Math.round((h.n / mx) * 100)}%"></div></div></td></tr>`;
   }).join("")}</tbody></table>`;
 }
+// 영웅×맵 강점 히트맵 (13.3)
+function heroMapHeatmap(p: Player): string {
+  const cells = Object.values(p.cells);
+  if (!cells.length) return nod("기록된 경기 없음 — 선픽이 입력되면 표시됩니다.");
+  const heroTot: Record<string, number> = {};
+  const mapTot: Record<string, number> = {};
+  cells.forEach((c) => {
+    heroTot[c.hero] = (heroTot[c.hero] || 0) + c.n;
+    mapTot[c.map] = (mapTot[c.map] || 0) + c.n;
+  });
+  const heroes = Object.entries(heroTot).sort((a, b) => b[1] - a[1]).slice(0, 8).map((x) => x[0]);
+  const maps = Object.entries(mapTot).sort((a, b) => b[1] - a[1]).map((x) => x[0]);
+  const cm: Record<string, Player["cells"][string]> = {};
+  cells.forEach((c) => (cm[`${c.hero} ${c.map}`] = c));
+  const head = `<tr><th class="hm-corner"></th>${maps.map((m) => `<th class="hm-mh" title="${esc(m)}">${esc(m)}</th>`).join("")}</tr>`;
+  const rows = heroes.map((h) => {
+    const tds = maps.map((m) => {
+      const c = cm[`${h} ${m}`];
+      if (!c) return `<td class="hm empty">·</td>`;
+      const wr = c.n ? Math.round((c.w / c.n) * 100) : 0;
+      const cls = c.n >= 3 ? `hm-${wrCls(wr)}` : "hm-low";
+      return `<td class="hm ${cls}" title="${esc(h)} @ ${esc(m)} — ${c.w}승 ${c.n - c.w}패">${c.n >= 3 ? `<span class="hm-wr">${wr}%</span>` : ""}<span class="hm-n">${c.n}</span></td>`;
+    }).join("");
+    return `<tr><th class="hm-rh">${esc(h)}</th>${tds}</tr>`;
+  }).join("");
+  return `<div class="hm-wrap"><table class="heatmap"><thead>${head}</thead><tbody>${rows}</tbody></table></div>
+    <div class="sub-note" style="margin-top:8px">셀 = 승률%(표본 3+ 일 때) · 작은 숫자는 표본(맵세트). 색이 진할수록 승률↑.</div>`;
+}
+
+/** 선수 분석(13) + 선수 비교(14). */
+export function renderPlayers(D: DataBundle, ui: PlayerUI): string {
+  if (!D.playerNames.length) {
+    return `<div class="panel"><h2>선수 분석</h2>${nod("기록된 경기 없음 — 선픽(로스터) 데이터가 입력되면 표시됩니다.")}
+      <div class="sub-note" style="margin-top:12px">채울 컬럼: <b>상수팀 첫픽 / 하수팀 첫픽</b> (역할별 선수명·영웅). 명세 15.1.</div></div>`;
+  }
+  const all = D.playerNames.map((n) => D.players[n]);
+  const a = D.players[ui.playerA] || all[0];
+  const q = ui.search.trim().toLowerCase();
+
+  // 선수 선택 목록 (검색 + 역할 필터 + 팀 그룹)
+  let listP = all;
+  if (q) listP = listP.filter((p) => p.name.toLowerCase().includes(q));
+  if (ui.role !== "all") listP = listP.filter((p) => repRole(p.roles) === ui.role);
+
+  // 비교 후보 (선수 A 제외, 기본 동일 역할 — 23.4)
+  let cand = all.filter((p) => p.name !== a.name);
+  if (q) cand = cand.filter((p) => p.name.toLowerCase().includes(q));
+  if (!ui.compareAll) cand = cand.filter((p) => repRole(p.roles) === repRole(a.roles));
+
+  const b = ui.playerB && ui.playerB !== a.name ? D.players[ui.playerB] : null;
+
+  return `
+    <div class="panel">
+      <h2>선수 선택 <span class="count">${listP.length}/${D.playerNames.length}명 · 선픽(오프닝) 기준</span></h2>
+      <div class="sub-note">검색·역할 필터는 위 도구막대. 표본이 작으면 승률을 단정하지 마세요 (명세 15.2).</div>
+      <div class="plteams">${plChips(D, listP, a.name, "player")}</div>
+    </div>
+    <div class="panel">
+      ${playerCard(D, a)}
+      <div class="grid2" style="margin-top:14px">
+        <div><h2 style="margin-bottom:10px">영웅별 성적</h2>${heroTable(a)}</div>
+        <div><h2 style="margin-bottom:10px">맵별 강점 <span class="count">막대=사용량, 승률 표본 3+</span></h2><div class="bars">${mapStrength(a)}</div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>영웅 × 맵 강점 히트맵 <span class="count">어떤 영웅을 어떤 맵에서 잘하는지</span></h2>
+      ${heroMapHeatmap(a)}
+    </div>
+    <div class="panel">
+      <h2>선수 비교 <span class="count">${b ? `${esc(a.name)} vs ${esc(b.name)}` : "대상을 고르면 좌우 비교"}</span></h2>
+      <div class="metabar" style="margin-bottom:12px">
+        <span class="flabel">후보</span>
+        <button class="clearbtn" data-act="compare-all-toggle">${ui.compareAll ? "동일 역할만 보기" : "전체 역할 보기"}</button>
+        ${b ? `<button class="clearbtn" data-act="compareclear">비교 닫기 ✕</button>` : ""}
+      </div>
+      <div class="plteams">${plChips(D, cand, ui.playerB, "compare")}</div>
+    </div>
+    ${b ? renderPlayerDiff(D, a, b) : ""}`;
+}
 function mapStrength(p: Player): string {
   const maps = Object.values(p.maps).sort((a, b) => b.n - a.n);
-  if (!maps.length) return nod("맵 기록이 없습니다.");
+  if (!maps.length) return nod("기록된 맵 없음.");
   const mx = Math.max(1, ...maps.map((m) => m.n));
   return maps.map((m) => {
     const wr = m.n ? Math.round((m.w / m.n) * 100) : 0;
     return `<div class="bar"><span class="lab">${esc(m.map)}</span><div class="tr"><div class="fl ${wrCls(wr)}-fl" style="width:${Math.round((m.n / mx) * 100)}%"></div></div><span class="vl">${m.w}-${m.n - m.w}${m.n >= 3 ? `·${wr}%` : ""}</span></div>`;
   }).join("");
-}
-/** 선수 분석(13) + 선수 비교(14). playerB 가 있으면 비교 뷰를 함께 렌더. */
-export function renderPlayers(D: DataBundle, playerA: string, playerB: string): string {
-  if (!D.playerNames.length) {
-    return `<div class="panel"><h2>선수 분석</h2>${nod("선픽(로스터) 데이터가 아직 없습니다. 시트에 세트별 5인 로스터가 입력되면 자동으로 채워집니다.")}
-      <div class="sub-note" style="margin-top:12px">명세 15.1: 현재 세트 단위 5인 로스터는 사실상 1개 매치에만 있어, 이 페이지는 대부분 비어 있는 것이 정상입니다.</div></div>`;
-  }
-  const a = D.players[playerA] || D.players[D.playerNames[0]];
-  const list = D.playerNames.map((n) =>
-    `<button class="plchip ${n === a.name ? "on" : ""}" data-act="player" data-val="${esc(n)}">${esc(n)} <span class="mini">${D.players[n].n}</span></button>`
-  ).join("");
-
-  // 비교 대상 후보 (선수 A 제외)
-  const compareChips = D.playerNames.filter((n) => n !== a.name).map((n) =>
-    `<button class="plchip sm ${n === playerB ? "on" : ""}" data-act="compare" data-val="${esc(n)}">${esc(n)}</button>`
-  ).join("");
-
-  const b = playerB && playerB !== a.name ? D.players[playerB] : null;
-  const compareBlock = b ? renderPlayerDiff(D, a, b) : "";
-
-  return `
-    <div class="panel">
-      <h2>선수 선택 <span class="count">${D.playerNames.length}명 · 첫픽 입력 기준</span></h2>
-      <div class="sub-note">선픽 데이터에서 추출. 표본이 작으면 승률을 단정하지 마세요 (명세 15.2).</div>
-      <div class="plchips">${list}</div>
-    </div>
-    ${playerCardPanel(D, a)}
-    <div class="panel">
-      <h2>선수 비교 <span class="count">대상을 고르면 좌우 비교</span></h2>
-      <div class="plchips">${compareChips || nod("비교할 다른 선수가 없습니다.")}</div>
-      ${b ? "" : `<div class="sub-note" style="margin-top:10px">위에서 비교할 선수를 누르면 ${esc(a.name)} 와(과) 나란히 비교합니다.</div>`}
-      ${b ? `<button class="clearbtn" data-act="compareclear">비교 닫기 ✕</button>` : ""}
-    </div>
-    ${compareBlock}`;
-}
-function playerCardPanel(D: DataBundle, p: Player): string {
-  return `
-    <div class="panel">
-      ${playerCard(D, p)}
-      <div class="grid2" style="margin-top:14px">
-        <div><h2 style="margin-bottom:10px">영웅별 성적</h2>${heroTable(p)}</div>
-        <div><h2 style="margin-bottom:10px">맵별 강점 <span class="count">막대=사용량, 승률은 표본 3+ 일 때</span></h2><div class="bars">${mapStrength(p)}</div></div>
-      </div>
-    </div>`;
 }
 
 // ===== PLAYER DIFF (14) =====
@@ -575,9 +650,9 @@ function renderPlayerDiff(D: DataBundle, a: Player, b: Player): string {
   const bOnly = [...bHeroes].filter((h) => !aHeroes.has(h)).sort((x, y) => b.heroes[y].n - b.heroes[x].n);
 
   const head = `<div class="diff-head">
-    <div class="diff-col"><div class="dn">${esc(a.name)}</div><div class="dm">${esc(roleOf(a.roles))} · <span class="${a.team === D.us ? "zan" : ""}">${esc(a.team)}</span> · ${a.n}세트</div></div>
+    <div class="diff-col"><div class="dn">${esc(a.name)}</div><div class="dm">${esc(ROLE_KO[repRole(a.roles)] || repRole(a.roles))} · <span class="${a.team === D.us ? "zan" : ""}">${esc(a.team)}</span> · ${a.n}세트</div></div>
     <div class="diff-vs">vs</div>
-    <div class="diff-col right"><div class="dn">${esc(b.name)}</div><div class="dm">${esc(roleOf(b.roles))} · <span class="${b.team === D.us ? "zan" : ""}">${esc(b.team)}</span> · ${b.n}세트</div></div>
+    <div class="diff-col right"><div class="dn">${esc(b.name)}</div><div class="dm">${esc(ROLE_KO[repRole(b.roles)] || repRole(b.roles))} · <span class="${b.team === D.us ? "zan" : ""}">${esc(b.team)}</span> · ${b.n}세트</div></div>
   </div>`;
 
   let commonBlock: string;
@@ -588,23 +663,32 @@ function renderPlayerDiff(D: DataBundle, a: Player, b: Player): string {
       const ha = a.heroes[h], hb = b.heroes[h];
       const wa = playerWR(ha), wb = playerWR(hb);
       const small = ha.n < 3 || hb.n < 3;
-      return `<div class="diffrow">
-        <div class="dr-a"><span class="dr-wr ${small ? "mini" : wrCls(wa)}">${ha.n >= 3 ? wa + "%" : "표본<3"}</span> <span class="mini">${ha.w}-${ha.n - ha.w}</span></div>
+      const gap = !small ? Math.abs(wa - wb) >= 20 : false;
+      return `<div class="diffrow${gap ? " gap" : ""}">
+        <div class="dr-a"><span class="dr-wr ${small ? "mini" : wrCls(wa)}">${ha.n >= 3 ? wa + "%" : "표본&lt;3"}</span> <span class="mini">${ha.w}-${ha.n - ha.w}</span></div>
         <div class="dr-hero">${esc(h)}</div>
-        <div class="dr-b"><span class="mini">${hb.w}-${hb.n - hb.w}</span> <span class="dr-wr ${small ? "mini" : wrCls(wb)}">${hb.n >= 3 ? wb + "%" : "표본<3"}</span></div>
+        <div class="dr-b"><span class="mini">${hb.w}-${hb.n - hb.w}</span> <span class="dr-wr ${small ? "mini" : wrCls(wb)}">${hb.n >= 3 ? wb + "%" : "표본&lt;3"}</span></div>
       </div>`;
     }).join("");
   }
 
   const uniqList = (arr: string[], p: Player) =>
     arr.length ? arr.map((h) => `<span class="utag">${esc(h)} <span class="mini">${p.heroes[h].n}</span></span>`).join("") : `<span class="mini">없음</span>`;
+  const smList = (p: Player) => {
+    const sm = strongMaps(p, 4);
+    return sm.length ? sm.map((m) => `<span class="utag">${esc(m.map)} <span class="wr ${wrCls(m.wr)}">${m.wr}%</span> <span class="mini">${m.n}</span></span>`).join("") : `<span class="mini">표본 부족</span>`;
+  };
 
   return `
     <div class="panel diffpanel">
       ${head}
-      <h2 style="margin-top:16px">공통 영웅 승률 비교 <span class="count">표본 3+ 일 때만 % 표기</span></h2>
+      <h2 style="margin-top:16px">공통 영웅 승률 비교 <span class="count">표본 3+ 일 때만 % · 격차 20%p+ 강조</span></h2>
       <div class="diffrows">${commonBlock}</div>
       <div class="grid2" style="margin-top:16px">
+        <div><div class="sub-note">${esc(a.name)} 강점 맵</div><div class="utags">${smList(a)}</div></div>
+        <div><div class="sub-note">${esc(b.name)} 강점 맵</div><div class="utags">${smList(b)}</div></div>
+      </div>
+      <div class="grid2" style="margin-top:14px">
         <div><div class="sub-note">${esc(a.name)} 고유 영웅</div><div class="utags">${uniqList(aOnly, a)}</div></div>
         <div><div class="sub-note">${esc(b.name)} 고유 영웅</div><div class="utags">${uniqList(bOnly, b)}</div></div>
       </div>

@@ -127,6 +127,42 @@ function parseBracket(text: string): Game[] {
   return games;
 }
 
+// 선수명 정규화 (명세 23.5): 대소문자 차이 + 영문 O / 숫자 0 혼용을 한 선수로 병합.
+// 예) iR0NY=iRONY, Kilo=KILO, Perr=perr, FEARFUL=Fearful. 표시명은 대표 1종으로 통일.
+// sets 의 picks 를 직접 갱신해 이후 모든 파생(선수·로스터·라인업)이 같은 표기를 쓴다.
+function canonicalizePlayers(sets: SetRec[]): void {
+  const keyOf = (s: string) => s.toUpperCase().replace(/0/g, "O");
+  const byKey = new Map<string, Map<string, number>>();
+  for (const s of sets) {
+    for (const side of [s.picks.top, s.picks.bottom]) {
+      for (const p of side) {
+        if (!p.player) continue;
+        const k = keyOf(p.player);
+        const m = byKey.get(k) || new Map<string, number>();
+        m.set(p.player, (m.get(p.player) || 0) + 1);
+        byKey.set(k, m);
+      }
+    }
+  }
+  const rep = new Map<string, string>();
+  for (const [k, m] of byKey) {
+    // 대표 선택: 소문자 포함(예쁜 표기) > 0 없음 > 빈도 > 짧음 > 알파벳
+    const best = [...m.entries()].sort((a, b) => {
+      const lowA = /[a-z]/.test(a[0]) ? 1 : 0, lowB = /[a-z]/.test(b[0]) ? 1 : 0;
+      const zA = a[0].includes("0") ? 1 : 0, zB = b[0].includes("0") ? 1 : 0;
+      return lowB - lowA || zA - zB || b[1] - a[1] || a[0].length - b[0].length || a[0].localeCompare(b[0]);
+    })[0][0];
+    rep.set(k, best);
+  }
+  for (const s of sets) {
+    for (const side of [s.picks.top, s.picks.bottom]) {
+      for (const p of side) {
+        if (p.player) p.player = rep.get(keyOf(p.player)) || p.player;
+      }
+    }
+  }
+}
+
 // 승/패 판정: winner 컬럼 우선(푸시 포함 신뢰), 없으면 거리 비교
 function setWinner(s: SetRec): string {
   if (s.winner) return s.winner;
@@ -194,7 +230,7 @@ function derive(sets: SetRec[], standings: Standing[]): {
   const players: Record<string, Player> = {};
   const player = (name: string, teamName: string): Player => {
     if (!players[name]) {
-      players[name] = { name, team: teamName, roles: {}, n: 0, heroes: {}, maps: {}, modes: {} };
+      players[name] = { name, team: teamName, roles: {}, n: 0, heroes: {}, maps: {}, modes: {}, cells: {} };
     }
     return players[name];
   };
@@ -282,6 +318,13 @@ function derive(sets: SetRec[], standings: Standing[]): {
             mm.t++;
             if (won) mm.w++;
           }
+          // 영웅×맵 셀 (13.3 히트맵)
+          if (p.hero && s.map) {
+            const ck = `${p.hero} ${s.map}`;
+            const cc = (pl.cells[ck] = pl.cells[ck] || { hero: p.hero, map: s.map, mode: s.mode, n: 0, w: 0 });
+            cc.n++;
+            if (won) cc.w++;
+          }
           // ZANSIDE 영웅 신호 (12.3.3)
           if (nm === US && p.hero) {
             const sig = (usHeroSignal[p.hero] = usHeroSignal[p.hero] || { w: 0, l: 0 });
@@ -367,6 +410,7 @@ export async function getData(): Promise<DataBundle> {
   ]);
   const sets = parseMain(mainTxt);
   if (!sets.length) throw new Error("경기 데이터 행을 찾지 못했습니다.");
+  canonicalizePlayers(sets); // 23.5 — 파생 전에 선수명 통일
   const standings = parseStandings(stTxt);
   const schedule = parseBracket(brkTxt);
   const d = derive(sets, standings);

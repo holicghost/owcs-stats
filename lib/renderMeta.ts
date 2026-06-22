@@ -10,6 +10,8 @@ export interface MetaFilter {
   topN: number; // 0 = All
   mapSel: string;
   teamSel: string;
+  banMap: string; // 24.1 팀 밴 맵 필터 ("all" 또는 맵명)
+  banExpand: string; // 24.2/24.3 펼친 영웅 ("" 또는 영웅명)
 }
 
 const wrCls = (wr: number) => (wr >= 55 ? "hi" : wr >= 45 ? "mid" : "lo");
@@ -135,21 +137,104 @@ export function renderMetaMap(D: DataBundle, meta: MetaData, f: MetaFilter): str
     <div class="panel"><h2>맵별 팀 승률 <span class="count">${esc(cur)} · 표본 10 미만 ⚠</span></h2>${teamWR}</div>`;
 }
 
-// ===== 17.3 팀 분석 =====
+// ===== 17.3 팀 분석 + 24. 팀별 밴 성향 확장 =====
+interface BanLine {
+  role: string;
+  player: string;
+  hero: string;
+}
+interface BanSetRef {
+  date: string;
+  map: string;
+  mode: string;
+  replay: string;
+  phase: "first" | "second";
+  self: BanLine[];
+  opp: BanLine[];
+  oppName: string;
+}
+interface BanHeroAgg {
+  hero: string;
+  role: string;
+  first: number;
+  second: number;
+  total: number;
+  maps: Record<string, number>;
+  sets: BanSetRef[];
+}
+// 선택 팀이 건 밴을 (영웅별) 세트 컨텍스트·라인업과 함께 집계 (24.2/24.3)
+function teamBanDetail(D: DataBundle, meta: MetaData, team: string, banMap: string): BanHeroAgg[] {
+  const roleOf = (h: string) => {
+    const r = meta.banGlobal.find((x) => x.hero === h);
+    return r ? r.role : "Unknown";
+  };
+  const byHero: Record<string, BanHeroAgg> = {};
+  D.sets.forEach((s) => {
+    if (banMap !== "all" && s.map !== banMap) return;
+    s.bans.forEach((b) => {
+      if (b.team !== team || !b.hero) return;
+      const self = (team === s.top ? s.picks.top : s.picks.bottom).filter((p) => p.player || p.hero);
+      const opp = (team === s.top ? s.picks.bottom : s.picks.top).filter((p) => p.player || p.hero);
+      const oppName = team === s.top ? s.bottom : s.top;
+      const agg = (byHero[b.hero] = byHero[b.hero] || { hero: b.hero, role: roleOf(b.hero), first: 0, second: 0, total: 0, maps: {}, sets: [] });
+      if (b.phase === "first") agg.first++;
+      else agg.second++;
+      agg.total++;
+      if (s.map) agg.maps[s.map] = (agg.maps[s.map] || 0) + 1;
+      agg.sets.push({ date: s.date, map: s.map, mode: s.mode, replay: s.replay, phase: b.phase, self, opp, oppName });
+    });
+  });
+  return Object.values(byHero).sort((a, b) => b.total - a.total);
+}
+function lineupHtml(label: string, name: string, lines: BanLine[], zan: boolean): string {
+  if (!lines.length) return `<div class="lineup"><span class="lu-team ${zan ? "zan" : ""}">${esc(name)}</span> <span class="mini">라인업 미기록</span></div>`;
+  return `<div class="lineup"><span class="lu-team ${zan ? "zan" : ""}">${esc(name)}</span>${lines.map((p) => `<span class="lu-p">${p.player ? esc(p.player) : "?"}<span class="mini"> ${esc(p.hero || "-")}</span></span>`).join("")}</div>`;
+}
 export function renderMetaTeam(D: DataBundle, meta: MetaData, f: MetaFilter): string {
   const cur = f.teamSel && meta.teamNames.includes(f.teamSel) ? f.teamSel : meta.teamNames[0] || "";
   const teamSel = `<select data-act="meta-team">${meta.teamNames.map((n) => `<option ${n === cur ? "selected" : ""}>${esc(n)}</option>`).join("")}</select>`;
-  const ban = meta.banByTeam[cur] ? bars(scope(meta.banByTeam[cur], f), 0, "ban") : nod("밴 기록 없음");
+  const banMap = f.banMap || "all";
+  const mapSel = `<select data-act="meta-banmap"><option value="all" ${banMap === "all" ? "selected" : ""}>전체 맵</option>${meta.mapNames.map((m) => `<option ${m === banMap ? "selected" : ""}>${esc(m)}</option>`).join("")}</select>`;
+
+  // 24. 확장 밴 테이블
+  let agg = teamBanDetail(D, meta, cur, banMap);
+  if (f.role !== "all") agg = agg.filter((x) => x.role === f.role);
+  agg = f.topN > 0 ? agg.slice(0, f.topN) : agg;
+  const banTable = agg.length
+    ? `<table class="bantable"><thead><tr><th>영웅</th><th>역할</th><th class="num">선밴</th><th class="num">후밴</th><th class="num">합계</th><th></th></tr></thead><tbody>${agg.map((h) => {
+        const open = f.banExpand === h.hero;
+        const head = `<tr class="banrow ${open ? "open" : ""}" data-act="ban-expand" data-val="${esc(h.hero)}">
+          <td class="hname">${esc(h.hero)}</td><td>${roleTag(h.role)}</td>
+          <td class="num">${h.first}</td><td class="num">${h.second}</td><td class="num"><b>${h.total}</b></td>
+          <td class="num caret">${open ? "▾" : "▸"}</td></tr>`;
+        if (!open) return head;
+        const mapDist = Object.entries(h.maps).sort((a, b) => b[1] - a[1])
+          .map(([m, n]) => `<span class="utag">${esc(m)} <span class="mini">${n}</span></span>`).join("");
+        const sets = h.sets.slice().reverse().map((s) => `<div class="banset">
+          <div class="bs-head"><span class="mini">${esc(s.date)}</span> <b>${esc(s.map)}</b> <span class="rtag ${h.role}">${s.phase === "first" ? "선밴" : "후밴"}</span> ${s.replay ? `<span class="repcode">${esc(s.replay)}</span><button class="copyb" data-act="copy" data-val="${esc(s.replay)}">복사</button>` : '<span class="mini">리플레이 없음</span>'}</div>
+          ${lineupHtml("self", cur, s.self, cur === D.us)}
+          ${lineupHtml("opp", s.oppName, s.opp, s.oppName === D.us)}
+        </div>`).join("");
+        return `${head}<tr class="bandetail"><td colspan="6">
+          <div class="sub-note">맵별 분포</div><div class="utags" style="margin-bottom:10px">${mapDist || nod("맵 기록 없음")}</div>
+          <div class="sub-note">밴이 나온 세트 · 라인업 (선픽 기준, 미입력 시 "라인업 미기록")</div>
+          <div class="bansets">${sets}</div>
+        </td></tr>`;
+      }).join("")}</tbody></table>`
+    : nod("밴 기록 없음");
+
   const pickWR = meta.hasPickData && meta.pickByTeam[cur]
     ? wrTable(scope(meta.pickByTeam[cur], f))
     : dataWait("상수팀 첫픽 / 하수팀 첫픽");
 
   return `
-    <div class="fbar"><span class="flabel">팀</span>${teamSel}</div>
-    <div class="grid2">
-      <div class="panel"><h2>팀별 밴 성향 <span class="count">${esc(cur)}</span></h2><div class="bars">${ban}</div></div>
-      <div class="panel"><h2>영웅 픽 & 승률 <span class="count">선픽 기준</span></h2>${pickWR}</div>
-    </div>`;
+    <div class="fbar"><span class="flabel">팀</span>${teamSel}<span class="flabel">밴 맵 필터</span>${mapSel}</div>
+    <div class="panel">
+      <h2>팀별 밴 성향 <span class="count">${esc(cur)}${banMap !== "all" ? ` · ${esc(banMap)}` : ""} · 행을 누르면 펼침</span></h2>
+      <div class="sub-note">선밴·후밴 분리 집계. 펼치면 맵별 분포와 해당 세트의 양 팀 라인업(선픽)을 보여줍니다 (24).</div>
+      ${banTable}
+    </div>
+    <div class="panel"><h2>영웅 픽 & 승률 <span class="count">선픽 기준</span></h2>${pickWR}</div>`;
 }
 
 // ===== 17.4 선수 분석 =====
@@ -171,7 +256,7 @@ export function renderMetaPlayer(D: DataBundle, meta: MetaData, f: MetaFilter): 
     const low = p.n < 10;
     const r = roleOfPlayer(p.roles);
     return `<tr>
-      <td class="hname">${esc(p.name)}</td>
+      <td class="hname"><button class="linkbtn" data-act="goplayer" data-val="${esc(p.name)}">${esc(p.name)} ↗</button></td>
       <td>${roleTag(r)}</td>
       <td class="${p.team === D.us ? "tname zan" : "mini"}">${esc(p.team)}</td>
       <td class="num">${p.n}${low ? ' <span class="lowsmp" title="저표본(맵세트 10 미만)">⚠</span>' : ""}</td>
@@ -181,8 +266,8 @@ export function renderMetaPlayer(D: DataBundle, meta: MetaData, f: MetaFilter): 
   }).join("");
 
   return `
-    <div class="panel"><h2>선수별 영웅·승률 <span class="count">선픽 기준 · 표본 10 미만 ⚠</span></h2>
-      <div class="sub-note">대표 역할 기준 역할 필터 적용. 표본이 작으면 승률을 단정하지 마세요.</div>
+    <div class="panel"><h2>선수별 영웅·승률 <span class="count">요약 · 표본 10 미만 ⚠</span></h2>
+      <div class="sub-note">대표 역할 기준 역할 필터 적용. 이 화면은 <b>요약</b>이며, 영웅×맵 히트맵·선수 비교 등 상세는 선수명(↗)을 눌러 <b>스카우팅 → 선수</b> 탭에서 봅니다 (17.4).</div>
       <table><thead><tr><th>선수</th><th>역할</th><th>소속</th><th class="num">표본(맵세트)</th><th>주 영웅</th><th class="num">주영웅 승률</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="6">${nod("해당 역할 선수 없음")}</td></tr>`}</tbody></table></div>`;
 }

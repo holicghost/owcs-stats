@@ -75,6 +75,9 @@ export default function Dashboard({ data }: { data: DataBundle }) {
   const [logF, setLogF] = useState<LogFilter>({ z: "all", team: "", mode: "", map: "", date: "" });
   const [playerA, setPlayerA] = useState(D.playerNames[0] || "");
   const [playerB, setPlayerB] = useState("");
+  const [playerSearch, setPlayerSearch] = useState("");
+  const [playerRole, setPlayerRole] = useState<"all" | Role>("all");
+  const [compareAll, setCompareAll] = useState(false);
   const [est, setEst] = useState<EstInput>(EMPTY_EST);
 
   // 메타 필터
@@ -82,6 +85,8 @@ export default function Dashboard({ data }: { data: DataBundle }) {
   const [metaTopN, setMetaTopN] = useState(20);
   const [metaMap, setMetaMap] = useState("");
   const [metaTeam, setMetaTeam] = useState(D.teams[D.us] ? D.us : D.teamNames[0] || "");
+  const [metaBanMap, setMetaBanMap] = useState("all");
+  const [metaBanExpand, setMetaBanExpand] = useState("");
 
   const [updated, setUpdated] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -102,14 +107,14 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "maps": return renderMaps(D, mapsMode, mapsTeam);
       case "log": return renderLog(D, logF);
       case "scenario": return renderScenario(D);
-      case "players": return renderPlayers(D, playerA, playerB);
+      case "players": return renderPlayers(D, { playerA, playerB, search: playerSearch, role: playerRole, compareAll });
       case "estimator": return renderEstimator(D, est);
       default: return "";
     }
-  }, [D, tab, scoutTeam, bpTeam, mapsMode, mapsTeam, logF, playerA, playerB, est]);
+  }, [D, tab, scoutTeam, bpTeam, mapsMode, mapsTeam, logF, playerA, playerB, playerSearch, playerRole, compareAll, est]);
 
   const metaHtml = useMemo(() => {
-    const f: MetaFilter = { role: metaRole, topN: metaTopN, mapSel: metaMap, teamSel: metaTeam };
+    const f: MetaFilter = { role: metaRole, topN: metaTopN, mapSel: metaMap, teamSel: metaTeam, banMap: metaBanMap, banExpand: metaBanExpand };
     switch (metaTab) {
       case "overview": return renderMetaOverview(D, meta, f);
       case "ban": return renderMetaBan(D, meta, f);
@@ -121,7 +126,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "notes": return renderMetaNotes();
       default: return "";
     }
-  }, [D, meta, metaTab, metaRole, metaTopN, metaMap, metaTeam]);
+  }, [D, meta, metaTab, metaRole, metaTopN, metaMap, metaTeam, metaBanMap, metaBanExpand]);
 
   const toTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
   function goScoutTab(id: ScoutTab) { setMod("scouting"); setTab(id); toTop(); }
@@ -139,7 +144,11 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "player": setPlayerA(val); setPlayerB(""); break;
       case "compare": setPlayerB(val); break;
       case "compareclear": setPlayerB(""); break;
+      case "compare-all-toggle": setCompareAll((v) => !v); break;
+      case "player-role": setPlayerRole(val as "all" | Role); break;
+      case "goplayer": setPlayerA(val); setPlayerB(""); goScoutTab("players"); break;
       case "meta-role": setMetaRole(val as "all" | Role); break;
+      case "ban-expand": setMetaBanExpand((cur) => (cur === val ? "" : val)); break;
       case "copy":
         navigator.clipboard?.writeText(val).then(() => {
           el.textContent = "복사됨";
@@ -173,6 +182,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "meta-topn": setMetaTopN(+v); break;
       case "meta-map": setMetaMap(v); break;
       case "meta-team": setMetaTeam(v); break;
+      case "meta-banmap": setMetaBanMap(v); break;
     }
   }
 
@@ -248,6 +258,25 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       </nav>
 
       <main onClick={onClick} onChange={onChange} onKeyDown={onKeyDown}>
+        {mod === "scouting" && tab === "players" && (
+          <div className="metabar">
+            <input
+              className="searchbox"
+              type="search"
+              placeholder="선수 이름 검색…"
+              value={playerSearch}
+              onChange={(e) => setPlayerSearch((e.target as HTMLInputElement).value)}
+            />
+            <span className="flabel">역할</span>
+            <div className="seg">
+              {ROLE_FILTERS.map((r) => (
+                <button key={r.id} className={playerRole === r.id ? "on" : ""} data-act="player-role" data-val={r.id}>
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {mod === "meta" && metaTab !== "notes" && (
           <div className="metabar">
             <span className="flabel">역할</span>
