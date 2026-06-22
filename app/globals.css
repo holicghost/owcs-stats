@@ -248,6 +248,48 @@ select:focus{outline:2px solid var(--accent-dim);outline-offset:1px}
 .notes b{color:var(--tx)}
 .notes hr{border:none;border-top:1px solid var(--line-soft);margin:5px 0}
 
+/* ===== 선수 검색/그룹 칩 (PART3 23) ===== */
+.searchbox{font-family:inherit;font-size:13.5px;color:var(--tx);background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:9px 13px;min-width:200px}
+.searchbox:focus{outline:2px solid var(--accent-dim);outline-offset:1px}
+.plteams{display:flex;flex-direction:column;gap:12px}
+.plteam-h{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--tx-dim);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.plteam-h.zan{color:var(--accent)}
+.pc-tags{font-size:13px;color:var(--tx-mid);margin-top:7px}
+.pc-tags b{color:var(--tx);font-weight:700}
+.linkbtn{font-family:inherit;font-size:13.5px;font-weight:600;color:var(--accent);background:transparent;border:none;cursor:pointer;padding:0}
+.linkbtn:hover{text-decoration:underline}
+.diffrow.gap{border-color:var(--accent-dim)}
+
+/* ===== 영웅×맵 히트맵 (13.3) ===== */
+.hm-wrap{overflow-x:auto}
+table.heatmap{border-collapse:separate;border-spacing:3px;width:auto;min-width:100%}
+table.heatmap th{font-family:var(--mono);font-size:10.5px;color:var(--tx-dim);font-weight:500;padding:0;text-transform:none;border:none}
+table.heatmap .hm-mh{writing-mode:vertical-rl;transform:rotate(180deg);max-height:90px;white-space:nowrap;text-align:left;vertical-align:bottom;padding-bottom:4px}
+table.heatmap .hm-rh{text-align:right;padding-right:8px;color:var(--tx);font-weight:600;white-space:nowrap;font-size:12.5px}
+table.heatmap .hm-corner{min-width:60px}
+.hm{width:46px;height:38px;text-align:center;border-radius:7px;background:var(--panel-2);font-family:var(--mono);vertical-align:middle;line-height:1.1}
+.hm.empty{color:var(--line);background:transparent}
+.hm-wr{display:block;font-size:12px;font-weight:700}
+.hm-n{display:block;font-size:9px;color:var(--tx-dim)}
+.hm.hm-hi{background:rgba(25,227,192,.28)} .hm.hm-hi .hm-wr{color:var(--accent)}
+.hm.hm-mid{background:rgba(164,171,189,.16)} .hm.hm-mid .hm-wr{color:var(--tx)}
+.hm.hm-lo{background:rgba(255,93,115,.2)} .hm.hm-lo .hm-wr{color:var(--warn)}
+.hm.hm-low{background:var(--panel-3)}
+.hm.hm-low .hm-n{color:var(--tx-mid)}
+
+/* ===== 팀 밴 확장 테이블 (24) ===== */
+.bantable tbody tr.banrow{cursor:pointer}
+.bantable tbody tr.banrow.open{background:var(--panel-2)}
+.bantable .caret{color:var(--tx-dim);width:26px}
+.bandetail td{background:var(--panel-2);padding:14px}
+.bansets{display:flex;flex-direction:column;gap:8px}
+.banset{background:var(--panel);border:1px solid var(--line-soft);border-radius:9px;padding:10px 12px}
+.bs-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px}
+.lineup{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:4px 0}
+.lu-team{font-family:var(--mono);font-size:11.5px;font-weight:700;color:var(--tx-mid);min-width:96px}
+.lu-team.zan{color:var(--accent)}
+.lu-p{font-size:12px;background:var(--panel-2);border:1px solid var(--line-soft);border-radius:7px;padding:4px 8px}
+
 .state{text-align:center;padding:60px 20px;color:var(--tx-mid)}
 .state .spin{width:28px;height:28px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;margin:0 auto 16px;animation:sp .8s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
