@@ -1199,7 +1199,7 @@ function playerCard(D: DataBundle, p: Player): string {
   return `<div class="pcard">
     <div class="pc-name">${esc(p.name)}</div>
     <div class="pc-meta">${esc(ROLE_KO[repRole(p.roles)] || repRole(p.roles))} · <span class="${p.team === D.us ? "zan" : ""}">${esc(p.team)}</span></div>
-    <div class="pc-tags"><span class="pc-lab">주 영웅</span> ${th ? heroChip(th.hero) : "—"} &nbsp;&nbsp; <span class="pc-lab">강점 맵</span> ${sm.length ? sm.map((m) => mk(m.map)).join(", ") : "—"}</div>
+    <div class="pc-tags"><span class="pc-lab">주 영웅</span> <span class="pc-val">${th ? heroChip(th.hero) : "—"}</span> &nbsp;&nbsp; <span class="pc-lab">강점 맵</span> <span class="pc-val">${sm.length ? sm.map((m) => esc(mapKo(m.map))).join(", ") : "—"}</span></div>
   </div>`;
 }
 
@@ -1276,7 +1276,7 @@ function heroMapHeatmap(p: Player): string {
   const maps = Object.entries(mapTot).sort((a, b) => b[1] - a[1]).map((x) => x[0]);
   const cm: Record<string, Player["cells"][string]> = {};
   cells.forEach((c) => (cm[`${c.hero} ${c.map}`] = c));
-  const head = `<tr><th class="hm-corner"></th>${maps.map((m) => `<th class="hm-mh" title="${esc(mapKo(m))}">${mk(m)}</th>`).join("")}</tr>`;
+  const head = `<tr><th class="hm-corner">영웅 \\ 맵</th>${maps.map((m) => `<th class="hm-mh" title="${esc(mapKo(m))}"><span class="mhn">${mk(m)}</span></th>`).join("")}</tr>`;
   const rows = heroes.map((h) => {
     const tds = maps.map((m) => {
       const c = cm[`${h} ${m}`];
