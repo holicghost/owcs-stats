@@ -136,32 +136,7 @@ export function renderHome(D: DataBundle): string {
     </div>`;
 }
 
-// ===== SCOUT (5.2 + 7) =====
-function ins(title: string, cls: string | null, body: string, smp?: string) {
-  return `<div class="icard ${cls || ""}"><div class="it">${title}</div><div class="ib">${body}</div>${smp ? `<div class="smp">⚠︎ ${smp} · 표본이 작아 단정 금물</div>` : ""}</div>`;
-}
-function insightsFor(T: Team): string {
-  const cards: string[] = [];
-  const pm = topN(T.pickMaps, 2);
-  const pmN = sum(T.pickMaps);
-  if (pm.length)
-    cards.push(ins("맵 선호", "gold-i", `픽권이 있을 때 <b>${esc(pm.map((x) => x[0]).join(", "))}</b> 쪽을 자주 고릅니다. 우리가 막거나 대비할 1순위.`, `표본 ${pmN}회`));
-  const fb = topN(T.firstBan, 2);
-  const fbN = sum(T.firstBan);
-  if (fb.length)
-    cards.push(ins("선밴 성향", "warn-i", `선밴으로 <b>${esc(fb.map((x) => x[0]).join(", "))}</b>를 자주 지웁니다. 우리가 이 픽에 막힐 가능성.`, `표본 ${fbN}회`));
-  const pTotal = T.pushW + T.pushL;
-  if (pTotal > 0) {
-    const pr = Math.round((T.pushW / pTotal) * 100);
-    const strong = pr >= 60 || T.fullPush >= 2;
-    cards.push(ins("푸시", strong ? "warn-i" : "blu", `푸시 맵 <b>${T.pushW}승 ${T.pushL}패 (${pr}%)</b>${T.fullPush ? ` · 풀푸시 ${T.fullPush}회` : ""}. ${strong ? "<b>푸시 강함</b> — 푸시 내주기 주의." : "특별히 강하진 않음."}`, `표본 ${pTotal}맵`));
-  }
-  if (T.seriesCount) {
-    const cr = Math.round((T.closeSeries / T.seriesCount) * 100);
-    cards.push(ins("접전·장기전", null, `한 세트차 접전 시리즈 비율 <b>${cr}%</b>${T.longSeries ? ` · 5세트 시리즈 ${T.longSeries}회` : ""}. ${cr >= 50 ? "막판까지 끌고 가는 팀." : "비교적 깔끔히 갈리는 편."}`, `표본 ${T.seriesCount}시리즈`));
-  }
-  return cards.length ? cards.join("") : nod("인사이트를 낼 표본이 부족합니다.");
-}
+// ===== SCOUT (5.2) =====
 function renderH2H(D: DataBundle, curScout: string): string {
   const sets = D.sets.filter(
     (s) => (s.top === D.us && s.bottom === curScout) || (s.top === curScout && s.bottom === D.us)
@@ -224,10 +199,6 @@ export function renderScout(D: DataBundle, curScout: string): string {
   return `
     <div class="chiprow">${chips}</div>
     <div class="statrow">${cards}</div>
-    <div class="panel">
-      <h2>자동 인사이트 <span class="count">규칙 기반 · 표본 작음, 참고용</span></h2>
-      <div class="ins">${insightsFor(T)}</div>
-    </div>
     <div class="grid2">
       <div class="panel"><h2>맵을 고를 때 선호 (맵 픽권 보유 시) <span class="count">표본 ${pn}회</span></h2>
         <div class="sub-note">ADMIN·공란(주최/불명) 선택은 제외</div>
