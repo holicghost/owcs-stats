@@ -1,0 +1,381 @@
+// 서버 전용 데이터 레이어 — 시트 fetch(ISR) → 파싱 → 파생 → 직렬화 번들.
+// 명세 11.1: 파서를 먼저 만들고 4.4/8.5 로 검증한 뒤 화면에 쓴다.
+import { parseCSV } from "./csv";
+import {
+  C, FULLPUSH, MAIN_EXPORT, MAIN_GVIZ, BRACKET_URL, STANDINGS_URL, REVALIDATE, US,
+} from "./constants";
+import type {
+  Ban, DataBundle, Game, Pick, Player, Score, SetRec, Series, Standing, Team,
+} from "./types";
+
+// ===== 파싱 헬퍼 =====
+function norm(s: unknown): string {
+  return (s == null ? "" : String(s)).trim().normalize("NFC");
+}
+function parseScore(raw: unknown): Score {
+  const s = norm(raw);
+  if (!s) return null;
+  if (/m$/i.test(s)) {
+    // 8.1: "144.86m" 처럼 m 이 붙으면 거리. 거리는 큰 값이 승.
+    const v = parseFloat(s);
+    return isNaN(v) ? null : { kind: "dist", val: v };
+  }
+  const num = parseInt(s.replace(/[^\d-]/g, ""), 10);
+  return isNaN(num) ? null : { kind: "pt", val: num };
+}
+
+// 선픽 컬럼 위치 해석 (헤더 2행의 "딜러1 선수명" 위치로 상수/하수 블록을 찾음)
+function resolvePickCols(header: string[]): { top: Array<[number, number, string]>; bottom: Array<[number, number, string]> } {
+  const R = ["DPS", "DPS", "Tank", "Support", "Support"];
+  const starts: number[] = [];
+  (header || []).forEach((h, i) => {
+    if (norm(h) === "딜러1 선수명") starts.push(i);
+  });
+  const build = (s: number): Array<[number, number, string]> =>
+    R.map((role, k) => [s + k * 2, s + k * 2 + 1, role] as [number, number, string]);
+  return {
+    top: starts[0] != null ? build(starts[0]) : [],
+    bottom: starts[1] != null ? build(starts[1]) : [],
+  };
+}
+function readPicks(r: string[], slots: Array<[number, number, string]>): Pick[] {
+  return slots
+    .map(([ni, hi, role]) => ({ role, player: norm(r[ni]), hero: norm(r[hi]) }))
+    .filter((p) => p.player || p.hero);
+}
+
+// ===== 시트별 파서 (명세 4.1 / 4.4 / 4.5) =====
+function parseMain(text: string): SetRec[] {
+  const data = parseCSV(text);
+  const cols = resolvePickCols(data[1] || []);
+  const rows = data.slice(2).filter((r) => norm(r[C.date]) && norm(r[C.match]));
+  return rows.map((r) => {
+    const date = norm(r[C.date]);
+    const match = norm(r[C.match]);
+    const seriesId = date + " " + match.split("#")[0].trim();
+    const bans: Ban[] = [
+      { team: norm(r[C.b1t]), role: norm(r[C.b1r]), hero: norm(r[C.b1h]), phase: "first" as const },
+      { team: norm(r[C.b2t]), role: norm(r[C.b2r]), hero: norm(r[C.b2h]), phase: "second" as const },
+    ].filter((b) => b.team && b.hero);
+    return {
+      date, match, seriesId, replay: norm(r[C.replay]),
+      top: norm(r[C.top]), bottom: norm(r[C.bottom]),
+      picker: norm(r[C.picker]), mode: norm(r[C.mode]), map: norm(r[C.map]), bans,
+      winner: norm(r[C.winner]), loser: norm(r[C.loser]),
+      ws: parseScore(r[C.wscore]), ls: parseScore(r[C.lscore]),
+      picks: { top: readPicks(r, cols.top), bottom: readPicks(r, cols.bottom) },
+    };
+  });
+}
+
+function parseStandings(text: string): Standing[] {
+  const data = parseCSV(text);
+  const out: Standing[] = [];
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const rank = norm(row[0]);
+    const team = norm(row[1]);
+    if (!/^\d+$/.test(rank) || !team) continue;
+    const diff = parseInt(norm(row[4]).replace(/[^\d-]/g, "").replace(/^−/, "-"), 10);
+    out.push({
+      rank: +rank, team,
+      win: +norm(row[2]) || 0, lose: +norm(row[3]) || 0,
+      diff: isNaN(diff) ? 0 : diff,
+    });
+  }
+  return out;
+}
+
+function parseBracket(text: string): Game[] {
+  const data = parseCSV(text);
+  const blocks = [[1, 2, 3, 4], [6, 7, 8, 9], [11, 12, 13, 14]];
+  const dateCols = [1, 6, 11];
+  let curDates = ["", "", ""];
+  let curPhase: Array<"regular" | "playoff"> = ["regular", "regular", "regular"];
+  const games: Game[] = [];
+  data.forEach((row) => {
+    const c0 = norm(row[0]);
+    const looksHeader = !c0 && dateCols.some((ci) => {
+      const v = norm(row[ci]);
+      return /\d+\/\d+/.test(v) || /라운드|승자조|패자조|결승/.test(v);
+    });
+    if (looksHeader) {
+      curDates = dateCols.map((ci) => norm(row[ci]));
+      curPhase = dateCols.map((ci) =>
+        /라운드|승자조|패자조|결승/.test(norm(row[ci])) ? "playoff" : "regular"
+      );
+      return;
+    }
+    if (!/경기/.test(c0)) return;
+    blocks.forEach((b, i) => {
+      const a = norm(row[b[0]]);
+      const sa = norm(row[b[1]]);
+      const sb = norm(row[b[2]]);
+      const bt = norm(row[b[3]]);
+      if (!a || !bt) return;
+      const na = parseInt(sa, 10);
+      const nb = parseInt(sb, 10);
+      const decided = na > 0 || nb > 0;
+      games.push({
+        date: curDates[i], label: c0, phase: curPhase[i],
+        a, b: bt, sa: isNaN(na) ? 0 : na, sb: isNaN(nb) ? 0 : nb,
+        status: decided ? "played" : "upcoming",
+        tbd: /TBD|G\d|R2|승자|패자/i.test(a) || /TBD|G\d|R2|승자|패자/i.test(bt),
+      });
+    });
+  });
+  return games;
+}
+
+// 승/패 판정: winner 컬럼 우선(푸시 포함 신뢰), 없으면 거리 비교
+function setWinner(s: SetRec): string {
+  if (s.winner) return s.winner;
+  if (s.mode === "Push" && s.ws && s.ls && s.ws.kind === "dist" && s.ls.kind === "dist") {
+    return s.ws.val > s.ls.val ? s.top : s.bottom;
+  }
+  return "";
+}
+
+function emptyTeam(name: string): Team {
+  return {
+    name, mw: 0, ml: 0, mapW: 0, mapL: 0, modes: {}, maps: {},
+    firstBan: {}, secondBan: {}, banAgainst: {}, pickModes: {}, pickMaps: {},
+    seriesCount: 0, closeSeries: 0, longSeries: 0, pushW: 0, pushL: 0, fullPush: 0,
+    roster: [],
+  };
+}
+
+// ===== 파생 (명세 4.2 / 4.3 / 13) =====
+function derive(sets: SetRec[], standings: Standing[]): {
+  series: Series[];
+  teams: Record<string, Team>;
+  teamNames: string[];
+  players: Record<string, Player>;
+  playerNames: string[];
+  usHeroSignal: Record<string, { w: number; l: number }>;
+  mapInfo: Record<string, string>;
+} {
+  const teams: Record<string, Team> = {};
+  const rosterMaps: Record<string, Map<string, { name: string; roles: Record<string, number>; n: number }>> = {};
+  const team = (name: string): Team => {
+    if (!teams[name]) {
+      teams[name] = emptyTeam(name);
+      rosterMaps[name] = new Map();
+    }
+    return teams[name];
+  };
+
+  // 시리즈 묶기
+  type SeriesWork = Series & { sets: SetRec[] };
+  const sm = new Map<string, SeriesWork>();
+  sets.forEach((s) => {
+    if (!sm.has(s.seriesId)) {
+      sm.set(s.seriesId, {
+        seriesId: s.seriesId, date: s.date, top: s.top, bottom: s.bottom,
+        sets: [], topW: 0, bottomW: 0, winner: "", loser: "",
+      });
+    }
+    const S = sm.get(s.seriesId)!;
+    S.sets.push(s);
+    const w = setWinner(s);
+    if (w === S.top) S.topW++;
+    else if (w === S.bottom) S.bottomW++;
+  });
+  const series = [...sm.values()];
+  series.forEach((S) => {
+    S.winner = S.topW > S.bottomW ? S.top : S.bottomW > S.topW ? S.bottom : "";
+    S.loser = S.winner === S.top ? S.bottom : S.winner === S.bottom ? S.top : "";
+  });
+  series.sort((a, b) =>
+    a.date < b.date ? -1 : a.date > b.date ? 1 : a.seriesId < b.seriesId ? -1 : 1
+  );
+
+  // 선수 집계 (명세 13)
+  const players: Record<string, Player> = {};
+  const player = (name: string, teamName: string): Player => {
+    if (!players[name]) {
+      players[name] = { name, team: teamName, roles: {}, n: 0, heroes: {}, maps: {}, modes: {} };
+    }
+    return players[name];
+  };
+  const usHeroSignal: Record<string, { w: number; l: number }> = {};
+  const mapInfo: Record<string, string> = {};
+
+  series.forEach((S) => {
+    const A = team(S.top);
+    const B = team(S.bottom);
+    A.mapW += S.topW; A.mapL += S.bottomW;
+    B.mapW += S.bottomW; B.mapL += S.topW;
+    if (S.winner) {
+      if (S.winner === S.top) { A.mw++; B.ml++; } else { B.mw++; A.ml++; }
+    }
+    [A, B].forEach((t) => {
+      t.seriesCount++;
+      const total = S.topW + S.bottomW;
+      const margin = Math.abs(S.topW - S.bottomW);
+      if (margin <= 1 && S.winner) t.closeSeries++;
+      if (total >= 5) t.longSeries++;
+    });
+
+    S.sets.forEach((s) => {
+      const w = setWinner(s);
+      if (s.map && s.mode) mapInfo[s.map] = s.mode;
+      ([[A, A.name], [B, B.name]] as Array<[Team, string]>).forEach(([t, nm]) => {
+        const won = w === nm;
+        if (s.mode) {
+          (t.modes[s.mode] = t.modes[s.mode] || { w: 0, t: 0 }).t++;
+          if (won) t.modes[s.mode].w++;
+        }
+        if (s.map) {
+          const mr = (t.maps[s.map] = t.maps[s.map] || { w: 0, l: 0, mode: s.mode });
+          won ? mr.w++ : mr.l++;
+        }
+        if (s.mode === "Push") won ? t.pushW++ : t.pushL++;
+      });
+      // 풀푸시 (거리) — 승자팀 기준
+      if (s.mode === "Push" && s.ws && s.ws.kind === "dist" && s.ws.val >= FULLPUSH) {
+        const wt = w && teams[w];
+        if (wt) wt.fullPush++;
+      }
+      // 맵 픽권 (ADMIN/공란 제외 — 8.2)
+      if (s.picker && s.picker !== "ADMIN" && teams[s.picker]) {
+        const pt = teams[s.picker];
+        if (s.mode) pt.pickModes[s.mode] = (pt.pickModes[s.mode] || 0) + 1;
+        if (s.map) pt.pickMaps[s.map] = (pt.pickMaps[s.map] || 0) + 1;
+      }
+      // 밴
+      s.bans.forEach((b) => {
+        const bt = teams[b.team] ? teams[b.team] : team(b.team);
+        const tgt = b.phase === "first" ? bt.firstBan : bt.secondBan;
+        tgt[b.hero] = (tgt[b.hero] || 0) + 1;
+        const opp = b.team === s.top ? s.bottom : s.top;
+        if (teams[opp]) teams[opp].banAgainst[b.hero] = (teams[opp].banAgainst[b.hero] || 0) + 1;
+      });
+      // 로스터 + 선수/영웅 집계 (첫픽 입력 시)
+      ([[s.picks.top, s.top], [s.picks.bottom, s.bottom]] as Array<[Pick[], string]>).forEach(([ps, nm]) => {
+        if (!teams[nm]) return;
+        const won = w === nm;
+        ps.forEach((p) => {
+          if (!p.player) return;
+          const rm = rosterMaps[nm];
+          const r = rm.get(p.player) || { name: p.player, roles: {}, n: 0 };
+          r.n++;
+          r.roles[p.role] = (r.roles[p.role] || 0) + 1;
+          rm.set(p.player, r);
+
+          // 선수 단위
+          const pl = player(p.player, nm);
+          pl.n++;
+          pl.roles[p.role] = (pl.roles[p.role] || 0) + 1;
+          if (p.hero) {
+            const hs = (pl.heroes[p.hero] = pl.heroes[p.hero] || { hero: p.hero, n: 0, w: 0 });
+            hs.n++;
+            if (won) hs.w++;
+          }
+          if (s.map) {
+            const pm = (pl.maps[s.map] = pl.maps[s.map] || { map: s.map, mode: s.mode, n: 0, w: 0 });
+            pm.n++;
+            if (won) pm.w++;
+          }
+          if (s.mode) {
+            const mm = (pl.modes[s.mode] = pl.modes[s.mode] || { w: 0, t: 0 });
+            mm.t++;
+            if (won) mm.w++;
+          }
+          // ZANSIDE 영웅 신호 (12.3.3)
+          if (nm === US && p.hero) {
+            const sig = (usHeroSignal[p.hero] = usHeroSignal[p.hero] || { w: 0, l: 0 });
+            won ? sig.w++ : sig.l++;
+          }
+        });
+      });
+    });
+  });
+
+  // roster Map → 정렬된 배열
+  Object.keys(teams).forEach((nm) => {
+    teams[nm].roster = [...rosterMaps[nm].values()].sort((a, b) => b.n - a.n);
+  });
+
+  // 팀명 목록 (순위표 우선)
+  const rankOf = (name: string) => {
+    const s = standings.find((x) => x.team === name);
+    return s ? s.rank : null;
+  };
+  const names = new Set(standings.map((s) => s.team));
+  Object.keys(teams).forEach((n) => names.add(n));
+  const teamNames = [...names].filter(Boolean).sort((a, b) => {
+    const ra = rankOf(a) ?? 99;
+    const rb = rankOf(b) ?? 99;
+    return ra - rb || a.localeCompare(b);
+  });
+
+  const playerNames = Object.keys(players).sort((a, b) =>
+    players[b].n - players[a].n || a.localeCompare(b)
+  );
+
+  const plainSeries: Series[] = series.map(({ sets: _s, ...rest }) => rest);
+  return { series: plainSeries, teams, teamNames, players, playerNames, usHeroSignal, mapInfo };
+}
+
+// 교차검증 (8.5 / 4.4) — 콘솔 경고만 (서버 로그)
+function crossCheck(series: Series[], teams: Record<string, Team>, schedule: Game[], standings: Standing[]) {
+  schedule.filter((g) => g.status === "played" && !g.tbd).forEach((g) => {
+    const S = series.find(
+      (s) => (s.top === g.a && s.bottom === g.b) || (s.top === g.b && s.bottom === g.a)
+    );
+    if (!S) return;
+    const exp = S.top === g.a ? [S.topW, S.bottomW] : [S.bottomW, S.topW];
+    if (exp[0] !== g.sa || exp[1] !== g.sb) {
+      console.warn(
+        `[교차검증] 시리즈 스코어 불일치 ${g.date} ${g.a} ${g.sa}-${g.sb} ${g.b} / 세트합 ${exp[0]}-${exp[1]}`
+      );
+    }
+  });
+  standings.forEach((st) => {
+    const t = teams[st.team];
+    if (!t) return;
+    if (t.mw !== st.win || t.ml !== st.lose) {
+      console.warn(
+        `[교차검증] ${st.team} 매치 전적 불일치 — 순위표 ${st.win}-${st.lose} / 파생 ${t.mw}-${t.ml}`
+      );
+    }
+  });
+}
+
+// ===== fetch (ISR) =====
+async function fetchText(url: string): Promise<string> {
+  const r = await fetch(url, { next: { revalidate: REVALIDATE } });
+  if (!r.ok) throw new Error("HTTP " + r.status + " — " + url);
+  return r.text();
+}
+async function fetchMain(): Promise<string> {
+  // export CSV 가 푸시 거리값을 보존 → 우선, 실패 시 gviz 폴백(거리값 손실)
+  try {
+    return await fetchText(MAIN_EXPORT);
+  } catch (e) {
+    console.warn("export CSV 실패, gviz 폴백:", (e as Error).message);
+    return await fetchText(MAIN_GVIZ);
+  }
+}
+
+export async function getData(): Promise<DataBundle> {
+  const [mainTxt, brkTxt, stTxt] = await Promise.all([
+    fetchMain(),
+    fetchText(BRACKET_URL),
+    fetchText(STANDINGS_URL),
+  ]);
+  const sets = parseMain(mainTxt);
+  if (!sets.length) throw new Error("경기 데이터 행을 찾지 못했습니다.");
+  const standings = parseStandings(stTxt);
+  const schedule = parseBracket(brkTxt);
+  const d = derive(sets, standings);
+  crossCheck(d.series, d.teams, schedule, standings);
+
+  return {
+    sets, series: d.series, teams: d.teams, standings, schedule,
+    teamNames: d.teamNames, players: d.players, playerNames: d.playerNames,
+    usHeroSignal: d.usHeroSignal, mapInfo: d.mapInfo,
+    fetchedAt: new Date().toISOString(), us: US,
+  };
+}
