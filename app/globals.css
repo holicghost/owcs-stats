@@ -401,6 +401,21 @@ table.heatmap .hm-corner{min-width:60px}
 .estrow select{width:100%;min-width:0}
 @media(max-width:480px){.estrow{grid-template-columns:48px 1fr 1fr}}
 
+/* 시뮬 추천 / 상대 민감도 */
+.recgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+@media(max-width:760px){.recgrid{grid-template-columns:1fr 1fr}}
+.recslot{background:var(--panel-2);border:1px solid var(--line-soft);border-radius:10px;padding:10px}
+.recslot-h{font-family:var(--mono);font-size:11px;color:var(--tx-dim);margin-bottom:8px}
+.recitem{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12.5px;padding:5px 4px;border-bottom:1px solid var(--line-soft)}
+.recitem:last-child{border-bottom:none}
+.recitem.clickable{cursor:pointer;border-radius:6px}
+.recitem.clickable:hover{background:var(--panel-3)}
+.recdelta{font-family:var(--mono);font-weight:700}
+.recdelta.up{color:var(--accent)} .recdelta.down{color:var(--warn)}
+.sensitem{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--panel-2);border:1px solid var(--line-soft);border-radius:9px;padding:8px 11px;margin-bottom:6px;cursor:pointer}
+.sensitem:hover{border-color:var(--accent-dim)}
+.senshe{display:inline-flex;gap:3px;flex-wrap:wrap}
+
 /* 요약 분석 — 포지션별 선수 강점/약점, 모드별 맵 요약 */
 .possum{margin-bottom:14px}
 .possum:last-child{margin-bottom:0}
