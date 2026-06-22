@@ -555,11 +555,12 @@ function renderScoutDeep(D: DataBundle, team: string, deep: DeepUI): string {
   if (deep.smp) heroArr = heroArr.filter((h) => h.n >= deep.smp);
   heroArr.sort((a, b) => deep.sort === "wr" ? (b.wr - a.wr || b.n - a.n) : (b.n - a.n || b.wr - a.wr));
   const seg = (act: string, cur: string, opts: Array<[string, string]>) => `<div class="seg">${opts.map(([v, lb]) => `<button class="${cur === v ? "on" : ""}" data-act="${act}" data-val="${v}">${lb}</button>`).join("")}</div>`;
+  const hasSwapData = teamSets.some((s) => Object.keys(swapsByPlayer(s.memo)).length > 0);
   const block2Toggles = `<div class="metabar">
     <span class="flabel">기준</span>${seg("deep-agg", deep.agg, [["main", "메인 픽"], ["swap", "교체 포함"]])}
     <span class="flabel">정렬</span>${seg("deep-sort", deep.sort, [["pick", "픽 많은 순"], ["wr", "승률 높은 순"]])}
     <span class="flabel">표본</span>${seg("deep-smp", String(deep.smp), [["0", "전체"], ["2", "2맵+"], ["3", "3맵+"]])}
-  </div>`;
+  </div>${deep.agg === "swap" && !hasSwapData ? `<div class="sub-note">⚠ 시트 메모(교체)가 비어 있어 "교체 포함"이 메인 픽과 같아요. 메모를 <b>선수: 영웅1, 영웅2</b> 형식으로 채우면 교체가 합산돼요.</div>` : ""}`;
   const block2 = heroArr.length
     ? `<table class="herodeep"><thead><tr><th>영웅</th><th>역할</th><th class="num">픽</th><th class="num">픽률</th><th>승률</th><th class="num">전적</th></tr></thead><tbody>${heroArr.map((h) => {
         const low = h.n < 3;
@@ -646,7 +647,7 @@ export function renderScout(D: DataBundle, curScout: string, scoutTab: string, d
     stat("맵 득실", `${mdiff > 0 ? "+" : ""}${mdiff}`);
 
   const tab = ["summary", "games", "deep"].includes(scoutTab) ? scoutTab : "summary";
-  const subtabs = `<div class="subtabs">${[["summary", "요약 분석"], ["games", "경기별 분석"], ["deep", "심층 통계"]].map(([id, lb]) => `<button class="subtab ${tab === id ? "on" : ""}" data-act="scout-tab" data-val="${id}">${lb}</button>`).join("")}</div>`;
+  const subtabs = `<div class="subtabs">${[["summary", "요약 분석"], ["games", "경기별 분석"], ["deep", "심층 분석"]].map(([id, lb]) => `<button class="subtab ${tab === id ? "on" : ""}" data-act="scout-tab" data-val="${id}">${lb}</button>`).join("")}</div>`;
 
   const ms2 = D.series.filter((s) => s.top === curScout || s.bottom === curScout).slice().reverse();
   const fbN = sum(T.firstBan);
