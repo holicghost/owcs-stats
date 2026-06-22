@@ -473,6 +473,9 @@ table.heatmap .hm-corner{text-align:left;white-space:nowrap;color:var(--tx-dim);
 table.herodeep .tr{height:16px;background:var(--panel-2);border-radius:5px;overflow:hidden;min-width:60px}
 table.herodeep .tr .fl{height:100%;border-radius:5px}
 table.herodeep tr.lowsmp-row{opacity:.6}
+table.banpos td.banposcell{vertical-align:middle}
+table.banpos .banposcell .tr{display:inline-block;width:120px;height:14px;background:var(--panel-2);border-radius:5px;overflow:hidden;vertical-align:middle;margin-right:8px}
+table.banpos .banposcell .num{font-weight:600}
 .rtag.Tank{background:rgba(77,141,255,.16);color:var(--blue)}
 .rtag.DPS{background:rgba(255,93,115,.16);color:var(--warn)}
 .rtag.Support{background:rgba(255,207,92,.16);color:var(--gold)}

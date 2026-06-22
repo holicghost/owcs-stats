@@ -520,25 +520,13 @@ function wrLine(label: string, w: number, l: number, max: number, suffix = ""): 
 }
 const roleBadge = (r: string) => `<span class="rtag ${r}">${({ Tank: "탱", DPS: "딜", Support: "힐" } as Record<string, string>)[r] || "?"}</span>`;
 
-function renderScoutDeep(D: DataBundle, team: string, deep: DeepUI): string {
+// ── 영웅 분석 탭: 영웅별 픽률·승률 + 밴 순서별 승률 + 밴 포지션별 수치 ──
+function renderScoutHeroes(D: DataBundle, team: string, deep: DeepUI): string {
   const teamSets = D.sets.filter((s) => s.top === team || s.bottom === team);
   const sideOf = (s: SetRec) => (s.top === team ? s.picks.top : s.picks.bottom);
   const oppOf = (s: SetRec) => (s.top === team ? s.bottom : s.top);
 
-  // ── 블록 1: 쟁탈 맵 승률 (거점 세부는 시트에 없어 맵 단위) ──
-  const ctrl: Record<string, { w: number; l: number; u: number }> = {};
-  teamSets.filter((s) => s.mode === "Control").forEach((s) => {
-    const m = (ctrl[s.map] = ctrl[s.map] || { w: 0, l: 0, u: 0 });
-    const w = setWinner(s);
-    if (!w) m.u++; else if (w === team) m.w++; else m.l++;
-  });
-  const ctrlRows = Object.entries(ctrl).sort((a, b) => (b[1].w + b[1].l) - (a[1].w + a[1].l));
-  const ctrlMax = Math.max(1, ...ctrlRows.map(([, r]) => r.w + r.l));
-  const block1 = ctrlRows.length
-    ? ctrlRows.map(([map, r]) => wrLine(mk(map), r.w, r.l, ctrlMax, r.u ? ` <span class="mini">· ${r.u}미기록</span>` : "")).join("")
-    : nod("쟁탈 경기 기록이 없어요.");
-
-  // ── 블록 2: 영웅별 픽률·승률 ──
+  // ── 영웅별 픽률·승률 ──
   const heroAgg: Record<string, { n: number; w: number; role: string }> = {};
   teamSets.forEach((s) => {
     const won = setWinner(s) === team;
@@ -555,14 +543,13 @@ function renderScoutDeep(D: DataBundle, team: string, deep: DeepUI): string {
   heroArr.sort((a, b) => deep.sort === "wr" ? (b.wr - a.wr || b.n - a.n) : (b.n - a.n || b.wr - a.wr));
   const seg = (act: string, cur: string, opts: Array<[string, string]>) => `<div class="seg">${opts.map(([v, lb]) => `<button class="${cur === v ? "on" : ""}" data-act="${act}" data-val="${v}">${lb}</button>`).join("")}</div>`;
   const hasSwapData = teamSets.some((s) => Object.keys(swapsByPlayer(s.memo)).length > 0);
-  const block2Toggles = `<div class="metabar">
+  const pickToggles = `<div class="metabar">
     <span class="flabel">기준</span>${seg("deep-agg", deep.agg, [["main", "메인 픽"], ["swap", "교체 포함"]])}
     <span class="flabel">정렬</span>${seg("deep-sort", deep.sort, [["pick", "픽 많은 순"], ["wr", "승률 높은 순"]])}
   </div>${deep.agg === "swap" && !hasSwapData ? `<div class="sub-note">⚠ 시트 메모(교체)가 비어 있어 "교체 포함"이 메인 픽과 같아요. 메모를 <b>선수: 영웅1, 영웅2</b> 형식으로 채우면 교체가 합산돼요.</div>` : ""}`;
-  // 포지션별로 묶어서 메인 구성
   const heroByRole: Record<string, typeof heroArr> = { DPS: [], Tank: [], Support: [] };
   heroArr.forEach((h) => (heroByRole[h.role] || heroByRole.DPS).push(h));
-  const block2 = (["DPS", "Tank", "Support"] as const).map((role) => {
+  const pickBlock = (["DPS", "Tank", "Support"] as const).map((role) => {
     const arr = heroByRole[role];
     if (!arr.length) return "";
     return `<div class="possum"><div class="possum-role">${ROLE_KO[role]}</div>
@@ -572,17 +559,7 @@ function renderScoutDeep(D: DataBundle, team: string, deep: DeepUI): string {
       }).join("")}</tbody></table></div>`;
   }).join("") || nod("영웅 기록이 없어요.");
 
-  // ── 블록 3: 맵 선택권 영향 ──
-  const pk = { team: { w: 0, l: 0 }, opp: { w: 0, l: 0 }, none: { w: 0, l: 0 } };
-  teamSets.forEach((s) => {
-    const w = setWinner(s); if (!w) return; const won = w === team;
-    const b = (!s.picker || s.picker === "ADMIN") ? pk.none : s.picker === team ? pk.team : pk.opp;
-    b[won ? "w" : "l"]++;
-  });
-  const pkMax = Math.max(1, pk.team.w + pk.team.l, pk.opp.w + pk.opp.l, pk.none.w + pk.none.l);
-  const block3 = wrLine("우리가 맵 선택", pk.team.w, pk.team.l, pkMax) + wrLine("상대가 맵 선택", pk.opp.w, pk.opp.l, pkMax) + wrLine("선택권 없음(쟁탈 등)", pk.none.w, pk.none.l, pkMax);
-
-  // ── 블록 4: 밴 순서별 승률 ──
+  // ── 밴 순서별 승률 ──
   const bo = { first: { w: 0, l: 0 }, second: { w: 0, l: 0 } };
   teamSets.forEach((s) => {
     const w = setWinner(s); if (!w) return; const won = w === team;
@@ -592,10 +569,27 @@ function renderScoutDeep(D: DataBundle, team: string, deep: DeepUI): string {
     if (sb && sb.team === team) bo.second[won ? "w" : "l"]++;
   });
   const boMax = Math.max(1, bo.first.w + bo.first.l, bo.second.w + bo.second.l);
-  const block4 = wrLine("선밴권일 때", bo.first.w, bo.first.l, boMax) + wrLine("후밴권일 때", bo.second.w, bo.second.l, boMax);
+  const banOrder = wrLine("선밴권일 때", bo.first.w, bo.first.l, boMax) + wrLine("후밴권일 때", bo.second.w, bo.second.l, boMax);
 
-  // ── 블록 5: 밴 경향 (5묶음, 칩 클릭 펼침) ──
-  const groups: Record<string, Record<string, number>> = { tf: {}, ts: {}, of: {}, os: {}, lg: {} };
+  // ── 밴 포지션별 수치 (밴한 영웅의 역할 기준) ──
+  const banPos: Record<string, { us: number; opp: number }> = { Tank: { us: 0, opp: 0 }, DPS: { us: 0, opp: 0 }, Support: { us: 0, opp: 0 } };
+  let banPosUnknown = 0;
+  teamSets.forEach((s) => s.bans.forEach((b) => {
+    if (!b.hero) return;
+    const role = HERO_ROLE[b.hero];
+    if (!role) { banPosUnknown++; return; }
+    if (b.team === team) banPos[role].us++;
+    else if (b.team === oppOf(s)) banPos[role].opp++;
+  }));
+  const posMax = Math.max(1, ...(["Tank", "DPS", "Support"] as const).map((r) => Math.max(banPos[r].us, banPos[r].opp)));
+  const banPosBlock = `<table class="herodeep banpos"><thead><tr><th>포지션</th><th>${esc(team)}이(가) 밴</th><th>상대가 ${esc(team)}에게 밴</th></tr></thead><tbody>${(["Tank", "DPS", "Support"] as const).map((role) => {
+    const c = banPos[role];
+    const bar = (n: number) => `<div class="tr"><div class="fl wr-fl" style="width:${Math.round((n / posMax) * 100)}%"></div></div><span class="num">${n}</span>`;
+    return `<tr><td class="hname">${ROLE_KO[role]}</td><td class="banposcell">${bar(c.us)}</td><td class="banposcell">${bar(c.opp)}</td></tr>`;
+  }).join("")}</tbody></table>${banPosUnknown ? `<div class="sub-note">역할 미상 영웅 ${banPosUnknown}건 제외</div>` : ""}`;
+
+  // ── 밴 경향 (영웅별, 칩 클릭 펼침) ──
+  const groups: Record<string, Record<string, number>> = { tf: {}, ts: {}, of: {}, os: {} };
   const banGames: Record<string, Array<{ date: string; map: string; opp: string; key: string }>> = {};
   const rec = (g: string, hero: string, s: SetRec) => {
     groups[g][hero] = (groups[g][hero] || 0) + 1;
@@ -607,7 +601,6 @@ function renderScoutDeep(D: DataBundle, team: string, deep: DeepUI): string {
     if (b.team === team) rec(b.phase === "first" ? "tf" : "ts", b.hero, s);
     else if (b.team === oppOf(s)) rec(b.phase === "first" ? "of" : "os", b.hero, s);
   }));
-  D.sets.forEach((s) => s.bans.forEach((b) => { if (b.hero) groups.lg[b.hero] = (groups.lg[b.hero] || 0) + 1; }));
   const banGroup = (g: string, title: string) => {
     const arr = Object.entries(groups[g]).sort((a, b) => b[1] - a[1]).slice(0, 12);
     if (!arr.length) return `<div class="bangrp"><div class="bangrp-h">${title}</div>${nod("기록 없음")}</div>`;
@@ -619,19 +612,80 @@ function renderScoutDeep(D: DataBundle, team: string, deep: DeepUI): string {
     }).join("");
     return `<div class="bangrp"><div class="bangrp-h">${title}</div><div class="banchips">${chips}</div></div>`;
   };
-  const block5 = banGroup("tf", `${esc(team)} 선밴`) + banGroup("ts", `${esc(team)} 후밴`) + banGroup("of", `상대가 ${esc(team)}에게 선밴`) + banGroup("os", `상대가 ${esc(team)}에게 후밴`) + banGroup("lg", "전체 최다 피밴");
+  const banTrend = banGroup("tf", `${esc(team)} 선밴`) + banGroup("ts", `${esc(team)} 후밴`) + banGroup("of", `상대가 ${esc(team)}에게 선밴`) + banGroup("os", `상대가 ${esc(team)}에게 후밴`);
+
+  return `
+    <div class="panel"><h2>① 영웅별 픽률·승률 <span class="count">${esc(team)} 사용 영웅 · 포지션별</span></h2>
+      ${pickToggles}${pickBlock}</div>
+    <div class="grid2">
+      <div class="panel"><h2>② 밴 순서별 승률 <span class="count">선밴권 / 후밴권</span></h2><div class="wrlines">${banOrder}</div></div>
+      <div class="panel"><h2>③ 밴 포지션별 수치 <span class="count">밴한 영웅의 역할 기준</span></h2>${banPosBlock}</div>
+    </div>
+    <div class="panel"><h2>④ 밴 경향 <span class="count">칩을 누르면 어느 경기인지 펼침</span></h2><div class="bangrps">${banTrend}</div></div>`;
+}
+
+// ── 맵 분석 탭: 쟁탈 맵 승률 + 맵 선택권 영향 + 맵에서 밴 많이 하는 순위 ──
+function renderScoutMaps(D: DataBundle, team: string, deep: DeepUI): string {
+  const teamSets = D.sets.filter((s) => s.top === team || s.bottom === team);
+  const oppOf = (s: SetRec) => (s.top === team ? s.bottom : s.top);
+
+  // ── 쟁탈 맵 승률 ──
+  const ctrl: Record<string, { w: number; l: number; u: number }> = {};
+  teamSets.filter((s) => s.mode === "Control").forEach((s) => {
+    const m = (ctrl[s.map] = ctrl[s.map] || { w: 0, l: 0, u: 0 });
+    const w = setWinner(s);
+    if (!w) m.u++; else if (w === team) m.w++; else m.l++;
+  });
+  const ctrlRows = Object.entries(ctrl).sort((a, b) => (b[1].w + b[1].l) - (a[1].w + a[1].l));
+  const ctrlMax = Math.max(1, ...ctrlRows.map(([, r]) => r.w + r.l));
+  const ctrlBlock = ctrlRows.length
+    ? ctrlRows.map(([map, r]) => wrLine(mk(map), r.w, r.l, ctrlMax, r.u ? ` <span class="mini">· ${r.u}미기록</span>` : "")).join("")
+    : nod("쟁탈 경기 기록이 없어요.");
+
+  // ── 맵 선택권 영향 ──
+  const pk = { team: { w: 0, l: 0 }, opp: { w: 0, l: 0 }, none: { w: 0, l: 0 } };
+  teamSets.forEach((s) => {
+    const w = setWinner(s); if (!w) return; const won = w === team;
+    const b = (!s.picker || s.picker === "ADMIN") ? pk.none : s.picker === team ? pk.team : pk.opp;
+    b[won ? "w" : "l"]++;
+  });
+  const pkMax = Math.max(1, pk.team.w + pk.team.l, pk.opp.w + pk.opp.l, pk.none.w + pk.none.l);
+  const pickBlock = wrLine("우리가 맵 선택", pk.team.w, pk.team.l, pkMax) + wrLine("상대가 맵 선택", pk.opp.w, pk.opp.l, pkMax) + wrLine("선택권 없음(쟁탈 등)", pk.none.w, pk.none.l, pkMax);
+
+  // ── 맵에서 밴 많이 하는 순위 (맵별 최다 피밴 영웅, 칩 클릭 펼침) ──
+  const banByMap: Record<string, Record<string, number>> = {};
+  const mapMode: Record<string, string> = {};
+  const banGames: Record<string, Array<{ date: string; opp: string; key: string }>> = {};
+  teamSets.forEach((s) => {
+    if (!s.map) return;
+    mapMode[s.map] = s.mode;
+    s.bans.forEach((b) => {
+      if (!b.hero) return;
+      (banByMap[s.map] = banByMap[s.map] || {})[b.hero] = (banByMap[s.map][b.hero] || 0) + 1;
+      const k = `${s.map}|${b.hero}`;
+      (banGames[k] = banGames[k] || []).push({ date: s.date, opp: oppOf(s), key: setKey(s) });
+    });
+  });
+  const mapKeys = Object.keys(banByMap).sort((a, b) => sum(banByMap[b]) - sum(banByMap[a]));
+  const mapBanBlock = mapKeys.length
+    ? mapKeys.map((map) => {
+        const arr = Object.entries(banByMap[map]).sort((a, b) => b[1] - a[1]).slice(0, 10);
+        const chips = arr.map(([h, n]) => {
+          const k = `${map}|${h}`;
+          const open = deep.banExpand === k;
+          const games = open && banGames[k] ? `<div class="banexp">${banGames[k].slice().reverse().map((x) => `<div class="banexp-row clickable" data-act="load-sim" data-val="${esc(x.key)}"><span class="mini">${fmtDate(x.date)}</span> <span class="mini">vs ${esc(x.opp)}</span></div>`).join("")}</div>` : "";
+          return `<button class="banchip ${open ? "on" : ""}" data-act="deep-ban-expand" data-val="${esc(k)}">${heroChip(h)} <span class="mini">${n}</span></button>${games}`;
+        }).join("");
+        return `<div class="bangrp"><div class="bangrp-h">${mk(map)} <span class="mini">${MODE_KO[mapMode[map]] || mapMode[map] || ""}</span></div><div class="banchips">${chips}</div></div>`;
+      }).join("")
+    : nod("밴 기록이 없어요.");
 
   return `
     <div class="panel"><h2>① 쟁탈 맵 승률 <span class="count">맵 단위 · 거점 세부는 시트에 없음</span></h2>
       <div class="sub-note">막대=표본(맵 수), 오른쪽에 승률·전적·미기록. 시트에 거점(등대/우물 등) 데이터가 없어 맵 단위로 집계해요.</div>
-      <div class="wrlines">${block1}</div></div>
-    <div class="panel"><h2>② 영웅별 픽률·승률 <span class="count">${esc(team)} 사용 영웅</span></h2>
-      ${block2Toggles}${block2}</div>
-    <div class="grid2">
-      <div class="panel"><h2>③ 맵 선택권 영향 <span class="count">누가 맵을 골랐나</span></h2><div class="wrlines">${block3}</div></div>
-      <div class="panel"><h2>④ 밴 순서별 승률 <span class="count">선밴권 / 후밴권</span></h2><div class="wrlines">${block4}</div></div>
-    </div>
-    <div class="panel"><h2>⑤ 밴 경향 <span class="count">칩을 누르면 어느 경기인지 펼침</span></h2><div class="bangrps">${block5}</div></div>`;
+      <div class="wrlines">${ctrlBlock}</div></div>
+    <div class="panel"><h2>② 맵 선택권 영향 <span class="count">누가 맵을 골랐나</span></h2><div class="wrlines">${pickBlock}</div></div>
+    <div class="panel"><h2>③ 맵에서 밴 많이 하는 순위 <span class="count">맵별 최다 피밴 · 칩을 누르면 경기 펼침</span></h2><div class="bangrps">${mapBanBlock}</div></div>`;
 }
 
 export function renderScout(D: DataBundle, curScout: string, scoutTab: string, deep: DeepUI): string {
@@ -652,8 +706,8 @@ export function renderScout(D: DataBundle, curScout: string, scoutTab: string, d
     stat("맵 전적", `<span class="ww">${T.mapW}</span><small> - ${T.mapL}</small>`) +
     stat("맵 득실", `${mdiff > 0 ? "+" : ""}${mdiff}`);
 
-  const tab = ["summary", "games", "deep"].includes(scoutTab) ? scoutTab : "summary";
-  const subtabs = `<div class="subtabs">${[["summary", "요약 분석"], ["games", "경기별 분석"], ["deep", "심층 분석"]].map(([id, lb]) => `<button class="subtab ${tab === id ? "on" : ""}" data-act="scout-tab" data-val="${id}">${lb}</button>`).join("")}</div>`;
+  const tab = ["summary", "games", "heroes", "maps"].includes(scoutTab) ? scoutTab : "summary";
+  const subtabs = `<div class="subtabs">${[["summary", "요약 분석"], ["games", "경기별 분석"], ["heroes", "영웅 분석"], ["maps", "맵 분석"]].map(([id, lb]) => `<button class="subtab ${tab === id ? "on" : ""}" data-act="scout-tab" data-val="${id}">${lb}</button>`).join("")}</div>`;
 
   const ms2 = D.series.filter((s) => s.top === curScout || s.bottom === curScout).slice().reverse();
   const fbN = sum(T.firstBan);
@@ -664,8 +718,10 @@ export function renderScout(D: DataBundle, curScout: string, scoutTab: string, d
     body = teamSets.length
       ? teamSets.map((s) => scoutGameCard(D, s, curScout)).join("")
       : nod("이 팀의 경기 기록이 없어요.");
-  } else if (tab === "deep") {
-    body = renderScoutDeep(D, curScout, deep);
+  } else if (tab === "heroes") {
+    body = renderScoutHeroes(D, curScout, deep);
+  } else if (tab === "maps") {
+    body = renderScoutMaps(D, curScout, deep);
   } else {
     const teamPlayers = D.playerNames.map((n) => D.players[n]).filter((p) => p.team === curScout);
     const byRole: Record<string, Player[]> = { Tank: [], DPS: [], Support: [] };
