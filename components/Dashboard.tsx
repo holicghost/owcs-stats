@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState, type ChangeEvent, type MouseEvent } from "react";
+import { useEffect, useMemo, useState, Fragment, type ChangeEvent, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { DataBundle } from "@/lib/types";
 import {
@@ -10,18 +10,26 @@ import {
 
 type Role = "Tank" | "DPS" | "Support";
 
-// OWCS 데이터 탭 메뉴 (순서·이름)
-const OWCS_TABS = [
-  { id: "home", label: "다음 경기" },
-  { id: "scout", label: "팀별 분석" },
-  { id: "players", label: "선수" },
-  { id: "log", label: "경기 기록" },
-  { id: "scenario", label: "순위 시나리오" },
-  { id: "ban", label: "영웅 밴 분석" },
-  { id: "maps", label: "맵 분석" },
-  { id: "estimator", label: "시뮬레이션" },
+// OWCS 데이터 탭 메뉴 — 분석 / 데이터 두 묶음
+const OWCS_GROUPS = [
+  {
+    label: "분석", tabs: [
+      { id: "home", label: "다음 경기" },
+      { id: "scout", label: "팀별 분석" },
+      { id: "players", label: "선수별 분석" },
+      { id: "ban", label: "영웅 분석" },
+      { id: "maps", label: "맵 분석" },
+    ],
+  },
+  {
+    label: "데이터", tabs: [
+      { id: "log", label: "경기 기록" },
+      { id: "scenario", label: "순위 시나리오" },
+      { id: "estimator", label: "시뮬레이션" },
+    ],
+  },
 ] as const;
-type TabId = (typeof OWCS_TABS)[number]["id"];
+type TabId = (typeof OWCS_GROUPS)[number]["tabs"][number]["id"];
 
 const ROLE_FILTERS: Array<{ id: "all" | Role; label: string }> = [
   { id: "all", label: "전체" }, { id: "Tank", label: "탱커" }, { id: "DPS", label: "딜러" }, { id: "Support", label: "서포터" },
@@ -189,8 +197,14 @@ export default function Dashboard({ data }: { data: DataBundle }) {
 
       {mod === "owcs" && (
         <nav className="tabs">
-          {OWCS_TABS.map((t) => (
-            <button key={t.id} className={`tab ${t.id === tab ? "on" : ""}`} onClick={() => go(t.id)}>{t.label}</button>
+          {OWCS_GROUPS.map((g, gi) => (
+            <Fragment key={g.label}>
+              {gi > 0 && <span className="tabdiv" aria-hidden />}
+              <span className="tabgroup-label">{g.label}</span>
+              {g.tabs.map((t) => (
+                <button key={t.id} className={`tab ${t.id === tab ? "on" : ""}`} onClick={() => go(t.id)}>{t.label}</button>
+              ))}
+            </Fragment>
           ))}
         </nav>
       )}
