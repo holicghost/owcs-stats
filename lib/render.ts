@@ -1401,7 +1401,6 @@ function simulate(D: DataBundle, rem: typeof D.schedule, zN: number): string {
   return rows.join("") || nod("계산 불가");
 }
 export function renderScenario(D: DataBundle): string {
-  const st = standOf(D, D.us);
   const rem = D.schedule.filter((g) => g.status === "upcoming" && !g.tbd && g.phase === "regular");
   const zGames = rem.filter((g) => g.a === D.us || g.b === D.us);
 
@@ -1423,7 +1422,6 @@ export function renderScenario(D: DataBundle): string {
   ).join("");
 
   return `
-    <div class="statrow">${cards}</div>
     <div class="panel">
       <h2>잔여 정규시즌 일정 (ZANSIDE)</h2>
       <div class="sched">${remain}</div>
