@@ -7,8 +7,14 @@ import {
   renderScenario, renderPlayers, renderEstimator,
   type LogFilter, type EstInput,
 } from "@/lib/render";
+import { buildMeta, type Role } from "@/lib/herometa";
+import {
+  renderMetaOverview, renderMetaBan, renderMetaMap, renderMetaTeam,
+  renderMetaPlayer, renderMetaWinrate, renderMetaPosition, renderMetaNotes,
+  type MetaFilter,
+} from "@/lib/renderMeta";
 
-const TABS = [
+const SCOUT_TABS = [
   { id: "home", label: "홈" },
   { id: "scout", label: "상대 분석" },
   { id: "banpick", label: "밴픽" },
@@ -18,7 +24,26 @@ const TABS = [
   { id: "players", label: "선수" },
   { id: "estimator", label: "승률 추정" },
 ] as const;
-type TabId = (typeof TABS)[number]["id"];
+type ScoutTab = (typeof SCOUT_TABS)[number]["id"];
+
+const META_TABS = [
+  { id: "overview", label: "개요" },
+  { id: "ban", label: "밴 메타" },
+  { id: "map", label: "맵 메타" },
+  { id: "team", label: "팀 분석" },
+  { id: "player", label: "선수 분석" },
+  { id: "winrate", label: "승률 분석" },
+  { id: "position", label: "포지션 픽률" },
+  { id: "notes", label: "데이터 노트" },
+] as const;
+type MetaTab = (typeof META_TABS)[number]["id"];
+
+const ROLE_FILTERS: Array<{ id: "all" | Role; label: string }> = [
+  { id: "all", label: "전체" },
+  { id: "Tank", label: "탱커" },
+  { id: "DPS", label: "딜러" },
+  { id: "Support", label: "서포터" },
+];
 
 const EMPTY_EST: EstInput = { map: "", dps1: "", dps2: "", tank: "", sup1: "", sup2: "", opp: "" };
 
@@ -35,7 +60,14 @@ export default function Dashboard({ data }: { data: DataBundle }) {
     return opps.includes(o) ? o : null;
   }, [D, opps]);
 
-  const [tab, setTab] = useState<TabId>("home");
+  const meta = useMemo(() => buildMeta(D), [D]);
+
+  // 모듈 / 탭
+  const [mod, setMod] = useState<"scouting" | "meta">("scouting");
+  const [tab, setTab] = useState<ScoutTab>("home");
+  const [metaTab, setMetaTab] = useState<MetaTab>("overview");
+
+  // 스카우팅 상태
   const [scoutTeam, setScoutTeam] = useState(nextOpp || opps[0] || "");
   const [bpTeam, setBpTeam] = useState(D.teams[D.us] ? D.us : D.teamNames[0] || "");
   const [mapsMode, setMapsMode] = useState("all");
@@ -44,6 +76,13 @@ export default function Dashboard({ data }: { data: DataBundle }) {
   const [playerA, setPlayerA] = useState(D.playerNames[0] || "");
   const [playerB, setPlayerB] = useState("");
   const [est, setEst] = useState<EstInput>(EMPTY_EST);
+
+  // 메타 필터
+  const [metaRole, setMetaRole] = useState<"all" | Role>("all");
+  const [metaTopN, setMetaTopN] = useState(20);
+  const [metaMap, setMetaMap] = useState("");
+  const [metaTeam, setMetaTeam] = useState(D.teams[D.us] ? D.us : D.teamNames[0] || "");
+
   const [updated, setUpdated] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
@@ -55,7 +94,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
     );
   }, [D.fetchedAt]);
 
-  const html = useMemo(() => {
+  const scoutHtml = useMemo(() => {
     switch (tab) {
       case "home": return renderHome(D);
       case "scout": return renderScout(D, scoutTeam);
@@ -69,11 +108,24 @@ export default function Dashboard({ data }: { data: DataBundle }) {
     }
   }, [D, tab, scoutTeam, bpTeam, mapsMode, mapsTeam, logF, playerA, playerB, est]);
 
+  const metaHtml = useMemo(() => {
+    const f: MetaFilter = { role: metaRole, topN: metaTopN, mapSel: metaMap, teamSel: metaTeam };
+    switch (metaTab) {
+      case "overview": return renderMetaOverview(D, meta, f);
+      case "ban": return renderMetaBan(D, meta, f);
+      case "map": return renderMetaMap(D, meta, f);
+      case "team": return renderMetaTeam(D, meta, f);
+      case "player": return renderMetaPlayer(D, meta, f);
+      case "winrate": return renderMetaWinrate(D, meta, f);
+      case "position": return renderMetaPosition(D, meta, f);
+      case "notes": return renderMetaNotes();
+      default: return "";
+    }
+  }, [D, meta, metaTab, metaRole, metaTopN, metaMap, metaTeam]);
+
   const toTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
-  function go(id: TabId) {
-    setTab(id);
-    toTop();
-  }
+  function goScoutTab(id: ScoutTab) { setMod("scouting"); setTab(id); toTop(); }
+  function goMetaTab(id: MetaTab) { setMod("meta"); setMetaTab(id); toTop(); }
 
   function onClick(ev: MouseEvent<HTMLElement>) {
     const el = (ev.target as HTMLElement).closest<HTMLElement>("[data-act]");
@@ -82,19 +134,17 @@ export default function Dashboard({ data }: { data: DataBundle }) {
     const val = el.dataset.val ?? "";
     switch (act) {
       case "scout": setScoutTeam(val); break;
-      case "goscout": setScoutTeam(val); go("scout"); break;
+      case "goscout": setScoutTeam(val); goScoutTab("scout"); break;
       case "logz": setLogF((f) => ({ ...f, z: val as LogFilter["z"] })); break;
       case "player": setPlayerA(val); setPlayerB(""); break;
       case "compare": setPlayerB(val); break;
       case "compareclear": setPlayerB(""); break;
+      case "meta-role": setMetaRole(val as "all" | Role); break;
       case "copy":
         navigator.clipboard?.writeText(val).then(() => {
           el.textContent = "복사됨";
           el.classList.add("done");
-          setTimeout(() => {
-            el.textContent = "복사";
-            el.classList.remove("done");
-          }, 1200);
+          setTimeout(() => { el.textContent = "복사"; el.classList.remove("done"); }, 1200);
         });
         break;
     }
@@ -120,6 +170,9 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "est-tank": setEst((s) => ({ ...s, tank: v })); break;
       case "est-sup1": setEst((s) => ({ ...s, sup1: v })); break;
       case "est-sup2": setEst((s) => ({ ...s, sup2: v })); break;
+      case "meta-topn": setMetaTopN(+v); break;
+      case "meta-map": setMetaMap(v); break;
+      case "meta-team": setMetaTeam(v); break;
     }
   }
 
@@ -129,7 +182,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
     if (!el) return;
     ev.preventDefault();
     setScoutTeam(el.dataset.val ?? "");
-    go("scout");
+    goScoutTab("scout");
   }
 
   const st = D.standings.find((x) => x.team === D.us);
@@ -170,16 +223,50 @@ export default function Dashboard({ data }: { data: DataBundle }) {
         </div>
       </header>
 
+      {/* 상위 모듈 전환 */}
+      <div className="modnav">
+        <button className={`modbtn ${mod === "scouting" ? "on" : ""}`} onClick={() => setMod("scouting")}>
+          ZANSIDE 스카우팅
+        </button>
+        <button className={`modbtn ${mod === "meta" ? "on" : ""}`} onClick={() => setMod("meta")}>
+          영웅 메타
+        </button>
+      </div>
+
       <nav className="tabs">
-        {TABS.map((t) => (
-          <button key={t.id} className={`tab ${t.id === tab ? "on" : ""}`} onClick={() => go(t.id)}>
-            {t.label}
-          </button>
-        ))}
+        {mod === "scouting"
+          ? SCOUT_TABS.map((t) => (
+              <button key={t.id} className={`tab ${t.id === tab ? "on" : ""}`} onClick={() => goScoutTab(t.id)}>
+                {t.label}
+              </button>
+            ))
+          : META_TABS.map((t) => (
+              <button key={t.id} className={`tab ${t.id === metaTab ? "on" : ""}`} onClick={() => goMetaTab(t.id)}>
+                {t.label}
+              </button>
+            ))}
       </nav>
 
       <main onClick={onClick} onChange={onChange} onKeyDown={onKeyDown}>
-        <section dangerouslySetInnerHTML={{ __html: html }} />
+        {mod === "meta" && metaTab !== "notes" && (
+          <div className="metabar">
+            <span className="flabel">역할</span>
+            <div className="seg">
+              {ROLE_FILTERS.map((r) => (
+                <button key={r.id} className={metaRole === r.id ? "on" : ""} data-act="meta-role" data-val={r.id}>
+                  {r.label}
+                </button>
+              ))}
+            </div>
+            <span className="flabel">표시</span>
+            <select data-act="meta-topn" defaultValue={metaTopN} key={metaTopN}>
+              <option value={20}>Top 20</option>
+              <option value={50}>Top 50</option>
+              <option value={0}>전체</option>
+            </select>
+          </div>
+        )}
+        <section dangerouslySetInnerHTML={{ __html: mod === "scouting" ? scoutHtml : metaHtml }} />
       </main>
 
       <footer>
