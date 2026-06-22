@@ -479,6 +479,30 @@ function scoutMapByMode(D: DataBundle, team: string, T: Team): string {
     </div>`;
   }).join("");
 }
+// 경기별 분석 카드 — 4줄 압축 (승패=focus팀 기준)
+function scoutGameCard(D: DataBundle, s: SetRec, focus: string): string {
+  const won = setWinner(s) === focus;
+  const opp = s.top === focus ? s.bottom : s.top;
+  const fmtSc = (sc: SetRec["ws"]) => (sc ? (sc.kind === "dist" ? Math.round(sc.val) + "m" : String(sc.val)) : "·");
+  const fScore = won ? fmtSc(s.ws) : fmtSc(s.ls);
+  const oScore = won ? fmtSc(s.ls) : fmtSc(s.ws);
+  const picker = s.picker && s.picker !== "ADMIN" ? s.picker : "";
+  const fb = s.bans.find((b) => b.phase === "first");
+  const sb = s.bans.find((b) => b.phase === "second");
+  const order: Record<string, number> = { Tank: 0, DPS: 1, Support: 2 };
+  const lineupRow = (name: string, picks: Pick[], isFocus: boolean) => {
+    if (!picks.length) return `<div class="gl-row"><span class="gl-team ${isFocus ? "zan2" : ""}">${esc(name)}</span> <span class="mini">라인업 미기록</span></div>`;
+    const sorted = picks.slice().sort((a, b) => (order[a.role] ?? 9) - (order[b.role] ?? 9));
+    return `<div class="gl-row"><span class="gl-team ${isFocus ? "zan2" : ""}">${esc(name)}</span>${sorted.map((p) => `<span class="gl-p">${heroIcon(p.hero || "")}<span>${esc(p.player || "?")}</span><span class="mini">${ROLE_KO[p.role] || ""}</span></span>`).join("")}</div>`;
+  };
+  const copyIcon = s.replay ? `<span class="gc2-rep"><span class="repcode">${esc(s.replay)}</span><button class="copyb copyicon" data-act="copy" data-val="${esc(s.replay)}" title="리플레이 코드 복사"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button></span>` : "";
+  return `<div class="panel gamecard2">
+    <div class="gc2-l1"><span class="gc2-res ${won ? "win" : "loss"}">${won ? "승" : "패"}</span> <span class="mini">${esc(s.match)} · ${fmtDate(s.date)}</span> <span>vs <b>${esc(opp)}</b></span>${copyIcon}</div>
+    <div class="gc2-l2"><b>${mk(s.map)}</b> <span class="mini">(${esc(MODE_KO[s.mode] || s.mode)})</span>${picker ? ` · <span class="mini">맵 픽 ${esc(picker)}</span>` : ""} · <span class="mono">${fScore}-${oScore}</span></div>
+    <div class="gc2-l3">${fb ? `<span class="mini">선밴</span> ${heroChip(fb.hero)}` : ""}${fb && sb ? ' <span class="mini">·</span> ' : ""}${sb ? `<span class="mini">후밴</span> ${heroChip(sb.hero)}` : ""}${!fb && !sb ? '<span class="mini">밴 없음</span>' : ""}</div>
+    <div class="gc2-l4"><div class="mini" style="margin-bottom:5px">오프닝 픽</div>${lineupRow(s.top, s.picks.top, s.top === focus)}${lineupRow(s.bottom, s.picks.bottom, s.bottom === focus)}</div>
+  </div>`;
+}
 export function renderScout(D: DataBundle, curScout: string, scoutTab: string): string {
   const opps = D.teamNames.filter((n) => n !== D.us);
   const chips = opps.map((n) => {
@@ -507,7 +531,7 @@ export function renderScout(D: DataBundle, curScout: string, scoutTab: string): 
   if (tab === "games") {
     const teamSets = D.sets.filter((s) => s.top === curScout || s.bottom === curScout).slice().reverse();
     body = teamSets.length
-      ? teamSets.map((s) => `<div class="panel gamecard"><div class="gc-head"><span class="mini">${fmtDate(s.date)} · ${esc(s.match)} · ${esc(MODE_KO[s.mode] || s.mode)}</span> <b class="${s.top === curScout ? "zan2" : ""}">${esc(s.top)}</b> <span class="mini">vs</span> <b class="${s.bottom === curScout ? "zan2" : ""}">${esc(s.bottom)}</b></div>${setDetail(D, s)}</div>`).join("")
+      ? teamSets.map((s) => scoutGameCard(D, s, curScout)).join("")
       : nod("이 팀의 경기 기록이 없어요.");
   } else if (tab === "deep") {
     const pn = sum(T.pickMaps);

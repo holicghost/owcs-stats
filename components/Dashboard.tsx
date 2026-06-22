@@ -133,8 +133,8 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "load-sim": { const inp = setToEstInput(D, val); if (inp) { setEst(inp); go("estimator"); } break; }
       case "copy":
         navigator.clipboard?.writeText(val).then(() => {
-          el.textContent = "복사됨"; el.classList.add("done");
-          setTimeout(() => { el.textContent = "복사"; el.classList.remove("done"); }, 1200);
+          el.classList.add("done");
+          setTimeout(() => el.classList.remove("done"), 1000);
         });
         break;
     }

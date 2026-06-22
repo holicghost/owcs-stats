@@ -443,6 +443,24 @@ table.heatmap .hm-corner{min-width:60px}
 .gc-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;font-weight:700}
 .gc-head .zan2{color:var(--accent)}
 
+/* 경기별 분석 4줄 압축 카드 */
+.gamecard2{padding:14px 16px}
+.gamecard2>div{margin-bottom:11px}
+.gamecard2>div:last-child{margin-bottom:0}
+.gc2-l1{display:flex;align-items:center;gap:9px;flex-wrap:wrap;font-size:14px}
+.gc2-l1 b{color:var(--tx)}
+.gc2-res{font-weight:800;font-family:var(--mono)}
+.gc2-res.win{color:var(--accent)} .gc2-res.loss{color:var(--tx-dim)}
+.gc2-rep{margin-left:auto;display:inline-flex;align-items:center;gap:6px}
+.gc2-l2{font-size:14px} .gc2-l2 b{font-weight:700}
+.gc2-l3{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13.5px}
+.gc2-l4 .gl-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:4px 0}
+.gl-team{font-family:var(--mono);font-size:11.5px;font-weight:700;color:var(--tx-mid);min-width:96px}
+.gl-team.zan2{color:var(--accent)}
+.gl-p{display:inline-flex;align-items:center;gap:4px;font-size:12.5px}
+.copyicon{display:inline-flex;align-items:center;justify-content:center;padding:4px 6px;line-height:0}
+.copyb.done{color:var(--accent);border-color:var(--accent)}
+
 /* 영웅 상세 마스터-디테일 */
 .hd-maps{display:flex;flex-direction:column;gap:4px}
 .hd-mapbtn{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;text-align:left;background:var(--panel);border:1px solid var(--line-soft);border-radius:8px;padding:8px 10px;cursor:pointer;font-family:inherit;font-size:13px;color:var(--tx)}
