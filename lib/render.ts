@@ -428,7 +428,7 @@ function heroPickBars(obj: Record<string, { n: number; w: number }>, n: number):
   const mx = Math.max(1, ...arr.map((x) => x[1].n));
   return arr.map(([h, r]) => {
     const wr = r.n ? Math.round((r.w / r.n) * 100) : 0;
-    const low = r.n < 3;
+    const low = r.n === 1;
     return `<div class="bar"><span class="lab">${heroChip(h)}</span><div class="tr"><div class="fl blu" style="width:${Math.round((r.n / mx) * 100)}%"></div></div><span class="vl">${r.n}${low ? "" : `·${wr}%`}</span></div>`;
   }).join("");
 }
@@ -437,7 +437,7 @@ function teamMapSummary(T: Team): string {
   if (!maps.length) return nod("맵 기록이 없어요.");
   return `<table><thead><tr><th>맵</th><th class="num">출전</th><th class="num">승-패</th><th class="num">승률</th></tr></thead><tbody>${maps.map((m) => {
     const wr = m.n ? Math.round((m.w / m.n) * 100) : 0;
-    const low = m.n < 3;
+    const low = m.n === 1;
     return `<tr><td class="hname">${mk(m.map)}</td><td class="num">${m.n}${low ? ' <span class="lowsmp">⚠</span>' : ""}</td><td class="num">${m.w}-${m.l}</td><td class="num"><span class="wr ${wrCls(wr)}">${wr}%</span></td></tr>`;
   }).join("")}</tbody></table>`;
 }
@@ -449,7 +449,7 @@ function playerHeroRow(p: Player): string {
   const strong = byWr.slice(0, 3);
   const strongSet = new Set(strong.map((h) => h.hero));
   const weak = byWr.slice().reverse().filter((h) => !strongSet.has(h.hero)).slice(0, 2);
-  const chip = (h: { hero: string; n: number; wr: number }) => `<span class="hsum">${heroChip(h.hero)}<span class="wr ${wrCls(h.wr)}">${h.wr}%</span><span class="mini">${h.n}${h.n < 3 ? "⚠" : ""}</span></span>`;
+  const chip = (h: { hero: string; n: number; wr: number }) => `<span class="hsum">${heroChip(h.hero)}<span class="wr ${wrCls(h.wr)}">${h.wr}%</span><span class="mini">${h.n}${h.n === 1 ? "⚠" : ""}</span></span>`;
   return `<div class="phrow"><span class="phn">${esc(p.name)}</span>
     <span class="phg"><span class="ph-lab good">강점</span>${strong.length ? strong.map(chip).join("") : '<span class="mini">표본 부족</span>'}</span>
     <span class="phg"><span class="ph-lab bad">약점</span>${weak.length ? weak.map(chip).join("") : '<span class="mini">—</span>'}</span></div>`;
@@ -1161,7 +1161,7 @@ function playerSelect2(D: DataBundle, opts: { pickTeam: string; selName: string;
   const players = D.playerNames.map((n) => D.players[n]).filter((p) => p.team === cur && p.name !== opts.exclude).sort((a, b) => b.n - a.n);
   const teamOpts = teams.map((t) => `<option value="${esc(t)}" ${t === cur ? "selected" : ""}>${esc(t)}${t === D.us ? " (ZANSIDE)" : ""}</option>`).join("");
   const playerOpts = `<option value="" ${!opts.selName ? "selected" : ""}>— 선수 —</option>` +
-    players.map((p) => `<option value="${esc(p.name)}" ${p.name === opts.selName ? "selected" : ""}>${esc(p.name)} · ${p.n}맵${p.n < 3 ? " ⚠" : ""}</option>`).join("");
+    players.map((p) => `<option value="${esc(p.name)}" ${p.name === opts.selName ? "selected" : ""}>${esc(p.name)} · ${p.n}맵${p.n === 1 ? " ⚠" : ""}</option>`).join("");
   return `<div class="psel">
     <label class="estfield"><span class="estlabel">팀</span><select data-act="${opts.teamAct}">${teamOpts}</select></label>
     <label class="estfield"><span class="estlabel">선수</span><select data-act="${opts.playerAct}">${playerOpts}</select></label>
@@ -1185,7 +1185,7 @@ function heroDetail(D: DataBundle, p: Player, hero: string, selMap: string): str
   const left = cells.length
     ? cells.map((c) => {
         const wr = c.n ? Math.round((c.w / c.n) * 100) : 0;
-        const low = c.n < 3;
+        const low = c.n === 1;
         const on = c.map === selMap;
         return `<button class="hd-mapbtn ${on ? "on" : ""}" data-act="heromap-sel" data-val="${esc(c.map)}"><span class="hd-mapn">${mk(c.map)}</span><span class="mini">${c.w}-${c.n - c.w}</span><span class="wr ${wrCls(wr)}">${wr}%${low ? '<span class="lowsmp"> ⚠</span>' : ""}</span></button>`;
       }).join("")
@@ -1232,7 +1232,7 @@ function heroTable(D: DataBundle, p: Player, heroExpand: string, heroMapSel: str
       <td class="hname">${heroChip(h.hero)}</td>
       <td class="num">${h.n}</td>
       <td class="num">${h.w}-${h.n - h.w}</td>
-      <td class="num"><span class="wr ${wrCls(wr)}">${wr}%</span>${h.n < 3 ? ' <span class="lowsmp">⚠</span>' : ""}</td>
+      <td class="num"><span class="wr ${wrCls(wr)}">${wr}%</span>${h.n === 1 ? ' <span class="lowsmp">⚠</span>' : ""}</td>
       <td><div class="tr mini-tr"><div class="fl" style="width:${Math.round((h.n / mx) * 100)}%"></div></div></td>
       <td class="num caret">${open ? "▾" : "▸"}</td></tr>`;
     return open ? row + `<tr class="herodetail"><td colspan="6">${heroDetail(D, p, h.hero, heroMapSel)}</td></tr>` : row;
@@ -1258,7 +1258,7 @@ function heroMapHeatmap(p: Player): string {
       const c = cm[`${h} ${m}`];
       if (!c) return `<td class="hm empty">·</td>`;
       const wr = c.n ? Math.round((c.w / c.n) * 100) : 0;
-      const cls = `hm-${wrCls(wr)}${c.n < 3 ? " hm-lowsmp" : ""}`;
+      const cls = `hm-${wrCls(wr)}${c.n === 1 ? " hm-lowsmp" : ""}`;
       return `<td class="hm ${cls}" title="${esc(heroKo(h))} @ ${esc(mapKo(m))} — ${c.w}승 ${c.n - c.w}패">${`<span class="hm-wr">${wr}%</span>`}<span class="hm-n">${c.n}</span></td>`;
     }).join("");
     return `<tr><th class="hm-rh">${heroChip(h)}</th>${tds}</tr>`;
@@ -1285,7 +1285,7 @@ export function renderPlayers(D: DataBundle, ui: PlayerUI): string {
   const results = q ? all.filter((p) => p.name.toLowerCase().includes(q)).sort((x, y) => y.n - x.n) : [];
   const searchResults = q
     ? `<div class="sub-note" style="margin-bottom:8px">'${esc(ui.search)}' 검색 결과 — 누르면 선택돼요</div>
-       <div class="plchips" style="margin-bottom:14px">${results.length ? results.slice(0, 30).map((p) => `<button class="plchip ${p.name === a.name ? "on" : ""}" data-act="player" data-val="${esc(p.name)}">${esc(p.name)} <span class="mini">${esc(p.team)} · ${p.n}맵${p.n < 3 ? " ⚠" : ""}</span></button>`).join("") : nod(`'${esc(ui.search)}'에 맞는 선수가 없어요.`)}</div>`
+       <div class="plchips" style="margin-bottom:14px">${results.length ? results.slice(0, 30).map((p) => `<button class="plchip ${p.name === a.name ? "on" : ""}" data-act="player" data-val="${esc(p.name)}">${esc(p.name)} <span class="mini">${esc(p.team)} · ${p.n}맵${p.n === 1 ? " ⚠" : ""}</span></button>`).join("") : nod(`'${esc(ui.search)}'에 맞는 선수가 없어요.`)}</div>`
     : "";
 
   return `
@@ -1316,7 +1316,7 @@ function mapTable(p: Player): string {
   const mx = Math.max(1, ...maps.map((m) => m.n));
   return `<table><thead><tr><th>맵</th><th class="num">출전</th><th class="num">승-패</th><th class="num">승률</th><th>빈도</th></tr></thead><tbody>${maps.map((m) => {
     const wr = m.n ? Math.round((m.w / m.n) * 100) : 0;
-    const low = m.n < 3;
+    const low = m.n === 1;
     return `<tr><td class="hname">${mk(m.map)}</td>
       <td class="num">${m.n}${low ? ' <span class="lowsmp" title="표본 적음">⚠</span>' : ""}</td>
       <td class="num">${m.w}-${m.n - m.w}</td>
@@ -1346,12 +1346,12 @@ function renderPlayerDiff(D: DataBundle, a: Player, b: Player): string {
     commonBlock = common.map((h) => {
       const ha = a.heroes[h], hb = b.heroes[h];
       const wa = playerWR(ha), wb = playerWR(hb);
-      const small = ha.n < 3 || hb.n < 3;
+      const small = ha.n === 1 || hb.n === 1;
       const gap = !small ? Math.abs(wa - wb) >= 20 : false;
       return `<div class="diffrow${gap ? " gap" : ""}">
-        <div class="dr-a"><span class="dr-wr ${wrCls(wa)}">${wa}%${ha.n < 3 ? "⚠" : ""}</span> <span class="mini">${ha.w}-${ha.n - ha.w}</span></div>
+        <div class="dr-a"><span class="dr-wr ${wrCls(wa)}">${wa}%${ha.n === 1 ? "⚠" : ""}</span> <span class="mini">${ha.w}-${ha.n - ha.w}</span></div>
         <div class="dr-hero">${heroChip(h)}</div>
-        <div class="dr-b"><span class="mini">${hb.w}-${hb.n - hb.w}</span> <span class="dr-wr ${wrCls(wb)}">${wb}%${hb.n < 3 ? "⚠" : ""}</span></div>
+        <div class="dr-b"><span class="mini">${hb.w}-${hb.n - hb.w}</span> <span class="dr-wr ${wrCls(wb)}">${wb}%${hb.n === 1 ? "⚠" : ""}</span></div>
       </div>`;
     }).join("");
   }
@@ -1547,8 +1547,8 @@ export function renderEstimator(D: DataBundle, e: EstInput): string {
     ? r.factors.map((f) => `<div class="frow ${f.active ? "" : "off"}"><span class="fl-label">${f.label}<span class="fw">가중치 ${Math.round(f.w * 100)}%</span></span><span class="fl-contrib">${f.active ? `${f.contrib >= 0 ? "+" : ""}${Math.round(f.w * f.contrib * 100)}p` : "—"}</span><span class="fl-note mini">${f.note}</span></div>`).join("")
     : nod("맵과 양 팀 구성을 채우면 요인이 나와요.");
 
-  // 저표본 표시: <3맵이면 ⚠ 아이콘, 딱 1맵일 때만 '표본부족' 글자
-  const smpTag = (n: number) => n >= 3 ? "" : (n === 1 ? ' <span class="lowsmp">⚠ 표본부족</span>' : ' <span class="lowsmp">⚠</span>');
+  // 저표본 표시: 딱 1맵일 때만 경고, 2맵 이상은 아무것도 안 붙임
+  const smpTag = (n: number) => n === 1 ? ' <span class="lowsmp">⚠ 표본부족</span>' : "";
 
   // 불러오기 셀렉트 (과거 ZANSIDE 경기)
   const usGames = D.sets.filter((s) => s.top === D.us || s.bottom === D.us).slice().reverse();

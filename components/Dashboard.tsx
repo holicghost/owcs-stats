@@ -36,7 +36,7 @@ const ROLE_FILTERS: Array<{ id: "all" | Role; label: string }> = [
   { id: "all", label: "전체" }, { id: "Tank", label: "탱커" }, { id: "DPS", label: "딜러" }, { id: "Support", label: "서포터" },
 ];
 
-const EMPTY_EST: EstInput = { map: "", usPlayers: ["", "", "", "", ""], usHeroes: ["", "", "", "", ""], oppTeam: "", oppPlayers: ["", "", "", "", ""], oppHeroes: ["", "", "", "", ""] };
+const EMPTY_EST: EstInput = { map: "", usPlayers: ["", "", "", "", ""], usHeroes: ["", "", "", "", ""], oppTeam: "", oppPlayers: ["", "", "", "", ""], oppHeroes: ["", "", "", "", ""], srcKey: "" };
 
 export default function Dashboard({ data }: { data: DataBundle }) {
   const D = data;
@@ -145,10 +145,10 @@ export default function Dashboard({ data }: { data: DataBundle }) {
     const act = el.dataset?.act;
     if (!act) return;
     const v = el.value;
-    if (act.startsWith("est-usplayer-")) { const i = +act.slice(13); setEst((s) => { const a = [...s.usPlayers]; a[i] = v; return { ...s, usPlayers: a }; }); return; }
-    if (act.startsWith("est-ushero-")) { const i = +act.slice(11); setEst((s) => { const a = [...s.usHeroes]; a[i] = v; return { ...s, usHeroes: a }; }); return; }
-    if (act.startsWith("est-oppplayer-")) { const i = +act.slice(14); setEst((s) => { const a = [...s.oppPlayers]; a[i] = v; return { ...s, oppPlayers: a }; }); return; }
-    if (act.startsWith("est-opphero-")) { const i = +act.slice(12); setEst((s) => { const a = [...s.oppHeroes]; a[i] = v; return { ...s, oppHeroes: a }; }); return; }
+    if (act.startsWith("est-usplayer-")) { const i = +act.slice(13); setEst((s) => { const a = [...s.usPlayers]; a[i] = v; return { ...s, usPlayers: a, srcKey: "" }; }); return; }
+    if (act.startsWith("est-ushero-")) { const i = +act.slice(11); setEst((s) => { const a = [...s.usHeroes]; a[i] = v; return { ...s, usHeroes: a, srcKey: "" }; }); return; }
+    if (act.startsWith("est-oppplayer-")) { const i = +act.slice(14); setEst((s) => { const a = [...s.oppPlayers]; a[i] = v; return { ...s, oppPlayers: a, srcKey: "" }; }); return; }
+    if (act.startsWith("est-opphero-")) { const i = +act.slice(12); setEst((s) => { const a = [...s.oppHeroes]; a[i] = v; return { ...s, oppHeroes: a, srcKey: "" }; }); return; }
     switch (act) {
       case "mapsmode": setMapsMode(v); break;
       case "mapsteam": setMapsTeam(v); break;
@@ -168,8 +168,10 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "pick-player": if (v) { setPlayerA(v); setHeroExpand(""); setHeroMapSel(""); } break;
       case "comp-team": setPickTeamB(v); break;
       case "comp-player": setPlayerB(v); break;
-      case "est-map": setEst((s) => ({ ...s, map: v })); break;
-      case "est-oppteam": setEst((s) => ({ ...s, oppTeam: v, oppPlayers: ["", "", "", "", ""], oppHeroes: ["", "", "", "", ""] })); break;
+      case "est-map": setEst((s) => ({ ...s, map: v, srcKey: "" })); break;
+      case "est-oppteam": setEst((s) => ({ ...s, oppTeam: v, oppPlayers: ["", "", "", "", ""], oppHeroes: ["", "", "", "", ""], srcKey: "" })); break;
+      case "est-load-us": if (v) { const p = setToEstUs(D, v); if (p) setEst((s) => ({ ...s, ...p })); } break;
+      case "est-load-opp": if (v) { const p = setToEstOpp(D, v); if (p) setEst((s) => ({ ...s, ...p })); } break;
     }
   }
 

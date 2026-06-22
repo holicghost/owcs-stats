@@ -413,9 +413,20 @@ table.heatmap .hm-corner{min-width:60px}
 .recitem.clickable:hover{background:var(--panel-3)}
 .recdelta{font-family:var(--mono);font-weight:700}
 .recdelta.up{color:var(--accent)} .recdelta.down{color:var(--warn)}
-.sensitem{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--panel-2);border:1px solid var(--line-soft);border-radius:9px;padding:8px 11px;margin-bottom:6px;cursor:pointer}
+.sensitem{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--panel-2);border:1px solid var(--line-soft);border-radius:9px;padding:8px 11px;margin-bottom:6px;cursor:pointer;font-size:13px}
 .sensitem:hover{border-color:var(--accent-dim)}
 .senshe{display:inline-flex;gap:3px;flex-wrap:wrap}
+.recitem{font-size:13px}
+.recslot-h{font-size:11px}
+/* 시뮬 불러오기 셀렉트 */
+.loadsel{font-size:12px;font-weight:600;padding:5px 9px;max-width:180px}
+/* 예측 검증 */
+.verif-single{font-size:13px;padding:9px 12px;border-radius:8px;margin-bottom:4px;background:var(--panel-2)}
+.verif-single.vhit{border-left:3px solid var(--accent)} .verif-single.vmiss{border-left:3px solid var(--warn)}
+.verif-list{display:flex;flex-direction:column;gap:4px;margin-top:12px}
+.verif-row{display:flex;align-items:center;gap:10px;font-size:13px;padding:6px 10px;background:var(--panel-2);border-radius:7px;cursor:pointer}
+.verif-row:hover{background:var(--panel-3)}
+.vhit{color:var(--accent);font-weight:700} .vmiss{color:var(--warn);font-weight:700}
 
 /* 요약 분석 — 포지션별 선수 강점/약점, 모드별 맵 요약 */
 .possum{margin-bottom:14px}
