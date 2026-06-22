@@ -67,7 +67,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
   const [tab, setTab] = useState<ScoutTab>("home");
   const [metaTab, setMetaTab] = useState<MetaTab>("overview");
 
-  // 스카우팅 상태
+  // 전략 분석 탭 상태
   const [scoutTeam, setScoutTeam] = useState(nextOpp || opps[0] || "");
   const [bpTeam, setBpTeam] = useState(D.teams[D.us] ? D.us : D.teamNames[0] || "");
   const [mapsMode, setMapsMode] = useState("all");

@@ -240,8 +240,19 @@ function matchEstimate(D: DataBundle, opp: string) {
 function mdCard(k: string, big: string, sub: string, cls?: string) {
   return `<div class="mdcard ${cls || ""}"><div class="mdc-k">${k}</div><div class="mdc-v">${big}</div><div class="mdc-s">${sub}</div></div>`;
 }
+// 일정 날짜 정렬 키 ("YYYY-MM-DD" 또는 "M/D" 모두 처리)
+function dateKey(d: string): number {
+  const iso = (d || "").match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (iso) return +iso[1] * 10000 + +iso[2] * 100 + +iso[3];
+  const md = (d || "").match(/(\d{1,2})\/(\d{1,2})/);
+  if (md) return 99990000 + +md[1] * 100 + +md[2]; // 연도 미상 → 연도 무관 월/일 비교
+  return 9 ** 9;
+}
 export function renderMatchday(D: DataBundle, weakExpand: string): string {
-  const up = D.schedule.filter((g) => g.status === "upcoming" && !g.tbd && g.phase === "regular" && (g.a === D.us || g.b === D.us));
+  const up = D.schedule
+    .filter((g) => g.status === "upcoming" && !g.tbd && g.phase === "regular" && (g.a === D.us || g.b === D.us))
+    .slice()
+    .sort((a, b) => dateKey(a.date) - dateKey(b.date));
   const st = standOf(D, D.us);
   const us = D.teams[D.us];
   const scope = `<div class="scopebar">
