@@ -1402,7 +1402,7 @@ function lineupDetail(name: string, picks: Pick[], zan: boolean): string {
   if (!picks.length) return `<div class="lineup"><span class="lu-team ${zan ? "zan" : ""}">${esc(name)}</span> <span class="mini">라인업 미기록</span></div>`;
   const order: Record<string, number> = { Tank: 0, DPS: 1, Support: 2 };
   const sorted = picks.slice().sort((a, b) => (order[a.role] ?? 9) - (order[b.role] ?? 9));
-  return `<div class="lineup"><span class="lu-team ${zan ? "zan" : ""}">${esc(name)}</span>${sorted.map((p) => `<span class="lu-p">${heroIcon(p.hero || "")}<span>${esc(p.player || "?")}${p.hero ? ` <span class="mini">${esc(heroKo(p.hero))}</span>` : ""}</span></span>`).join("")}</div>`;
+  return `<div class="lineup"><span class="lu-team ${zan ? "zan" : ""}">${esc(name)}</span>${sorted.map((p) => `<span class="lu-p">${heroIcon(p.hero || "")}<span>${playerLink(p.player)}${p.hero ? ` <span class="mini">${esc(heroKo(p.hero))}</span>` : ""}</span></span>`).join("")}</div>`;
 }
 // 세트 상세: 맵 선택팀·모드·맵·선밴/후밴·양 팀 라인업·스코어·리플레이.
 // (경기 중 영웅 교체는 시트에 없어 표시하지 않음 — 데이터가 생기면 별도 블록으로 추가)
@@ -1649,7 +1649,7 @@ export function renderScenario(D: DataBundle): string {
 
   const stRows = D.standings.map((s) =>
     `<tr class="${s.team === D.us ? "zanrow" : ""}"><td class="rk ${s.rank <= 3 ? "top" : ""}">${s.rank}</td>
-      <td class="tname ${s.team === D.us ? "zan" : ""}">${esc(s.team)}</td>
+      <td class="tname">${teamLink(s.team, s.team === D.us)}</td>
       <td class="num"><span class="wr hi">${s.win}</span></td><td class="num mini">${s.lose}</td>
       <td class="num wr ${s.diff > 0 ? "hi" : s.diff < 0 ? "lo" : "mid"}">${s.diff > 0 ? "+" : ""}${s.diff}</td></tr>`
   ).join("");
@@ -1756,7 +1756,7 @@ function heroDetail(D: DataBundle, p: Player, hero: string, selMap: string): str
     comps.sort((a, b) => (a.date < b.date ? 1 : -1));
     right = comps.length
       ? comps.map((c) => {
-          const line = c.line.map((m) => `<span class="lu-p">${heroIcon(m.hero || "")}<span>${esc(m.player || "?")}</span></span>`).join("");
+          const line = c.line.map((m) => `<span class="lu-p">${heroIcon(m.hero || "")}<span>${playerLink(m.player)}</span></span>`).join("");
           return `<div class="hd-comp ${c.won ? "w" : "l"}"><div class="hd-comp-head"><span class="mini">${fmtDate(c.date)}</span> <b>${mk(c.map)}</b> · 상대 ${esc(c.opp)} · <span class="mono">${c.score}</span> <span class="${c.won ? "ww" : "ll"}">${c.won ? "승" : "패"}</span></div><div class="hd-line">${line}</div></div>`;
         }).join("")
       : nod("해당 맵 경기가 없음.");
@@ -1865,7 +1865,7 @@ function playerMapGames(D: DataBundle, p: Player, map: string): string {
   const compLine = (team: string, picks: Pick[], swaps: Record<string, string[]>, focus: boolean) =>
     `<div class="mg-team ${focus ? "mine" : ""}"><span class="mg-tn">${esc(team)}</span><div class="mg-ps">${picks.slice().sort((a, b) => (order[a.role] ?? 9) - (order[b.role] ?? 9)).map((pk) => {
       const chain = [pk.hero, ...(swaps[pk.player] || [])].filter(Boolean);
-      return `<span class="mg-p ${pk.player === p.name ? "me" : ""}"><span class="mg-pn">${esc(pk.player)}</span><span class="mg-chain">${chain.map((h, i) => `${i ? '<span class="mg-arr">→</span>' : ""}${heroIcon(h)}`).join("")}</span></span>`;
+      return `<span class="mg-p ${pk.player === p.name ? "me" : ""}"><span class="mg-pn">${playerLink(pk.player)}</span><span class="mg-chain">${chain.map((h, i) => `${i ? '<span class="mg-arr">→</span>' : ""}${heroIcon(h)}`).join("")}</span></span>`;
     }).join("")}</div></div>`;
   return games.map((s) => {
     const w = setWinner(s);
