@@ -284,7 +284,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
               {gi > 0 && <span className="tabdiv" aria-hidden />}
               <span className="tabgroup-label">{g.label}</span>
               {g.tabs.map((t) => (
-                <button key={t.id} className={`tab ${t.id === tab ? "on" : ""}`} data-cat={TAB_CATEGORY[t.id]} aria-current={t.id === tab ? "page" : undefined} onClick={() => go(t.id)}>{t.label}</button>
+                <button key={t.id} className={`tab ${t.id === tab ? "on" : ""}`} aria-current={t.id === tab ? "page" : undefined} onClick={() => go(t.id)}>{t.label}</button>
               ))}
             </Fragment>
           ))}
@@ -293,7 +293,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       {mod === "zanside" && (
         <nav className="tabs">
           {ZANSIDE_TABS.map((t) => (
-            <button key={t.id} className={`tab ${t.id === zTab ? "on" : ""}`} data-cat={TAB_CATEGORY[t.id]} aria-current={t.id === zTab ? "page" : undefined} onClick={() => goZ(t.id)}>{t.label}</button>
+            <button key={t.id} className={`tab ${t.id === zTab ? "on" : ""}`} aria-current={t.id === zTab ? "page" : undefined} onClick={() => goZ(t.id)}>{t.label}</button>
           ))}
         </nav>
       )}

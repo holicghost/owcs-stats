@@ -613,7 +613,7 @@ function teamMapSummary(T: Team): string {
   return `<table><thead><tr><th>맵</th><th class="num">출전</th><th class="num">승-패</th><th class="num">승률</th></tr></thead><tbody>${maps.map((m) => {
     const wr = m.n ? Math.round((m.w / m.n) * 100) : 0;
     const low = m.n === 1;
-    return `<tr><td class="hname">${mk(m.map)}</td><td class="num">${m.n}${low ? ' <span class="lowsmp">⚠</span>' : ""}</td><td class="num">${m.w}-${m.l}</td><td class="num"><span class="wr ${wrCls(wr)}">${wr}%</span></td></tr>`;
+    return `<tr><td class="hname">${mk(m.map)}</td><td class="num">${m.n}</td><td class="num">${m.w}-${m.l}</td><td class="num"><span class="wr ${wrCls(wr)}">${wr}%</span></td></tr>`;
   }).join("")}</tbody></table>`;
 }
 
@@ -624,7 +624,7 @@ function playerHeroRow(p: Player): string {
   const strong = byWr.slice(0, 3);
   const strongSet = new Set(strong.map((h) => h.hero));
   const weak = byWr.slice().reverse().filter((h) => !strongSet.has(h.hero)).slice(0, 2);
-  const chip = (h: { hero: string; n: number; wr: number }) => `<span class="hsum">${heroChip(h.hero)}<span class="wr ${wrCls(h.wr)}">${h.wr}%</span><span class="mini">${h.n}${h.n === 1 ? "⚠" : ""}</span></span>`;
+  const chip = (h: { hero: string; n: number; wr: number }) => `<span class="hsum">${heroChip(h.hero)}<span class="wr ${wrCls(h.wr)}">${h.wr}%</span><span class="mini">${h.n}</span></span>`;
   return `<div class="phrow"><span class="phn">${esc(p.name)}</span>
     <span class="phg"><span class="ph-lab good">강점</span>${strong.length ? strong.map(chip).join("") : '<span class="mini">표본 부족</span>'}</span>
     <span class="phg"><span class="ph-lab bad">약점</span>${weak.length ? weak.map(chip).join("") : '<span class="mini">—</span>'}</span></div>`;
@@ -922,7 +922,7 @@ export function playerStatsPanel(D: DataBundle, name: string): string {
     const lg = aggStats((leagueByHero[hero] || []))!;
     const low = me.n === 1;
     return `<tr><td class="hname">${hero === "(미상)" ? '<span class="mini">미상</span>' : heroChip(hero)}</td>
-      <td class="num">${me.n}${low ? ' <span class="lowsmp">⚠</span>' : ""}</td>
+      <td class="num">${me.n}</td>
       <td class="num">${dev(me.ed, lg.ed, 2)}</td>
       <td class="num">${dev(me.dmg10, lg.dmg10, 0)}</td>
       <td class="num">${dev(me.heal10, lg.heal10, 0)}</td>
@@ -1667,7 +1667,8 @@ const repRole = (roles: Record<string, number>) => {
   const e = Object.entries(roles).sort((a, b) => b[1] - a[1])[0];
   return e ? e[0] : "";
 };
-const topHero = (p: Player) => Object.values(p.heroes).sort((a, b) => b.n - a.n)[0];
+// 주 영웅: 승률 높은 순(동률은 출전 수)
+const topHero = (p: Player) => Object.values(p.heroes).filter((h) => h.n >= 1).sort((a, b) => playerWR(b) - playerWR(a) || b.n - a.n)[0];
 function strongMaps(p: Player, k: number) {
   return Object.values(p.maps)
     .filter((m) => m.n >= 1)
@@ -1683,7 +1684,7 @@ function playerSelect2(D: DataBundle, opts: { pickTeam: string; selName: string;
   const players = D.playerNames.map((n) => D.players[n]).filter((p) => p.team === cur && p.name !== opts.exclude).sort((a, b) => b.n - a.n);
   const teamOpts = teams.map((t) => `<option value="${esc(t)}" ${t === cur ? "selected" : ""}>${esc(t)}${t === D.us ? " · 우리 팀" : ""}</option>`).join("");
   const playerOpts = `<option value="" ${!opts.selName ? "selected" : ""}>— 선수 —</option>` +
-    players.map((p) => `<option value="${esc(p.name)}" ${p.name === opts.selName ? "selected" : ""}>${esc(p.name)} · ${p.n}맵${p.n === 1 ? " ⚠" : ""}</option>`).join("");
+    players.map((p) => `<option value="${esc(p.name)}" ${p.name === opts.selName ? "selected" : ""}>${esc(p.name)} · ${p.n}맵</option>`).join("");
   return `<div class="psel">
     <label class="estfield"><span class="estlabel">팀</span><select data-act="${opts.teamAct}">${teamOpts}</select></label>
     <label class="estfield"><span class="estlabel">선수</span><select data-act="${opts.playerAct}">${playerOpts}</select></label>
@@ -1708,7 +1709,7 @@ function heroDetail(D: DataBundle, p: Player, hero: string, selMap: string): str
         const wr = c.n ? Math.round((c.w / c.n) * 100) : 0;
         const low = c.n === 1;
         const on = c.map === selMap;
-        return `<button class="hd-mapbtn ${on ? "on" : ""}" data-act="heromap-sel" data-val="${esc(c.map)}"><span class="hd-mapn">${mk(c.map)}</span><span class="mini">${c.w}-${c.n - c.w}</span><span class="wr ${wrCls(wr)}">${wr}%${low ? '<span class="lowsmp"> ⚠</span>' : ""}</span></button>`;
+        return `<button class="hd-mapbtn ${on ? "on" : ""}" data-act="heromap-sel" data-val="${esc(c.map)}"><span class="hd-mapn">${mk(c.map)}</span><span class="mini">${c.w}-${c.n - c.w}</span><span class="wr ${wrCls(wr)}">${wr}%</span></button>`;
       }).join("")
     : nod("맵 기록이 없음.");
 
@@ -1753,7 +1754,7 @@ function heroTable(D: DataBundle, p: Player, heroExpand: string, heroMapSel: str
       <td class="hname">${heroChip(h.hero)}</td>
       <td class="num">${h.n}</td>
       <td class="num">${h.w}-${h.n - h.w}</td>
-      <td class="num"><span class="wr ${wrCls(wr)}">${wr}%</span>${h.n === 1 ? ' <span class="lowsmp">⚠</span>' : ""}</td>
+      <td class="num"><span class="wr ${wrCls(wr)}">${wr}%</span></td>
       <td><div class="tr mini-tr"><div class="fl" style="width:${Math.round((h.n / mx) * 100)}%"></div></div></td>
       <td class="num caret">${open ? "▾" : "▸"}</td></tr>`;
     return open ? row + `<tr class="herodetail"><td colspan="6">${heroDetail(D, p, h.hero, heroMapSel)}</td></tr>` : row;
@@ -1806,7 +1807,7 @@ export function renderPlayers(D: DataBundle, ui: PlayerUI): string {
   const results = q ? all.filter((p) => p.name.toLowerCase().includes(q)).sort((x, y) => y.n - x.n) : [];
   const searchResults = q
     ? `<div class="sub-note" style="margin-bottom:8px">'${esc(ui.search)}' 검색 결과 — 누르면 선택돼요</div>
-       <div class="plchips" style="margin-bottom:14px">${results.length ? results.slice(0, 30).map((p) => `<button class="plchip ${p.name === a.name ? "on" : ""}" data-act="player" data-val="${esc(p.name)}">${esc(p.name)} <span class="mini">${esc(p.team)} · ${p.n}맵${p.n === 1 ? " ⚠" : ""}</span></button>`).join("") : nod(`'${esc(ui.search)}'에 맞는 선수가 없음.`)}</div>`
+       <div class="plchips" style="margin-bottom:14px">${results.length ? results.slice(0, 30).map((p) => `<button class="plchip ${p.name === a.name ? "on" : ""}" data-act="player" data-val="${esc(p.name)}">${esc(p.name)} <span class="mini">${esc(p.team)} · ${p.n}맵</span></button>`).join("") : nod(`'${esc(ui.search)}'에 맞는 선수가 없음.`)}</div>`
     : "";
 
   return `
@@ -1865,7 +1866,7 @@ function mapTable(D: DataBundle, p: Player, mapExpand: string): string {
     const repHtml = reps.length ? reps.map((c) => `<span class="mrep" title="${esc(heroKo(c.hero))} ${c.n}회">${heroIcon(c.hero)}</span>`).join("") : '<span class="mini">-</span>';
     const row = `<tr class="maprow ${open ? "open" : ""}" data-act="map-expand" data-val="${esc(m.map)}">
       <td class="hname">${mk(m.map)}</td>
-      <td class="num">${m.n}${low ? ' <span class="lowsmp" title="표본 적음">⚠</span>' : ""}</td>
+      <td class="num">${m.n}</td>
       <td class="num">${m.w}-${m.n - m.w}</td>
       <td class="num"><span class="wr ${wrCls(wr)}">${wr}%</span></td>
       <td class="mapreps">${repHtml}</td>
@@ -1896,9 +1897,9 @@ function renderPlayerDiff(D: DataBundle, a: Player, b: Player): string {
       const small = ha.n === 1 || hb.n === 1;
       const gap = !small ? Math.abs(wa - wb) >= 20 : false;
       return `<div class="diffrow${gap ? " gap" : ""}">
-        <div class="dr-a"><span class="dr-wr ${wrCls(wa)}">${wa}%${ha.n === 1 ? "⚠" : ""}</span> <span class="mini">${ha.w}-${ha.n - ha.w}</span></div>
+        <div class="dr-a"><span class="dr-wr ${wrCls(wa)}">${wa}%</span> <span class="mini">${ha.w}-${ha.n - ha.w}</span></div>
         <div class="dr-hero">${heroChip(h)}</div>
-        <div class="dr-b"><span class="mini">${hb.w}-${hb.n - hb.w}</span> <span class="dr-wr ${wrCls(wb)}">${wb}%${hb.n === 1 ? "⚠" : ""}</span></div>
+        <div class="dr-b"><span class="mini">${hb.w}-${hb.n - hb.w}</span> <span class="dr-wr ${wrCls(wb)}">${wb}%</span></div>
       </div>`;
     }).join("");
   }
