@@ -55,13 +55,11 @@ function statusOf(wr: number, sample: number): Weak["status"] {
   return "ok";
 }
 
+// 명사형·비단정 (구체 전략 판단은 모드 비교의 단일 strategy 결과를 따른다)
 const ACTIONS: Record<Weak["kind"], (isUs: boolean, label: string) => string> = {
-  mode: (isUs, label) =>
-    isUs ? `맵 선택권이 있으면 ${label}을(를) 피하는 쪽을 검토하세요.` : `${label} 쪽으로 끌고 가면 우리가 유리합니다.`,
-  firstmap: (isUs) =>
-    isUs ? `첫 맵을 신중히 — 자신 있는 모드를 먼저 가져오세요.` : `첫 맵을 적극적으로 가져오세요. 상대가 초반에 흔들립니다.`,
-  pickless: (isUs) =>
-    isUs ? `상대가 고른 맵에서 고전합니다. 비(非)선택 맵 대비를 늘리세요.` : `맵 선택권을 우리가 쥐면 유리합니다.`,
+  mode: (isUs, label) => isUs ? `${label} 회피 후보` : `${label} 공략 후보`,
+  firstmap: (isUs) => isUs ? `첫 맵 보강 필요` : `첫 맵 공략 후보`,
+  pickless: (isUs) => isUs ? `비선택 맵 대비 강화` : `맵 선택권 우위`,
 };
 
 /** 팀의 모든 국면별 성적(약점 후보 포함)을 계산. 약점/표본부족/정상 모두 담는다. */

@@ -19,7 +19,7 @@ const OWCS_GROUPS = [
       { id: "players", label: "선수별 분석" },
       { id: "ban", label: "영웅 분석" },
       { id: "maps", label: "맵 분석" },
-      { id: "legacy", label: "임시" },
+      { id: "legacy", label: "기타" },
     ],
   },
   {
@@ -35,7 +35,7 @@ type TabId = (typeof OWCS_GROUPS)[number]["tabs"][number]["id"];
 const ZANSIDE_TABS = [
   { id: "matchday", label: "다음 경기" },
   { id: "scenario", label: "순위 시나리오" },
-  { id: "team", label: "우리팀 임시" },
+  { id: "team", label: "ZANSIDE 분석" },
   { id: "teamban", label: "영웅 분석" },
 ] as const;
 type ZTab = (typeof ZANSIDE_TABS)[number]["id"];
@@ -241,9 +241,6 @@ export default function Dashboard({ data }: { data: DataBundle }) {
     return () => { el.removeEventListener("click", c); el.removeEventListener("change", ch); el.removeEventListener("keydown", k); };
   }, []);
 
-  const st = D.standings.find((x) => x.team === D.us);
-  const sameRank = st ? D.standings.filter((x) => x.rank === st.rank).length : 0;
-
   async function refresh() {
     setRefreshing(true);
     router.refresh();
@@ -256,11 +253,9 @@ export default function Dashboard({ data }: { data: DataBundle }) {
         <div className="eyebrow">OWCS ASIA: KOREA · Stage 2 · 내부 분석 도구</div>
         <h1>ZANSIDE <span className="thin">데이터 분석</span></h1>
         <div className="sub">
-          <span>{st ? (<>매치 <b style={{ color: "var(--accent)" }}>{st.win}승 {st.lose}패</b> · {st.rank}위{sameRank > 1 ? " (공동)" : ""}</>) : "—"}</span>
+          <span>데이터 기준 OWCS 공식 경기</span>
           <span className="dot" />
-          <span>{D.sets.length} 맵 · {D.series.length} 시리즈</span>
-          <span className="dot" />
-          <span>{updated ? `업데이트 ${updated}` : "데이터 기준 OWCS 공식 경기"}</span>
+          <span>{updated ? `업데이트 ${updated}` : "동기화 완료"}</span>
           <span className="dot" />
           {(() => {
             const status = refreshing ? "loading" : D.health.error ? "error" : D.health.warn ? "stale" : "success";

@@ -401,6 +401,22 @@ table.heatmap .hm-corner{text-align:left;white-space:nowrap;color:var(--tx-dim);
 .v-cond{background:rgba(231,170,60,.14);color:var(--gold)}
 .v-avoid{background:rgba(255,93,115,.14);color:var(--warn)}
 .v-unknown{background:var(--panel-3);color:var(--tx-dim)}
+.v-cand{background:rgba(77,141,255,.14);color:var(--blue)}
+.v-hold{background:var(--panel-3);color:var(--tx-dim)}
+/* 전체 전략 보기 (추천 대응 TOP 3 하단) */
+.allstrat{margin-top:10px}
+.allstrat>summary{cursor:pointer;font-size:12.5px;color:var(--tx-mid);font-weight:600;list-style:none}
+.allstrat>summary::-webkit-details-marker{display:none}
+.allstrat>summary::before{content:"▸ ";font-size:10px}
+.allstrat[open]>summary::before{content:"▾ "}
+.allstrat-body{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+.as-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px}
+.as-mode{font-weight:700}
+/* 약점 패널 섹션 */
+.wk-sec{margin-top:14px}
+.wk-sec:first-of-type{margin-top:4px}
+.wk-h{font-family:var(--mono);font-size:11px;color:var(--tx-dim);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+.wk-empty{font-size:13px;color:var(--tx-mid)}
 /* 추천 대응 */
 .actlist{list-style:none;counter-reset:act;margin:0;padding:0}
 .actlist li{counter-increment:act;display:flex;flex-direction:column;gap:1px;padding:9px 0 9px 30px;position:relative;border-bottom:1px solid var(--line-soft)}
