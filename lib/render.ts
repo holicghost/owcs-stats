@@ -2078,6 +2078,16 @@ export function renderEstimator(D: DataBundle, e: EstInput): string {
       </div>`;
     }
   }
+  // 예측 검증(백테스트) 요약 — 추정 결과 박스에 함께 표시
+  const bt = backtestUs(D);
+  const verifSummary = bt.n ? `<div class="est-verif">
+    <div class="ea-head">예측 검증 <span class="mini">과거 ZANSIDE ${bt.n}경기 전체로 모델 검증</span></div>
+    <div class="ea-grid">
+      <div class="ea-cell"><span class="ea-k">적중률</span><span class="ea-v">${Math.round((bt.hits / bt.n) * 100)}% <span class="mini">${bt.hits}/${bt.n}</span></span></div>
+      <div class="ea-cell"><span class="ea-k">Brier</span><span class="ea-v">${bt.brier.toFixed(3)} <span class="mini">↓정확</span></span></div>
+    </div>
+    <div class="sub-note">${bt.n < 10 ? `표본 ${bt.n}경기로 적음 · 단정 금지. ` : ""}인-샘플(같은 데이터로 만든 모델을 같은 경기에 검증)이라 실제보다 낙관적일 수 있음. Brier는 0에 가까울수록 정확.</div>
+  </div>` : "";
   let result: string;
   if (r.pct == null) {
     result = `<div class="est-empty"><div class="est-big">입력 대기</div><div class="sub-note">${r.missing.length ? `더 채우면 추정: <b>${esc(r.missing.join(", "))}</b>` : "맵을 먼저 선택"}</div></div>`;
@@ -2148,20 +2158,6 @@ export function renderEstimator(D: DataBundle, e: EstInput): string {
       </div>
       <div class="sub-note causenote">과거 관측 경향이에요(인과 아님). 표본이 얇으면 들쭉날쭉할 수 있어요. 누르면 그 경기를 불러와요.</div></div>`;
   }
-  // 예측 검증 (백테스트)
-  const bt = backtestUs(D);
-  let verifPanel = "";
-  if (bt.n) {
-    verifPanel = `<div class="panel"><h2>예측 검증 <span class="count">과거 ZANSIDE 경기 전체로 모델 검증</span></h2>
-      <div class="statrow" style="grid-template-columns:repeat(3,1fr)">
-        <div class="stat"><div class="k">예측 경기</div><div class="v">${bt.n}</div></div>
-        <div class="stat"><div class="k">적중률</div><div class="v">${Math.round((bt.hits / bt.n) * 100)}%<small> ${bt.hits}/${bt.n}</small></div></div>
-        <div class="stat"><div class="k">Brier</div><div class="v">${bt.brier.toFixed(3)}</div></div>
-      </div>
-      <div class="sub-note">${bt.n < 10 ? `표본 ${bt.n}경기로 적어요 — 적중률을 단정하지 마세요. ` : ""}같은 데이터로 만든 모델을 같은 경기에 검증한 값(인-샘플)이라 실제보다 낙관적일 수 있어요. Brier는 0에 가까울수록 정확.</div>
-    </div>`;
-  }
-
   return `
     <div class="panel">
       <h2>맞대결 시뮬레이션 <span class="count">학습 모델 아님 · 투명한 가중 합산</span></h2>
