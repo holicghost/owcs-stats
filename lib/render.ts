@@ -465,7 +465,7 @@ function scoutGameCard(D: DataBundle, s: SetRec, focus: string): string {
     <div class="gc2-load"><button class="loadbtn" data-act="load-sim" data-val="${esc(setKey(s))}">이 경기로 시뮬레이션 채우기 ↗</button></div>
   </div>`;
 }
-export interface DeepUI { agg: "main" | "swap"; sort: "pick" | "wr"; smp: number; banExpand: string; }
+export interface DeepUI { agg: "main" | "swap"; sort: "pick" | "wr"; smp: number; banExpand: string; role: "all" | "Tank" | "DPS" | "Support"; }
 // 승률 한 줄 (막대 + % + N승-N패 + 표본). 0이면 '결정 경기 없음', <3맵이면 회색+표본<3
 function wrLine(label: string, w: number, l: number, max: number, suffix = ""): string {
   const n = w + l;
@@ -500,12 +500,14 @@ function renderScoutHeroes(D: DataBundle, team: string, deep: DeepUI): string {
   const seg = (act: string, cur: string, opts: Array<[string, string]>) => `<div class="seg">${opts.map(([v, lb]) => `<button class="${cur === v ? "on" : ""}" data-act="${act}" data-val="${v}">${lb}</button>`).join("")}</div>`;
   const hasSwapData = teamSets.some((s) => Object.keys(swapsByPlayer(s.memo)).length > 0);
   const pickToggles = `<div class="metabar">
+    <span class="flabel">포지션</span>${seg("deep-role", deep.role, [["all", "전체"], ["Tank", "탱커"], ["DPS", "딜러"], ["Support", "서포터"]])}
     <span class="flabel">기준</span>${seg("deep-agg", deep.agg, [["main", "메인 픽"], ["swap", "교체 포함"]])}
     <span class="flabel">정렬</span>${seg("deep-sort", deep.sort, [["pick", "픽 많은 순"], ["wr", "승률 높은 순"]])}
   </div>${deep.agg === "swap" && !hasSwapData ? `<div class="sub-note">⚠ 시트 메모(교체)가 비어 있어 "교체 포함"이 메인 픽과 같아요. 메모를 <b>선수: 영웅1, 영웅2</b> 형식으로 채우면 교체가 합산돼요.</div>` : ""}`;
   const heroByRole: Record<string, typeof heroArr> = { DPS: [], Tank: [], Support: [] };
   heroArr.forEach((h) => (heroByRole[h.role] || heroByRole.DPS).push(h));
-  const pickBlock = (["DPS", "Tank", "Support"] as const).map((role) => {
+  const shownRoles = (deep.role === "all" ? ["DPS", "Tank", "Support"] : [deep.role]) as Array<"DPS" | "Tank" | "Support">;
+  const pickBlock = shownRoles.map((role) => {
     const arr = heroByRole[role];
     if (!arr.length) return "";
     return `<div class="possum"><div class="possum-role">${ROLE_KO[role]}</div>
@@ -570,7 +572,14 @@ function renderScoutHeroes(D: DataBundle, team: string, deep: DeepUI): string {
   };
   const banTrend = banGroup("tf", `${esc(team)} 선밴`) + banGroup("ts", `${esc(team)} 후밴`) + banGroup("of", `상대가 ${esc(team)}에게 선밴`) + banGroup("os", `상대가 ${esc(team)}에게 후밴`);
 
+  // 모드별 성적 (맨 위) — 요약 분석에서 이동
+  const T = D.teams[team];
+  const ms = T ? modeWinrate(T) : [];
+  const mmx = Math.max(1, ...ms.map((m) => m[1].t));
+  const modesHtml = ms.length ? ms.map(([m, d]) => barWR(MODE_KO[m] || m, d.w, d.t, mmx)).join("") : nod();
+
   return `
+    <div class="panel"><h2>모드별 성적 <span class="count">맵 단위</span></h2><div class="bars">${modesHtml}</div></div>
     <div class="panel"><h2>① 영웅별 픽률·승률 <span class="count">${esc(team)} 사용 영웅 · 포지션별</span></h2>
       ${pickToggles}${pickBlock}</div>
     <div class="grid2">
