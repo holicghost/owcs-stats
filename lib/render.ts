@@ -1216,16 +1216,6 @@ export function renderBanAnalysis(D: DataBundle, f: BanUI): string {
 
   return `
     ${filterBar}
-    <div class="grid2">
-      <div class="panel"><h2>리그 선밴 상위</h2><div class="bars">${banBars(gFirst, f)}</div></div>
-      <div class="panel"><h2>리그 후밴 상위</h2><div class="bars">${banBars(gSecond, f)}</div></div>
-    </div>
-    <div class="panel">
-      <h2>팀별 밴 성향 <span class="count">${esc(cur)}${banMap !== "all" ? ` · ${esc(mapKo(banMap))}` : ""} · 영웅을 누르면 펼침</span></h2>
-      <div class="fbar"><span class="flabel">팀</span>${teamSel}<span class="flabel">맵</span>${mapSel}</div>
-      <div class="sub-note">선밴·후밴을 나눠 셉니다. 펼치면 맵별 분포와 그 경기의 양 팀 라인업을 보여줘요.</div>
-      ${banTable}
-    </div>
     <div class="panel"><h2>모드별 밴 분포 <span class="count">모드 안 각 맵별 · 상위 5</span></h2><div class="modebans">${modeBlocks || nod()}</div></div>`;
 }
 
