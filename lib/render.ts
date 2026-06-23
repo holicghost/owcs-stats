@@ -625,13 +625,21 @@ function renderScoutMaps(D: DataBundle, team: string, deep: DeepUI, view: "perf"
     s.bans.forEach((b) => { if (b.hero) (banByMapH[s.map] = banByMapH[s.map] || {})[b.hero] = (banByMapH[s.map][b.hero] || 0) + 1; });
   });
   const teamModeBan = modeBanBlocks(D, banByMapH);
+  // 이 팀이 맵 선택권을 가졌을 때 고른 맵 빈도 (맵픽 분석)
+  const picked: Record<string, number> = {};
+  teamSets.forEach((s) => { if (s.picker === team && s.map) picked[s.map] = (picked[s.map] || 0) + 1; });
+  const pickedBlock = Object.keys(picked).length ? rankBars(picked, (m) => mk(m)) : nod("이 팀이 맵을 고른 기록이 없음.");
 
+  if (view === "pick") return `
+    <div class="panel"><h2>자주 고르는 맵 <span class="count">${esc(team)} 맵 선택권일 때</span></h2>
+      <div class="sub-note">맵 선택권(picker)이 ${esc(team)}인 경기에서 고른 맵 빈도.</div>
+      <div class="bars">${pickedBlock}</div></div>
+    <div class="panel"><h2>맵 선택권 영향 <span class="count">누가 맵을 골랐나</span></h2><div class="wrlines">${pickBlock}</div></div>`;
   return `
-    <div class="panel"><h2>① 쟁탈 맵 승률 <span class="count">맵 단위 · 거점 세부는 시트에 없음</span></h2>
+    <div class="panel"><h2>쟁탈 맵 승률 <span class="count">맵 단위 · 거점 세부는 시트에 없음</span></h2>
       <div class="sub-note">막대=표본(맵 수), 오른쪽에 승률·전적·미기록. 시트에 거점(등대/우물 등) 데이터가 없어 맵 단위로 집계해요.</div>
       <div class="wrlines">${ctrlBlock}</div></div>
-    <div class="panel"><h2>② 맵 선택권 영향 <span class="count">누가 맵을 골랐나</span></h2><div class="wrlines">${pickBlock}</div></div>
-    <div class="panel"><h2>③ 모드별 밴 분포 <span class="count">${esc(team)} 경기 · 모드 안 각 맵별 상위 5</span></h2><div class="modebans">${teamModeBan}</div></div>`;
+    <div class="panel"><h2>모드별 밴 분포 <span class="count">${esc(team)} 경기 · 모드 안 각 맵별 상위 5</span></h2><div class="modebans">${teamModeBan}</div></div>`;
 }
 
 export function renderScout(D: DataBundle, curScout: string, scoutTab: string, deep: DeepUI, weakExpand = ""): string {
