@@ -10,7 +10,7 @@
   /* 데이터 소스별 색 토큰(모드 버튼·테마) */
   --cat-owcs:#3B82F6; --cat-scrim:#E64B5A; --cat-zanside:#E0A33E;
   --r:14px;
-  --mono:"SF Mono",ui-monospace,"Cascadia Code","JetBrains Mono",Menlo,Consolas,monospace;
+  --mono:"Pretendard Variable",Pretendard,system-ui,sans-serif; /* 폰트 Pretendard 통일(굵기 유지). 숫자 정렬용 tnum */
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--tx);font-family:"Pretendard Variable",Pretendard,system-ui,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased;padding-bottom:80px}
