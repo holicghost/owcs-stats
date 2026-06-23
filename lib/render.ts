@@ -1142,8 +1142,8 @@ export function renderHeroBan(D: DataBundle, ui: HeroBanUI): string {
       </div>`;
   }
   return `
-    <div class="panel"><h2>영웅 밴 분석 <span class="count">영웅을 고르면 플레이·밴 분석</span></h2>
-      <div class="sub-note">위 검색창에서 영웅 이름(한글/영문)으로 검색하거나, 포지션·영웅 드롭다운에서 선택. 드롭다운 숫자는 총 피밴 수.</div>
+    <div class="panel"><h2>영웅 선택</h2>
+      <div class="sub-note">맨 위 검색창은 전체 영웅에서 이름(한글/영문)으로 검색. 또는 아래에서 포지션 → 영웅 순으로 선택. 드롭다운 숫자는 총 피밴 수.</div>
       ${selector}</div>
     ${detail}`;
 }
