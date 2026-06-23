@@ -774,7 +774,7 @@ table.herodeep .tr .fl.lo-fl{background:linear-gradient(90deg,rgba(255,93,115,.3
 table.banpos .banposcell .fl{background:linear-gradient(90deg,rgba(var(--accent-rgb),.3),var(--accent))}
 table.herodeep tr.lowsmp-row{opacity:.6}
 table.banpos td.banposcell{vertical-align:middle}
-table.banpos .banposcell .tr{display:inline-block;width:120px;height:14px;background:var(--panel-2);border-radius:5px;overflow:hidden;vertical-align:middle;margin-right:8px}
+table.banpos .banposcell .tr{display:inline-block;width:56px;max-width:56px;height:12px;background:var(--panel-2);border-radius:5px;overflow:hidden;vertical-align:middle;margin-right:7px}
 table.banpos .banposcell .num{font-weight:600}
 .rtag.Tank{background:rgba(77,141,255,.16);color:var(--blue)}
 .rtag.DPS{background:rgba(255,93,115,.16);color:var(--warn)}

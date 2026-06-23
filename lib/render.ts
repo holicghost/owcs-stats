@@ -657,11 +657,6 @@ function renderScoutHeroes(D: DataBundle, team: string, deep: DeepUI, view: "pic
     return `<tr><td class="hname">${ROLE_KO[role]}</td><td class="banposcell">${bar(c.us)}</td><td class="banposcell">${bar(c.opp)}</td><td class="num">${posWr(c.fw, c.fl)}</td><td class="num">${posWr(c.sw, c.sl)}</td><td class="hname">${top ? `${heroChip(top[0])} <span class="mini">${top[1]}</span>` : '<span class="mini">-</span>'}</td></tr>`;
   }).join("")}</tbody></table></div>${banPosUnknown ? `<div class="sub-note">역할 미상 영웅 ${banPosUnknown}건 제외</div>` : ""}`;
 
-  // 모드별 성적 (맨 위) — 요약 분석에서 이동
-  const ms = T ? modeWinrate(T) : [];
-  const mmx = Math.max(1, ...ms.map((m) => m[1].t));
-  const modesHtml = ms.length ? ms.map(([m, d]) => barWR(MODE_KO[m] || m, d.w, d.t, mmx)).join("") : nod();
-
   if (view === "ban") return `
     <div class="grid4">
       <div class="panel"><h2>자주 거는 밴 <span class="count">${sum(made)}회</span></h2><div class="bars">${countBars(made, "ban", 6)}</div></div>
@@ -672,14 +667,17 @@ function renderScoutHeroes(D: DataBundle, team: string, deep: DeepUI, view: "pic
     <div class="panel"><h2>밴 포지션별 수치 <span class="count">우리·상대 밴 · 포지션 승률 · 가장 많이 당한 밴</span></h2>${banPosBlock}</div>
     <div class="panel"><h2>맵별 밴 경향 <span class="count">${esc(team)} · 맵별 자주 거는 밴</span></h2><div class="mapbansum">${mapBanSummary}</div></div>`;
   return `
-    <div class="panel"><h2>모드별 성적 <span class="count">맵 단위</span></h2><div class="bars">${modesHtml}</div></div>
     <div class="panel"><h2>영웅별 픽률·승률 <span class="count">${esc(team)} 사용 영웅 · 포지션별</span></h2>
       ${pickToggles}${pickBlock}</div>`;
 }
 
-// ── 맵 분석 탭(perf): 쟁탈 맵 승률 + 맵 선택권 영향 + 자주 고르는 맵 / 맵 밴 분석(ban): 모드별 밴 분포 ──
-function renderScoutMaps(D: DataBundle, team: string, deep: DeepUI, view: "perf" | "ban" = "perf"): string {
+// ── 맵 분석(perf): 모드별 성적 + 쟁탈 맵 승률 + 모드별 밴 분포 / 맵 픽 분석(pick): 자주 고르는 맵 + 맵 선택권 영향 ──
+function renderScoutMaps(D: DataBundle, team: string, deep: DeepUI, view: "perf" | "pick" = "perf"): string {
   const teamSets = D.sets.filter((s) => s.top === team || s.bottom === team);
+  const T = D.teams[team];
+  const ms = T ? modeWinrate(T) : [];
+  const mmx = Math.max(1, ...ms.map((m) => m[1].t));
+  const modesHtml = ms.length ? ms.map(([m, d]) => barWR(MODE_KO[m] || m, d.w, d.t, mmx)).join("") : nod();
 
   // ── 쟁탈 맵 승률 ──
   const ctrl: Record<string, { w: number; l: number; u: number }> = {};
@@ -717,16 +715,17 @@ function renderScoutMaps(D: DataBundle, team: string, deep: DeepUI, view: "perf"
   teamSets.forEach((s) => { if (s.picker === team && s.map) picked[s.map] = (picked[s.map] || 0) + 1; });
   const pickedBlock = Object.keys(picked).length ? rankBars(picked, (m) => mk(m)) : nod("이 팀이 맵을 고른 기록이 없음.");
 
-  if (view === "ban") return `
-    <div class="panel"><h2>모드별 밴 분포 <span class="count">${esc(team)} 경기 · 모드 안 각 맵별 상위 5</span></h2><div class="modebans">${teamModeBan}</div></div>`;
+  if (view === "pick") return `
+    <div class="panel"><h2>자주 고르는 맵 <span class="count">${esc(team)} 맵 선택권일 때</span></h2>
+      <div class="sub-note">맵 선택권(picker)이 ${esc(team)}인 경기에서 고른 맵 빈도.</div>
+      <div class="bars">${pickedBlock}</div></div>
+    <div class="panel"><h2>맵 선택권 영향 <span class="count">누가 맵을 골랐나</span></h2><div class="wrlines">${pickBlock}</div></div>`;
   return `
+    <div class="panel"><h2>모드별 성적 <span class="count">맵 단위</span></h2><div class="bars">${modesHtml}</div></div>
     <div class="panel"><h2>쟁탈 맵 승률 <span class="count">맵 단위 · 거점 세부는 시트에 없음</span></h2>
       <div class="sub-note">막대=표본(맵 수), 오른쪽에 승률·전적·미기록. 시트에 거점(등대/우물 등) 데이터가 없어 맵 단위로 집계해요.</div>
       <div class="wrlines">${ctrlBlock}</div></div>
-    <div class="panel"><h2>맵 선택권 영향 <span class="count">누가 맵을 골랐나</span></h2><div class="wrlines">${pickBlock}</div></div>
-    <div class="panel"><h2>자주 고르는 맵 <span class="count">${esc(team)} 맵 선택권일 때</span></h2>
-      <div class="sub-note">맵 선택권(picker)이 ${esc(team)}인 경기에서 고른 맵 빈도.</div>
-      <div class="bars">${pickedBlock}</div></div>`;
+    <div class="panel"><h2>모드별 밴 분포 <span class="count">${esc(team)} 경기 · 모드 안 각 맵별 상위 5</span></h2><div class="modebans">${teamModeBan}</div></div>`;
 }
 
 export function renderScout(D: DataBundle, curScout: string, scoutTab: string, deep: DeepUI, weakExpand = ""): string {
@@ -747,8 +746,8 @@ export function renderScout(D: DataBundle, curScout: string, scoutTab: string, d
     stat("맵 전적", `<span class="ww">${T.mapW}</span><small> - ${T.mapL}</small>`) +
     stat("맵 득실", `${mdiff > 0 ? "+" : ""}${mdiff}`);
 
-  const tab = ["summary", "games", "heroes", "heroban", "maps", "mapban"].includes(scoutTab) ? scoutTab : "summary";
-  const subtabs = `<div class="subtabs">${[["summary", "요약 분석"], ["games", "경기별 분석"], ["heroes", "영웅 분석"], ["heroban", "영웅 밴 분석"], ["maps", "맵 분석"], ["mapban", "맵 밴 분석"]].map(([id, lb]) => `<button class="subtab ${tab === id ? "on" : ""}" data-act="scout-tab" data-val="${id}">${lb}</button>`).join("")}</div>`;
+  const tab = ["summary", "games", "heroes", "heroban", "maps", "mappick"].includes(scoutTab) ? scoutTab : "summary";
+  const subtabs = `<div class="subtabs">${[["summary", "요약 분석"], ["games", "경기별 분석"], ["heroes", "영웅 분석"], ["heroban", "영웅 밴 분석"], ["maps", "맵 분석"], ["mappick", "맵 픽 분석"]].map(([id, lb]) => `<button class="subtab ${tab === id ? "on" : ""}" data-act="scout-tab" data-val="${id}">${lb}</button>`).join("")}</div>`;
 
   let body: string;
   if (tab === "games") {
