@@ -2,11 +2,13 @@
   --bg:#0a0c11; --panel:#12151d; --panel-2:#181c26; --panel-3:#1f2430;
   --line:#242a37; --line-soft:#1b212e;
   --tx:#eef0f6; --tx-mid:#a4abbd; --tx-dim:#6b7388;
-  --accent:#19e3c0; --accent-dim:#0e8a78;        /* ZANSIDE 강조색(브랜드·승리=고정) */
+  /* 강조색(테마) = 데이터 소스(mod)별. 기본=OWCS 파랑. data-category로 교체. */
+  --accent:#3B82F6; --accent-dim:#2f6fd6; --accent-rgb:59,130,246;
   --warn:#ff5d73; --gold:#ffcf5c; --blue:#4d8dff;
-  /* 데이터 소스별 강조색(부가 설명·구조 강조에만 사용, 승률/의미색 아님) — 한 곳에서 바꾸면 하위 전체가 따라감 */
-  --cat-owcs:#3B82F6; --cat-scrim:#E64B5A; --cat-zanside:#22B07D;
-  --cat:var(--cat-owcs); /* 활성 강조색 (data-category=mod로 주입) */
+  /* 승률·승리=고정 초록(테마색과 무관) */
+  --win:#19e3c0; --win-rgb:25,227,192;
+  /* 데이터 소스별 색 토큰(모드 버튼·테마) */
+  --cat-owcs:#3B82F6; --cat-scrim:#E64B5A; --cat-zanside:#E0A33E;
   --r:14px;
   --mono:"SF Mono",ui-monospace,"Cascadia Code","JetBrains Mono",Menlo,Consolas,monospace;
 }
@@ -37,10 +39,10 @@ h1 .thin{font-weight:300;color:var(--tx-mid)}
 
 nav.tabs{position:sticky;top:0;z-index:10;display:flex;gap:3px;padding:12px 0;background:linear-gradient(var(--bg) 72%,transparent);margin-bottom:6px;overflow-x:auto;scrollbar-width:none}
 nav.tabs::-webkit-scrollbar{display:none}
-/* 데이터 소스별 강조색 주입: data-category=mod 만으로 강조색 전환 (컴포넌트 색 하드코딩 없음) */
-[data-category="owcs"]{--cat:var(--cat-owcs)}      /* 파랑 */
-[data-category="scrim"]{--cat:var(--cat-scrim)}    /* 빨강 */
-[data-category="zanside"]{--cat:var(--cat-zanside)} /* 초록 */
+/* 데이터 소스별 테마색 주입: data-category=mod 만으로 강조색 전환 (승률/의미색은 --win 고정) */
+[data-category="owcs"]{--accent:#3B82F6;--accent-dim:#2f6fd6;--accent-rgb:59,130,246}      /* 파랑 */
+[data-category="scrim"]{--accent:#E64B5A;--accent-dim:#b23440;--accent-rgb:230,75,90}     /* 빨강 */
+[data-category="zanside"]{--accent:#E0A33E;--accent-dim:#b8842c;--accent-rgb:224,163,62}  /* 노랑 */
 .tab{flex:0 0 auto;font-family:inherit;font-size:14px;font-weight:600;color:var(--tx-mid);background:transparent;border:none;padding:9px 15px;border-radius:10px;cursor:pointer;transition:.15s;white-space:nowrap}
 .tab:hover{color:var(--tx)}
 .tab.on{color:var(--bg);background:var(--accent);font-weight:700;box-shadow:inset 0 -3px 0 rgba(0,0,0,.28)}
@@ -269,9 +271,13 @@ select:focus{outline:2px solid var(--accent-dim);outline-offset:1px}
 
 /* ===== 영웅 메타 모듈 (PART 2) ===== */
 .modnav{display:flex;gap:6px;margin:18px 0 4px}
-.modbtn{font-family:inherit;font-size:14px;font-weight:700;color:var(--tx-mid);background:var(--panel-2);border:1px solid var(--line);border-radius:11px;padding:11px 18px;cursor:pointer;transition:.15s}
-.modbtn:hover{color:var(--tx);border-color:var(--accent-dim)}
-.modbtn.on{background:linear-gradient(180deg,rgba(var(--accent-rgb),.12),var(--panel-2));border-color:var(--accent);color:var(--accent)}
+/* 모드 버튼: 각 데이터 소스 고유색 (OWCS 파랑 / 스크림 빨강 / ZANSIDE 노랑) */
+.modbtn[data-mod="owcs"]{--mc:var(--cat-owcs)}
+.modbtn[data-mod="scrim"]{--mc:var(--cat-scrim)}
+.modbtn[data-mod="zanside"]{--mc:var(--cat-zanside)}
+.modbtn{font-family:inherit;font-size:14px;font-weight:700;color:var(--mc);background:var(--panel-2);border:1px solid var(--line);border-radius:11px;padding:11px 18px;cursor:pointer;transition:.15s}
+.modbtn:hover:not(.on){background:var(--panel-3)}
+.modbtn.on{background:var(--mc);color:var(--bg);border-color:var(--mc)}
 .metabar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px}
 .rtag{font-family:var(--mono);font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;border-radius:5px;padding:2px 5px;margin-left:7px;vertical-align:middle}
 .rtag.Tank{background:rgba(77,141,255,.16);color:var(--blue)}

@@ -272,9 +272,9 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       </header>
 
       <div className="modnav">
-        <button className={`modbtn ${mod === "owcs" ? "on" : ""}`} onClick={() => setMod("owcs")}>OWCS 데이터</button>
-        <button className={`modbtn ${mod === "scrim" ? "on" : ""}`} onClick={() => setMod("scrim")}>스크림 데이터</button>
-        <button className={`modbtn ${mod === "zanside" ? "on" : ""}`} onClick={() => { setMod("zanside"); toTop(); }}>ZANSIDE 데이터</button>
+        <button className={`modbtn ${mod === "owcs" ? "on" : ""}`} data-mod="owcs" onClick={() => setMod("owcs")}>OWCS 데이터</button>
+        <button className={`modbtn ${mod === "scrim" ? "on" : ""}`} data-mod="scrim" onClick={() => setMod("scrim")}>스크림 데이터</button>
+        <button className={`modbtn ${mod === "zanside" ? "on" : ""}`} data-mod="zanside" onClick={() => { setMod("zanside"); toTop(); }}>ZANSIDE 데이터</button>
       </div>
 
       {mod === "owcs" && (
