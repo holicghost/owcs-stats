@@ -660,8 +660,8 @@ export function renderScout(D: DataBundle, curScout: string, scoutTab: string, d
     stat("맵 전적", `<span class="ww">${T.mapW}</span><small> - ${T.mapL}</small>`) +
     stat("맵 득실", `${mdiff > 0 ? "+" : ""}${mdiff}`);
 
-  const tab = ["summary", "games", "heroes", "maps"].includes(scoutTab) ? scoutTab : "summary";
-  const subtabs = `<div class="subtabs">${[["summary", "요약 분석"], ["games", "경기별 분석"], ["heroes", "영웅 분석"], ["maps", "맵 분석"]].map(([id, lb]) => `<button class="subtab ${tab === id ? "on" : ""}" data-act="scout-tab" data-val="${id}">${lb}</button>`).join("")}</div>`;
+  const tab = ["summary", "games", "heroes", "heroban", "maps", "mappick"].includes(scoutTab) ? scoutTab : "summary";
+  const subtabs = `<div class="subtabs">${[["summary", "요약 분석"], ["games", "경기별 분석"], ["heroes", "영웅 분석"], ["heroban", "영웅 밴 분석"], ["maps", "맵 분석"], ["mappick", "맵픽 분석"]].map(([id, lb]) => `<button class="subtab ${tab === id ? "on" : ""}" data-act="scout-tab" data-val="${id}">${lb}</button>`).join("")}</div>`;
 
   let body: string;
   if (tab === "games") {
@@ -670,9 +670,13 @@ export function renderScout(D: DataBundle, curScout: string, scoutTab: string, d
       ? teamSets.map((s) => scoutGameCard(D, s, curScout)).join("")
       : nod("이 팀의 경기 기록이 없음.");
   } else if (tab === "heroes") {
-    body = renderScoutHeroes(D, curScout, deep);
+    body = renderScoutHeroes(D, curScout, deep, "pick");
+  } else if (tab === "heroban") {
+    body = renderScoutHeroes(D, curScout, deep, "ban");
   } else if (tab === "maps") {
-    body = renderScoutMaps(D, curScout, deep);
+    body = renderScoutMaps(D, curScout, deep, "perf");
+  } else if (tab === "mappick") {
+    body = renderScoutMaps(D, curScout, deep, "pick");
   } else {
     body = teamSummary(D, curScout, curScout === D.us, weakExpand);
   }
