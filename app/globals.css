@@ -262,6 +262,25 @@ select:focus{outline:2px solid var(--accent-dim);outline-offset:1px}
 .modeban-mode{display:inline-block;font-size:17px;font-weight:800;color:var(--bg);background:var(--accent);border-radius:7px;padding:4px 12px;letter-spacing:.01em;margin-bottom:14px}
 .modeban-map-blk{background:var(--panel-2);border:1px solid var(--line-soft);border-radius:9px;padding:10px 12px}
 .modeban-map{font-size:14.5px;font-weight:700;color:var(--tx);margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--line-soft)}
+/* 영웅 밴 분석 (영웅 선택 탐색) */
+.hbrole{margin-bottom:14px}
+.hbgrid{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.hbchip{display:inline-flex;align-items:center;gap:7px;background:var(--panel-2);border:1px solid var(--line-soft);border-radius:9px;padding:6px 11px 6px 7px;cursor:pointer;font-family:inherit;color:inherit;font-size:13px;transition:border-color .12s,background .12s}
+.hbchip .hicon{width:26px;height:26px;border-radius:6px;flex:none;font-size:12px}
+.hbchip:hover{border-color:var(--accent-dim);background:var(--panel-3)}
+.hbchip.on{border-color:var(--accent);background:rgba(25,227,192,.1)}
+.hbchip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.hbchip .hbn{font-weight:600}
+.hbchip .hbct{font-family:var(--mono);font-size:11px;color:var(--tx-dim);background:var(--panel-3);border-radius:5px;padding:1px 6px}
+.hbsel-head{display:flex;align-items:center;gap:12px}
+.hbsel-head .hicon{width:44px;height:44px;border-radius:9px;flex:none;font-size:18px}
+.hbsel-name{font-size:18px;font-weight:800}
+.hbtable{width:100%;border-collapse:collapse;font-size:13px}
+.hbtable th{text-align:left;font-family:var(--mono);font-size:11.5px;color:var(--tx-dim);font-weight:600;padding:6px 10px;border-bottom:1px solid var(--line)}
+.hbtable th.num,.hbtable td.num{text-align:right}
+.hbtable td{padding:7px 10px;border-bottom:1px solid var(--line-soft)}
+.hbtable tr.zanrow{background:rgba(25,227,192,.05)}
+.hbtable .mini-tr{min-width:80px}
 .notes{display:flex;flex-direction:column;gap:9px;font-size:13.5px;line-height:1.6;color:var(--tx-mid)}
 .notes p{margin:0}
 .notes b{color:var(--tx)}

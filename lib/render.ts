@@ -603,7 +603,7 @@ function scoutGameCard(D: DataBundle, s: SetRec, focus: string): string {
   const fmtSc = (sc: SetRec["ws"]) => (sc ? (sc.kind === "dist" ? Math.round(sc.val) + "m" : String(sc.val)) : "·");
   const fScore = won ? fmtSc(s.ws) : fmtSc(s.ls);
   const oScore = won ? fmtSc(s.ls) : fmtSc(s.ws);
-  const picker = s.picker && s.picker !== "ADMIN" ? s.picker : "";
+  const picker = s.picker || "";
   const fb = s.bans.find((b) => b.phase === "first");
   const sb = s.bans.find((b) => b.phase === "second");
   const order: Record<string, number> = { Tank: 0, DPS: 1, Support: 2 };
@@ -981,6 +981,60 @@ function banLineup(name: string, lines: { player: string; hero: string }[], zan:
   if (!lines.length) return `<div class="lineup"><span class="lu-team ${zan ? "zan" : ""}">${esc(name)}</span> <span class="mini">라인업 미기록</span></div>`;
   return `<div class="lineup"><span class="lu-team ${zan ? "zan" : ""}">${esc(name)}</span>${lines.map((p) => `<span class="lu-p">${heroIcon(p.hero || "")}<span>${esc(p.player || "?")}</span></span>`).join("")}</div>`;
 }
+// ===== 영웅 밴 분석 (영웅 중심 탐색: 검색/포지션 선택 → 맵별·팀별 밴 분포) =====
+export interface HeroBanUI { hero: string; search: string; team: string; }
+export function renderHeroBan(D: DataBundle, ui: HeroBanUI): string {
+  setIcons(D.heroIcons);
+  const heroTotals: Record<string, number> = {};
+  D.sets.forEach((s) => s.bans.forEach((b) => { if (b.hero) heroTotals[b.hero] = (heroTotals[b.hero] || 0) + 1; }));
+
+  const q = ui.search.trim().toLowerCase();
+  const allHeroes = (["Tank", "DPS", "Support"] as const).flatMap((r) => HEROES[r]);
+  const matches = q ? allHeroes.filter((h) => h.toLowerCase().includes(q) || heroKo(h).toLowerCase().includes(q)) : [];
+  const heroChipBtn = (h: string) => `<button class="hbchip ${h === ui.hero ? "on" : ""}" data-act="hb-hero" data-val="${esc(h)}">${heroIcon(h)}<span class="hbn">${esc(heroKo(h))}</span><span class="hbct">${heroTotals[h] || 0}</span></button>`;
+  const selector = q
+    ? `<div class="sub-note">'${esc(ui.search)}' 검색 결과 — 누르면 선택</div><div class="hbgrid">${matches.length ? matches.map(heroChipBtn).join("") : nod("맞는 영웅이 없어요.")}</div>`
+    : (["Tank", "DPS", "Support"] as const).map((r) => `<div class="hbrole"><div class="possum-role">${ROLE_KO[r]}</div><div class="hbgrid">${HEROES[r].map(heroChipBtn).join("")}</div></div>`).join("");
+
+  let detail = `<div class="panel">${nod("영웅을 검색하거나 위 목록에서 선택하면, 맵별·팀별 밴 분포(선밴/후밴)를 보여줘요.")}</div>`;
+  if (ui.hero) {
+    const H = ui.hero;
+    const mapAgg: Record<string, { f: number; s: number }> = {};
+    const teamAgg: Record<string, { f: number; s: number }> = {};
+    let tf = 0, ts = 0;
+    D.sets.forEach((s) => s.bans.forEach((b) => {
+      if (b.hero !== H) return;
+      const ta = (teamAgg[b.team] = teamAgg[b.team] || { f: 0, s: 0 });
+      if (b.phase === "first") { ta.f++; tf++; } else { ta.s++; ts++; }
+      if (ui.team !== "all" && b.team !== ui.team) return;
+      const ma = (mapAgg[s.map] = mapAgg[s.map] || { f: 0, s: 0 });
+      if (b.phase === "first") ma.f++; else ma.s++;
+    }));
+    const teams = Object.keys(teamAgg).sort((a, b) => (teamAgg[b].f + teamAgg[b].s) - (teamAgg[a].f + teamAgg[a].s));
+    const teamSel = `<select data-act="hb-team"><option value="all" ${ui.team === "all" ? "selected" : ""}>전체 팀</option>${teams.map((t) => `<option value="${esc(t)}" ${t === ui.team ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>`;
+    const mapRows = Object.entries(mapAgg).map(([m, v]) => ({ m, ...v, t: v.f + v.s })).sort((a, b) => b.t - a.t || mapKo(a.m).localeCompare(mapKo(b.m)));
+    const mmax = Math.max(1, ...mapRows.map((r) => r.t));
+    const banTr = (w: number, max: number) => `<div class="tr mini-tr"><div class="fl ban" style="width:${Math.round((w / max) * 100)}%"></div></div>`;
+    const mapTable = mapRows.length
+      ? `<table class="hbtable"><thead><tr><th>맵</th><th class="num">선밴</th><th class="num">후밴</th><th class="num">합계</th><th>빈도</th></tr></thead><tbody>${mapRows.map((r) => `<tr><td class="hname">${mk(r.m)} <span class="mini">${esc(MODE_KO[D.mapInfo[r.m]] || D.mapInfo[r.m] || "")}</span></td><td class="num">${r.f}</td><td class="num">${r.s}</td><td class="num"><b>${r.t}</b></td><td>${banTr(r.t, mmax)}</td></tr>`).join("")}</tbody></table>`
+      : nod(ui.team === "all" ? "이 영웅의 밴 기록이 없어요." : "이 팀의 해당 영웅 밴 기록이 없어요.");
+    const teamRows = teams.map((t) => ({ t, ...teamAgg[t], tot: teamAgg[t].f + teamAgg[t].s }));
+    const tmax = Math.max(1, ...teamRows.map((r) => r.tot));
+    const teamTable = teamRows.length
+      ? `<table class="hbtable"><thead><tr><th>팀</th><th class="num">선밴</th><th class="num">후밴</th><th class="num">합계</th><th>빈도</th></tr></thead><tbody>${teamRows.map((r) => `<tr class="${r.t === D.us ? "zanrow" : ""}"><td class="${r.t === D.us ? "zan" : ""}">${esc(r.t)}</td><td class="num">${r.f}</td><td class="num">${r.s}</td><td class="num"><b>${r.tot}</b></td><td>${banTr(r.tot, tmax)}</td></tr>`).join("")}</tbody></table>`
+      : nod("밴 기록이 없어요.");
+    detail = `
+      <div class="panel hbsel"><div class="hbsel-head">${heroIcon(H)}<div><div class="hbsel-name">${esc(heroKo(H))} <span class="mini">${esc(ROLE_KO[HERO_ROLE[H] || ""] || "")}</span></div><div class="mini">총 ${tf + ts}회 밴 · 선밴 ${tf} · 후밴 ${ts}</div></div></div></div>
+      <div class="panel"><h2>맵별 밴 분포 <span class="count">선밴/후밴 · ${ui.team === "all" ? "전체 팀" : esc(ui.team)}</span></h2>
+        <div class="fbar"><span class="flabel">팀</span>${teamSel}</div>${mapTable}</div>
+      <div class="panel"><h2>팀별 밴 분포 <span class="count">어떤 팀이 이 영웅을 밴하나 · 선밴/후밴</span></h2>${teamTable}</div>`;
+  }
+  return `
+    <div class="panel"><h2>영웅 밴 분석 <span class="count">영웅을 고르면 맵별·팀별 밴 분포</span></h2>
+      <div class="sub-note">위 검색창에서 영웅 이름(한글/영문)으로 찾거나, 아래 포지션별 목록에서 골라요. 칩의 숫자는 총 피밴 수예요.</div>
+      ${selector}</div>
+    ${detail}`;
+}
 export function renderBanAnalysis(D: DataBundle, f: BanUI): string {
   setIcons(D.heroIcons);
   // 리그 전체 밴 (선밴/후밴 분리)
@@ -1157,7 +1211,7 @@ function lineupDetail(name: string, picks: Pick[], zan: boolean): string {
 // (경기 중 영웅 교체는 시트에 없어 표시하지 않음 — 데이터가 생기면 별도 블록으로 추가)
 function setDetail(D: DataBundle, s: SetRec): string {
   const w = setWinner(s);
-  const picker = s.picker ? (s.picker === "ADMIN" ? "주최(ADMIN)" : esc(s.picker)) : "공란/불명";
+  const picker = s.picker ? esc(s.picker) : "공란/불명";
   const fb = s.bans.find((b) => b.phase === "first");
   const sb = s.bans.find((b) => b.phase === "second");
   const banLine = (b: typeof fb, label: string) => b
@@ -1296,7 +1350,7 @@ export function renderLog(D: DataBundle, f: LogFilter, logExpand: string[], logS
   const rows = arr.length ? arr.map((s) => {
     const w = setWinner(s);
     const open = logExpand.includes(setKey(s));
-    const picker = s.picker && s.picker !== "ADMIN" ? esc(s.picker) : "—";
+    const picker = s.picker ? esc(s.picker) : "—";
     const topSc = w === s.top ? fmtSc(s.ws) : fmtSc(s.ls);
     const botSc = w === s.top ? fmtSc(s.ls) : fmtSc(s.ws);
     const winCell = w ? `<span class="${w === D.us ? "zan" : ""}">${esc(w)}</span>` : '<span class="mini">미정</span>';

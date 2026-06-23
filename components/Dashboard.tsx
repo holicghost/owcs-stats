@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import type { DataBundle } from "@/lib/types";
 import {
-  renderMatchday, renderScout, renderBanAnalysis, renderMaps, renderLog,
+  renderMatchday, renderScout, renderBanAnalysis, renderHeroBan, renderMaps, renderLog,
   renderScenario, renderPlayers, renderEstimator, renderZanside, setIcons, setToEstInput, setToEstUs, setToEstOppTeam,
   type LogFilter, type EstInput, type BanUI,
 } from "@/lib/render";
@@ -19,6 +19,7 @@ const OWCS_GROUPS = [
       { id: "players", label: "선수별 분석" },
       { id: "ban", label: "영웅 분석" },
       { id: "maps", label: "맵 분석" },
+      { id: "legacy", label: "임시" },
     ],
   },
   {
@@ -90,6 +91,11 @@ export default function Dashboard({ data }: { data: DataBundle }) {
   const [banMap, setBanMap] = useState("all");
   const [banExpand, setBanExpand] = useState("");
 
+  // 영웅 밴 분석 (영웅 중심 탐색)
+  const [hbHero, setHbHero] = useState("");
+  const [hbSearch, setHbSearch] = useState("");
+  const [hbTeam, setHbTeam] = useState("all");
+
   // 시뮬레이션
   const [est, setEst] = useState<EstInput>(EMPTY_EST);
 
@@ -106,12 +112,13 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "scout": return renderScout(D, scoutTeam, scoutTab, { agg: deepAgg, sort: deepSort, smp: deepSmp, banExpand: deepBanExpand }, weakExpand);
       case "players": return renderPlayers(D, { playerA, playerB, search: playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel });
       case "log": return renderLog(D, logF, logExpand, logSort);
-      case "ban": return renderBanAnalysis(D, { role: banRole, topN: banTopN, team: banTeam, banMap, banExpand } as BanUI);
+      case "ban": return renderHeroBan(D, { hero: hbHero, search: hbSearch, team: hbTeam });
       case "maps": return renderMaps(D, mapsMode, mapsTeam);
+      case "legacy": return renderBanAnalysis(D, { role: banRole, topN: banTopN, team: banTeam, banMap, banExpand } as BanUI) + renderMaps(D, mapsMode, mapsTeam);
       case "estimator": return renderEstimator(D, est);
       default: return "";
     }
-  }, [D, tab, scoutTeam, scoutTab, deepAgg, deepSort, deepSmp, deepBanExpand, weakExpand, playerA, playerB, playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel, logF, logExpand, logSort, banRole, banTopN, banTeam, banMap, banExpand, mapsMode, mapsTeam, est]);
+  }, [D, tab, scoutTeam, scoutTab, deepAgg, deepSort, deepSmp, deepBanExpand, weakExpand, playerA, playerB, playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel, logF, logExpand, logSort, hbHero, hbSearch, hbTeam, banRole, banTopN, banTeam, banMap, banExpand, mapsMode, mapsTeam, est]);
 
   const zansideHtml = useMemo(() => {
     setIcons(D.heroIcons);
@@ -151,6 +158,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "heromap-sel": setHeroMapSel((c) => (c === val ? "" : val)); break;
       case "ban-role": setBanRole(val as "all" | Role); break;
       case "ban-expand": setBanExpand((c) => (c === val ? "" : val)); break;
+      case "hb-hero": setHbHero(val); setHbSearch(""); break;
       case "weak-expand": setWeakExpand((c) => (c === val ? "" : val)); break;
       case "log-expand": setLogExpand((arr) => (arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val])); break;
       case "load-sim": { const inp = setToEstInput(D, val); if (inp) { setEst(inp); go("estimator"); } break; }
@@ -184,6 +192,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "ban-topn": setBanTopN(+v); break;
       case "ban-team": setBanTeam(v); setBanExpand(""); break;
       case "ban-map": setBanMap(v); setBanExpand(""); break;
+      case "hb-team": setHbTeam(v); break;
       case "pick-team": {
         const top = D.playerNames.map((n) => D.players[n]).filter((p) => p.team === v).sort((a, b) => b.n - a.n)[0];
         setPickTeam(v); setHeroExpand(""); setHeroMapSel("");
@@ -291,6 +300,11 @@ export default function Dashboard({ data }: { data: DataBundle }) {
         {mod === "owcs" && tab === "players" && (
           <div className="metabar">
             <input className="searchbox" type="search" placeholder="전체 선수 이름 검색…" value={playerSearch} onChange={(e) => setPlayerSearch((e.target as HTMLInputElement).value)} />
+          </div>
+        )}
+        {mod === "owcs" && tab === "ban" && (
+          <div className="metabar">
+            <input className="searchbox" type="search" placeholder="영웅 이름 검색 (한글/영문)…" value={hbSearch} onChange={(e) => setHbSearch((e.target as HTMLInputElement).value)} />
           </div>
         )}
         {mod === "owcs" && <section dangerouslySetInnerHTML={{ __html: html }} />}
