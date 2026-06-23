@@ -4,9 +4,9 @@
   --tx:#eef0f6; --tx-mid:#a4abbd; --tx-dim:#6b7388;
   --accent:#19e3c0; --accent-dim:#0e8a78;        /* ZANSIDE 강조색(브랜드·승리=고정) */
   --warn:#ff5d73; --gold:#ffcf5c; --blue:#4d8dff;
-  /* 카테고리 색(내비/구조 강조) — 한 곳에서 바꾸면 하위 전체가 따라감 */
-  --cat-team:#E64B5A; --cat-scout:#3B82F6; --cat-log:#22B07D; --cat-forecast:#E0A33E;
-  --cat:var(--cat-team); /* 활성 카테고리 강조색 (data-category로 주입) */
+  /* 데이터 소스별 강조색(부가 설명·구조 강조에만 사용, 승률/의미색 아님) — 한 곳에서 바꾸면 하위 전체가 따라감 */
+  --cat-owcs:#3B82F6; --cat-scrim:#E64B5A; --cat-zanside:#22B07D;
+  --cat:var(--cat-owcs); /* 활성 강조색 (data-category=mod로 주입) */
   --r:14px;
   --mono:"SF Mono",ui-monospace,"Cascadia Code","JetBrains Mono",Menlo,Consolas,monospace;
 }
@@ -37,18 +37,11 @@ h1 .thin{font-weight:300;color:var(--tx-mid)}
 
 nav.tabs{position:sticky;top:0;z-index:10;display:flex;gap:3px;padding:12px 0;background:linear-gradient(var(--bg) 72%,transparent);margin-bottom:6px;overflow-x:auto;scrollbar-width:none}
 nav.tabs::-webkit-scrollbar{display:none}
-/* 카테고리 색 주입: data-category 만으로 강조색 전환 (컴포넌트 색 하드코딩 없음) */
-[data-category="team"]{--cat:var(--cat-team)}
-[data-category="scout"]{--cat:var(--cat-scout)}
-[data-category="log"]{--cat:var(--cat-log)}
-[data-category="forecast"]{--cat:var(--cat-forecast)}
-.tab{flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;font-family:inherit;font-size:14px;font-weight:600;color:var(--tx-mid);background:transparent;border:none;padding:9px 15px;border-radius:10px;cursor:pointer;transition:.15s;white-space:nowrap}
-/* 탭마다 소속 카테고리 점(색각 이상 대비: 점=형태 신호) */
-.tab[data-cat]::before{content:"";width:7px;height:7px;border-radius:50%;flex:none;background:var(--tx-dim)}
-.tab[data-cat="team"]::before{background:var(--cat-team)}
-.tab[data-cat="scout"]::before{background:var(--cat-scout)}
-.tab[data-cat="log"]::before{background:var(--cat-log)}
-.tab[data-cat="forecast"]::before{background:var(--cat-forecast)}
+/* 데이터 소스별 강조색 주입: data-category=mod 만으로 강조색 전환 (컴포넌트 색 하드코딩 없음) */
+[data-category="owcs"]{--cat:var(--cat-owcs)}      /* 파랑 */
+[data-category="scrim"]{--cat:var(--cat-scrim)}    /* 빨강 */
+[data-category="zanside"]{--cat:var(--cat-zanside)} /* 초록 */
+.tab{flex:0 0 auto;font-family:inherit;font-size:14px;font-weight:600;color:var(--tx-mid);background:transparent;border:none;padding:9px 15px;border-radius:10px;cursor:pointer;transition:.15s;white-space:nowrap}
 .tab:hover{color:var(--tx)}
 .tab.on{color:var(--bg);background:var(--cat);font-weight:700;box-shadow:inset 0 -3px 0 rgba(0,0,0,.28)}
 .tab:hover:not(.on){color:var(--tx);background:var(--panel-2)}

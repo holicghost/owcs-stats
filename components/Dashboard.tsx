@@ -40,12 +40,6 @@ const ZANSIDE_TABS = [
 ] as const;
 type ZTab = (typeof ZANSIDE_TABS)[number]["id"];
 
-// 탭 → 카테고리 색 (우리 팀 / 상대 분석 / 경기 기록 / 전망)
-const TAB_CATEGORY: Record<string, "team" | "scout" | "log" | "forecast"> = {
-  scout: "scout", players: "team", pstats: "team", ban: "scout", maps: "team", log: "log", estimator: "forecast",
-  matchday: "team", scenario: "forecast", team: "team", teamban: "team", teammaps: "team",
-};
-
 const ROLE_FILTERS: Array<{ id: "all" | Role; label: string }> = [
   { id: "all", label: "전체" }, { id: "Tank", label: "탱커" }, { id: "DPS", label: "딜러" }, { id: "Support", label: "서포터" },
 ];
@@ -255,10 +249,8 @@ export default function Dashboard({ data }: { data: DataBundle }) {
     setTimeout(() => setRefreshing(false), 1200);
   }
 
-  const activeCategory = mod === "owcs" ? (TAB_CATEGORY[tab] || "team") : mod === "zanside" ? (TAB_CATEGORY[zTab] || "team") : "team";
-
   return (
-    <div className="wrap" data-category={activeCategory}>
+    <div className="wrap" data-category={mod}>
       <header>
         <div className="eyebrow">OWCS ASIA: KOREA · Stage 2 · 내부 분석 도구</div>
         <h1>ZANSIDE <span className="thin">데이터 분석</span></h1>
