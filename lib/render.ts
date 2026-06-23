@@ -216,69 +216,6 @@ function dateKey(d: string): number {
   if (md) return 99990000 + +md[1] * 100 + +md[2]; // 연도 미상 → 연도 무관 월/일 비교
   return 9 ** 9;
 }
-// ===== 모드 판단 엔진 (절대 성적 ↔ 상대 비교 분리) =====
-// 임계값(보고서 기재): 최소표본 3맵 · 상대비교 ±10%p · 자체 높음 50% / 낮음 35%
-// 임계값(보고서 기재): 최소 표본 3맵 · 상대 비교 ±10%p(표시 정수 기준) · 자체 높음 50% / 낮음 35%
-const MODE_MIN_SAMPLE = 3;
-const MODE_REL_MARGIN = 10; // %p (표시 정수끼리 비교)
-const MODE_SELF_HI = 50;    // %
-const MODE_SELF_LO = 35;    // %
-type StrategyKey = "priority" | "conditional" | "avoid" | "own-strength" | "own-weakness" | "opp-weakness" | "opp-strength" | "hold";
-type SampleStatus = "sufficient" | "own-only" | "opponent-only" | "insufficient";
-interface ModeStrategy {
-  mode: string; label: string;
-  ownRate: number | null; oppRate: number | null;   // 0~100 표시 정수
-  ownSample: number; oppSample: number;
-  displayedDiff: number | null;                      // round(own) − round(opp) — 표시 승률과 수학적으로 일치
-  sampleStatus: SampleStatus;
-  strategy: StrategyKey; strategyLabel: string; cls: string;
-  reason: string;
-}
-const STRAT_LABEL: Record<StrategyKey, string> = {
-  priority: "우선 공략", conditional: "조건부 공략", avoid: "우선 회피",
-  "own-strength": "우리 강점 후보", "own-weakness": "우리 점검 후보",
-  "opp-weakness": "상대 공략 후보", "opp-strength": "상대 강점 주의", hold: "판단 보류",
-};
-const STRAT_CLS: Record<StrategyKey, string> = {
-  priority: "v-attack", conditional: "v-cond", avoid: "v-avoid",
-  "own-strength": "v-cand", "own-weakness": "v-hold",
-  "opp-weakness": "v-cand", "opp-strength": "v-avoid", hold: "v-hold",
-};
-// 단일 소스: 자체 성적(절대)·상대 비교(상대)·표본 상태를 한 곳에서 산출해 모든 화면이 공유한다.
-export function classifyMode(mode: string, u?: ModeRec, o?: ModeRec): ModeStrategy {
-  const ownSample = u ? u.t : 0, oppSample = o ? o.t : 0;
-  const ownRate = ownSample ? Math.round((u!.w / ownSample) * 100) : null;
-  const oppRate = oppSample ? Math.round((o!.w / oppSample) * 100) : null;
-  const label = MODE_KO[mode] || mode;
-  const ownOK = ownSample >= MODE_MIN_SAMPLE, oppOK = oppSample >= MODE_MIN_SAMPLE;
-  const sampleStatus: SampleStatus = ownOK && oppOK ? "sufficient" : ownOK ? "own-only" : oppOK ? "opponent-only" : "insufficient";
-  const selfHi = ownRate != null && ownRate >= MODE_SELF_HI;
-  const selfLo = ownRate != null && ownRate < MODE_SELF_LO;
-  let strategy: StrategyKey = "hold", displayedDiff: number | null = null, reason = "";
-  if (sampleStatus === "sufficient") {
-    displayedDiff = (ownRate as number) - (oppRate as number); // 표시 정수끼리 차이 → 화면과 일치
-    if (displayedDiff <= -MODE_REL_MARGIN) { strategy = "avoid"; reason = `상대 대비 ${displayedDiff}%p · 상대 우위`; }
-    else if (displayedDiff >= MODE_REL_MARGIN) {
-      strategy = selfLo ? "conditional" : "priority";
-      reason = selfLo ? `상대 대비 +${displayedDiff}%p · 자체 ${ownRate}% · 자체 성적 낮음(준비 상태 확인)` : `상대 대비 +${displayedDiff}%p · 자체 ${ownRate}%`;
-    } else { // 대등
-      strategy = selfHi ? "conditional" : selfLo ? "avoid" : "hold";
-      reason = `상대 대비 ${displayedDiff >= 0 ? "+" : ""}${displayedDiff}%p · 자체 ${ownRate}% · 상대와 대등`;
-    }
-  } else if (sampleStatus === "own-only") {
-    strategy = selfHi ? "own-strength" : selfLo ? "own-weakness" : "hold";
-    reason = `자체 ${ownRate}%(${selfHi ? "양호" : selfLo ? "저조" : "보통"}) · 상대 표본 ${oppSample}맵 부족 · 비교 판단 보류`;
-  } else if (sampleStatus === "opponent-only") {
-    strategy = (oppRate as number) < MODE_SELF_LO ? "opp-weakness" : (oppRate as number) >= MODE_SELF_HI ? "opp-strength" : "hold";
-    reason = `상대 ${oppRate}% · 우리 표본 ${ownSample}맵 부족 · 우열 판단 보류`;
-  } else {
-    reason = `양 팀 표본 부족 · 우리 ${ownSample}맵 / 상대 ${oppSample}맵`;
-  }
-  return { mode, label, ownRate, oppRate, ownSample, oppSample, displayedDiff, sampleStatus, strategy, strategyLabel: STRAT_LABEL[strategy], cls: STRAT_CLS[strategy], reason };
-}
-function modeStrategies(D: DataBundle, us?: Team, op?: Team): ModeStrategy[] {
-  return MODE_ORDER.map((m) => classifyMode(m, us?.modes[m], op?.modes[m])).filter((e) => e.ownSample > 0 || e.oppSample > 0);
-}
 // 매치업 전망 판단 문구 (확정적 예측처럼 보이지 않게 단어 우선)
 function matchVerdict(pct: number): { word: string; cls: string } {
   if (pct >= 63) return { word: "우세 가능성 있음", cls: "good" };
@@ -286,28 +223,6 @@ function matchVerdict(pct: number): { word: string; cls: string } {
   if (pct >= 46) return { word: "백중세", cls: "even" };
   if (pct >= 37) return { word: "약열세", cls: "warn" };
   return { word: "열세 가능성 있음", cls: "bad" };
-}
-// 전략 표시 정렬 우선순위 (공통)
-const STRAT_ORDER: Record<StrategyKey, number> = {
-  priority: 0, "own-strength": 1, "opp-weakness": 1, conditional: 2, hold: 3, "own-weakness": 3, "opp-strength": 4, avoid: 5,
-};
-// 모드 비교 막대 (CSS 막대, 차트 라이브러리 미사용) — 표시 승률·차이가 수학적으로 일치
-function modeCompareRows(strats: ModeStrategy[]): string {
-  const sorted = strats.slice().sort((a, b) => STRAT_ORDER[a.strategy] - STRAT_ORDER[b.strategy] || (b.ownRate ?? -1) - (a.ownRate ?? -1));
-  const bar = (rate: number | null) => rate == null ? `<div class="mcbar"></div>` : `<div class="mcbar"><div class="mcbar-fill ${wrCls(rate)}-fl" style="width:${rate}%"></div></div>`;
-  return sorted.map((e) => {
-    const diffTxt = e.displayedDiff != null
-      ? `상대 대비 ${e.displayedDiff >= 0 ? "+" : ""}${e.displayedDiff}%p`
-      : e.sampleStatus === "own-only" ? "상대 표본 부족 · 비교 보류"
-        : e.sampleStatus === "opponent-only" ? "우리 표본 부족 · 비교 보류" : "양 팀 표본 부족";
-    const warn = e.strategy === "conditional" && e.ownRate != null && e.ownRate < MODE_SELF_LO;
-    return `<div class="mcrow">
-      <div class="mc-head"><span class="mc-mode">${esc(e.label)}</span><span class="vbadge ${e.cls}">${e.strategyLabel}</span></div>
-      <div class="mc-line"><span class="mc-lab zan">ZANSIDE</span>${bar(e.ownRate)}<span class="mc-val">${e.ownRate != null ? e.ownRate + "%" : "-"} <span class="mini">${e.ownSample}맵</span></span></div>
-      ${e.oppRate != null ? `<div class="mc-line"><span class="mc-lab">상대</span>${bar(e.oppRate)}<span class="mc-val">${e.oppRate}% <span class="mini">${e.oppSample}맵</span></span></div>` : ""}
-      <div class="mc-foot"><span class="mc-gap">${diffTxt}</span>${warn ? `<span class="mc-warn">자체 성적 낮음 · 준비 확인</span>` : ""}</div>
-    </div>`;
-  }).join("");
 }
 export function renderMatchday(D: DataBundle, weakExpand: string): string {
   const up = D.schedule
@@ -343,11 +258,6 @@ export function renderMatchday(D: DataBundle, weakExpand: string): string {
   const mv = matchVerdict(est.pct);
   const stOpp = standOf(D, opp);
 
-  // ── 모드 전략 단일 소스 (핵심 요약·추천 대응·모드 비교가 공통 사용) ──
-  const strats = modeStrategies(D, us, op);
-  const byStrat = (k: StrategyKey) => strats.filter((s) => s.strategy === k).sort((a, b) => (b.ownRate ?? -1) - (a.ownRate ?? -1));
-  const modesOf = (keys: StrategyKey[]) => strats.filter((s) => keys.includes(s.strategy)).sort((a, b) => STRAT_ORDER[a.strategy] - STRAT_ORDER[b.strategy] || (b.ownRate ?? -1) - (a.ownRate ?? -1)).map((s) => s.label);
-
   // ① 매치업 전망 (확정 예측처럼 보이지 않게 판단 문구 우선)
   const outlookCard = `<div class="mdcard outlook ${mv.cls}">
     <div class="mdc-k">매치업 전망</div>
@@ -368,34 +278,6 @@ export function renderMatchday(D: DataBundle, weakExpand: string): string {
   const expBan = oppFb
     ? mdCard("상대 선밴 예상", heroChip(oppFb[0]), `선밴 빈도 ${Math.round((oppFb[1] / Math.max(1, oppMaps)) * 100)}% · 최근 ${oppMaps}맵 기준`)
     : mdCard("상대 선밴 예상", "데이터 부족", "상대 밴 기록이 입력되면 표시");
-
-  // ④ 모드 전략 (핵심 요약 — 5개 그룹, 상세 모드 비교와 동일 결과)
-  const bucket = (tag: string, cls: string, keys: StrategyKey[]) => {
-    const names = modesOf(keys);
-    return `<div class="ms-line"><span class="ms-tag ${cls}">${tag}</span><span class="ms-mode">${names.length ? names.map(esc).join(" · ") : "해당 없음"}</span></div>`;
-  };
-  const modeStratCard = `<div class="mdcard modestrat">
-    <div class="mdc-k">모드 전략</div>
-    ${bucket("우선 공략", "v-attack", ["priority"])}
-    ${bucket("조건부 공략", "v-cond", ["conditional"])}
-    ${bucket("강점·공략 후보", "v-cand", ["own-strength", "opp-weakness"])}
-    ${bucket("판단 보류", "v-hold", ["hold", "own-weakness", "opp-strength"])}
-    ${bucket("우선 회피", "v-avoid", ["avoid"])}
-  </div>`;
-
-  // 추천 대응 TOP 3 (표본 부족·판단 보류 제외 · 우선순위: 우선공략 > 첫밴 > 조건부 > 강점후보 > 회피, 동순위는 자체 승률순)
-  const actCandidates: Array<{ t: string; s: string }> = [];
-  byStrat("priority").forEach((m) => actCandidates.push({ t: `${m.label} 우선 선택`, s: m.reason }));
-  if (banPick) actCandidates.push({ t: `${heroKo(banPick.hero)} 선밴 검토`, s: `상대 핵심 픽 · ${banPick.n}회 사용` });
-  byStrat("conditional").forEach((m) => actCandidates.push({ t: `${m.label} 조건부 선택`, s: m.reason }));
-  byStrat("own-strength").forEach((m) => actCandidates.push({ t: `${m.label} 강점 활용`, s: m.reason }));
-  byStrat("opp-weakness").forEach((m) => actCandidates.push({ t: `${m.label} 공략 후보`, s: m.reason }));
-  byStrat("avoid").forEach((m) => actCandidates.push({ t: `${m.label} 회피 우선`, s: m.reason }));
-  const top3 = actCandidates.slice(0, 3);
-  const actsHtml = top3.length
-    ? `<ol class="actlist">${top3.map((a) => `<li><span class="act-t">${esc(a.t)}</span><span class="act-s">${esc(a.s)}</span></li>`).join("")}</ol>
-       <details class="allstrat"><summary>전체 전략 보기</summary><div class="allstrat-body">${strats.map((s) => `<div class="as-row"><span class="vbadge ${s.cls}">${s.strategyLabel}</span><span class="as-mode">${esc(s.label)}</span><span class="mini">${esc(s.reason)}</span></div>`).join("")}</div></details>`
-    : nod("표본 충족 모드 없음 · 대응 제안 보류");
 
   // 상대 핵심 성향 (행동 지침 · 조사 없음)
   const tendRows: string[] = [];
@@ -423,11 +305,8 @@ export function renderMatchday(D: DataBundle, weakExpand: string): string {
       <span class="sb-txt">ZANSIDE ${usSeriesN}시리즈 · ${esc(opp)} ${oppSeriesN}시리즈 기준. 경기 준비용 참고 지표이며 확정 예측이 아닙니다.</span></div>
     <details class="sb-more"><summary>분석 기준 보기</summary>
       <ul class="sb-list">
-        <li>모드 판단: 자체 성적(절대 승률)·상대 비교(표시 승률 차)·표본 상태를 단일 결과로 산출. 핵심 요약·추천 대응·모드 비교가 동일 결과 사용.</li>
-        <li>표본 처리: 양 팀 ${MODE_MIN_SAMPLE}맵 이상 → 우선 공략/조건부/회피. 한쪽만 충족 → 강점·공략 후보(비교 보류). 둘 다 미달 → 판단 보류.</li>
-        <li>임계값: 최소 표본 ${MODE_MIN_SAMPLE}맵 · 상대 비교 ±${MODE_REL_MARGIN}%p(표시 승률 기준) · 자체 높음 ${MODE_SELF_HI}% / 낮음 ${MODE_SELF_LO}%.</li>
-        <li>모드 판단은 결과 요약 지표이며 상대·맵·밴 상황에 따라 달라질 수 있습니다.</li>
         <li>예상 승률은 학습 모델이 아닌 가중 합산 추정치이며, 소수점 정밀도를 보장하지 않습니다.</li>
+        <li>표본이 적어 상대·맵·밴 상황에 따라 실제 결과는 달라질 수 있습니다.</li>
       </ul></details>
   </div>`;
 
@@ -444,13 +323,8 @@ export function renderMatchday(D: DataBundle, weakExpand: string): string {
     </section>
     ${banner}
     <h2 class="sectit">핵심 요약</h2>
-    <div class="mdcards">${outlookCard}${recBan}${expBan}${modeStratCard}</div>
-    <div class="grid2">
-      <section class="panel"><h2>추천 대응 TOP 3 <span class="count">표본 충족 모드 · 우선순위순</span></h2>${actsHtml}</section>
-      <section class="panel"><h2>상대 핵심 성향</h2><div class="tendlist">${tendHtml}</div></section>
-    </div>
-    <section class="panel"><h2>모드 비교 <span class="count">자체 성적 ↔ 상대 비교 분리</span></h2>
-      <div class="modecompare">${strats.length ? modeCompareRows(strats) : nod("모드 표본이 부족합니다.")}</div></section>
+    <div class="mdcards">${outlookCard}${recBan}${expBan}</div>
+    <section class="panel"><h2>상대 핵심 성향</h2><div class="tendlist">${tendHtml}</div></section>
     <section class="panel"><h2>근거 경기 <span class="count">${useH2h ? "최근 맞대결" : `${esc(opp)} 최근 경기`}</span></h2>${evidence}</section>
     <section class="panel"><details class="calc"><summary><span class="calc-sum">예상 승률 산출 기준</span><span class="mini">학습 모델이 아닌 가중 합산 방식 · 자세히 보기</span></summary>
       <div class="calc-body">
