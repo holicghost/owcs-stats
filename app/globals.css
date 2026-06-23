@@ -686,9 +686,6 @@ table.banpos .banposcell .num{font-weight:600}
 .gl-p .swp .hicon{width:16px;height:16px}
 .copyicon{display:inline-flex;align-items:center;justify-content:center;padding:4px 6px;line-height:0}
 .copyb.done{color:var(--accent);border-color:var(--accent)}
-.gc2-memo{font-size:13px;color:var(--tx-mid);background:var(--panel);border:1px solid var(--line-soft);border-radius:8px;padding:8px 10px}
-.gc2-memo .swap{display:inline-flex;align-items:center;gap:5px;margin-right:10px}
-.gc2-memo .memo-raw{display:inline}
 .gc2-load{margin-top:2px}
 .gc2-load .loadbtn{font-size:12px;padding:7px 12px}
 

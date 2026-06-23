@@ -676,7 +676,6 @@ function scoutGameCard(D: DataBundle, s: SetRec, focus: string): string {
     <div class="gc2-l2"><b>${mk(s.map)}</b> <span class="mini">(${esc(MODE_KO[s.mode] || s.mode)})</span>${picker ? ` · <span class="mini">맵 픽 ${esc(picker)}</span>` : ""} · <span class="mono">${fScore}-${oScore}</span></div>
     <div class="gc2-l3">${fb ? `<span class="mini">선밴</span> ${heroChip(fb.hero)}` : ""}${fb && sb ? ' <span class="mini">·</span> ' : ""}${sb ? `<span class="mini">후밴</span> ${heroChip(sb.hero)}` : ""}${!fb && !sb ? '<span class="mini">밴 없음</span>' : ""}</div>
     <div class="gc2-l4"><div class="mini" style="margin-bottom:5px">오프닝 픽</div>${lineupRow(s.top, s.picks.top, s.top === focus)}${lineupRow(s.bottom, s.picks.bottom, s.bottom === focus)}</div>
-    ${s.memo ? `<div class="gc2-memo"><span class="mini">경기 중 교체·메모</span> ${renderMemo(s.memo)}</div>` : ""}
     <div class="gc2-load"><button class="loadbtn" data-act="load-sim" data-val="${esc(setKey(s))}">이 경기로 시뮬레이션 채우기 ↗</button></div>
   </div>`;
 }
@@ -1340,17 +1339,6 @@ function swapsByPlayer(memo: string): Record<string, string[]> {
     if (heroes.length) map[name] = heroes;
   });
   return map;
-}
-// 메모 파싱: "선수 → 영웅" 같은 교체 패턴을 뽑고, 안 되면 원문 그대로.
-function renderMemo(memo: string): string {
-  const lines = memo.split(/[\n]+/).map((x) => x.trim()).filter(Boolean);
-  return lines.map((line) => {
-    const parts = line.split(/→|->/).map((x) => x.trim());
-    if (parts.length >= 2 && parts[parts.length - 1]) {
-      return `<div class="swap"><span class="mini">교체</span> ${esc(parts[0])} <span class="mini">→</span> ${heroChip(parts[parts.length - 1])}</div>`;
-    }
-    return `<div class="memo-raw">${esc(line)}</div>`;
-  }).join("");
 }
 // 세트 → 시뮬레이션 입력. ZANSIDE가 있으면 ZANSIDE를 우리 쪽으로,
 // 아니면(리그 타팀 경기·상대 정찰) 상단 팀을 우리 슬롯에 넣어 매치업 인스펙터로 사용.
