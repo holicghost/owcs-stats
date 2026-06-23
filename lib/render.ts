@@ -587,17 +587,45 @@ function renderScoutHeroes(D: DataBundle, team: string, deep: DeepUI, view: "pic
       }).join("")}</tbody></table></div>`;
   }).join("") || nod("영웅 기록이 없음.");
 
-  // ── 밴 순서별 승률 ──
-  const bo = { first: { w: 0, l: 0 }, second: { w: 0, l: 0 } };
+  // ── 자주 거는/당하는 밴 + 선밴/후밴 승률(맵별 포함) + 맵별 밴 경향 (요약 분석에서 이동) ──
+  const T = D.teams[team];
+  const made: Record<string, number> = T ? { ...T.firstBan } : {};
+  if (T) Object.entries(T.secondBan).forEach(([h, n]) => (made[h] = (made[h] || 0) + n));
+  type BO = { w: number; l: number; maps: Record<string, { w: number; l: number }> };
+  const bo = { first: { w: 0, l: 0, maps: {} } as BO, second: { w: 0, l: 0, maps: {} } as BO };
+  const bump = (slot: BO, won: boolean, map: string) => {
+    slot[won ? "w" : "l"]++;
+    if (map) { const mm = (slot.maps[map] = slot.maps[map] || { w: 0, l: 0 }); mm[won ? "w" : "l"]++; }
+  };
   teamSets.forEach((s) => {
     const w = setWinner(s); if (!w) return; const won = w === team;
     const fb = s.bans.find((b) => b.phase === "first");
     const sb = s.bans.find((b) => b.phase === "second");
-    if (fb && fb.team === team) bo.first[won ? "w" : "l"]++;
-    if (sb && sb.team === team) bo.second[won ? "w" : "l"]++;
+    if (fb && fb.team === team) bump(bo.first, won, s.map);
+    if (sb && sb.team === team) bump(bo.second, won, s.map);
   });
-  const boMax = Math.max(1, bo.first.w + bo.first.l, bo.second.w + bo.second.l);
-  const banOrder = wrLine("선밴권일 때", bo.first.w, bo.first.l, boMax) + wrLine("후밴권일 때", bo.second.w, bo.second.l, boMax);
+  const banMapBreak = (maps: Record<string, { w: number; l: number }>) => {
+    const arr = Object.entries(maps).map(([m, v]) => ({ m, n: v.w + v.l, w: v.w, l: v.l, wr: Math.round((v.w / (v.w + v.l)) * 100) }))
+      .sort((a, b) => b.wr - a.wr || b.n - a.n);
+    if (!arr.length) return "";
+    const chip = (x: { m: string; w: number; l: number; wr: number }) => `<span class="bwm"><span class="bwm-map">${mapLink(x.m)}</span><span class="wr ${wrCls(x.wr)}">${x.wr}%</span><span class="mini">${x.w}-${x.l}</span></span>`;
+    if (arr.length <= 3) return `<div class="bwm-sec"><div class="bwm-h">맵별 승률</div><div class="bwm-list">${arr.map(chip).join("")}</div></div>`;
+    const top = arr.slice(0, 3);
+    const topSet = new Set(top.map((x) => x.m));
+    const bottom = arr.slice(-3).filter((x) => !topSet.has(x.m)).reverse();
+    return `<div class="bwm-sec"><div class="bwm-h up">승률 높은 맵 TOP 3</div><div class="bwm-list">${top.map(chip).join("")}</div></div>
+      ${bottom.length ? `<div class="bwm-sec"><div class="bwm-h down">승률 낮은 맵</div><div class="bwm-list">${bottom.map(chip).join("")}</div></div>` : ""}`;
+  };
+  const banWrCell = (r: BO) => {
+    const n = r.w + r.l; const wr = n ? Math.round((r.w / n) * 100) : 0;
+    return n ? `<div class="banwr"><div class="banwr-big"><span class="wr ${wrCls(wr)}">${wr}%</span></div><div class="mini">${r.w}승 ${r.l}패 · ${n}경기</div>${banMapBreak(r.maps)}</div>` : nod("표본 없음");
+  };
+  const banByMap: Record<string, Record<string, number>> = {};
+  teamSets.forEach((s) => { if (!s.map) return; s.bans.forEach((b) => { if (b.team === team && b.hero) (banByMap[s.map] = banByMap[s.map] || {})[b.hero] = (banByMap[s.map][b.hero] || 0) + 1; }); });
+  const mapKeys = Object.keys(banByMap).sort((a, b) => sum(banByMap[b]) - sum(banByMap[a]));
+  const mapBanSummary = mapKeys.length
+    ? mapKeys.map((m) => { const top = Object.entries(banByMap[m]).sort((a, b) => b[1] - a[1]).slice(0, 4); return `<div class="mbs-row"><span class="mbs-map">${mapLink(m)} <span class="mini">${MODE_KO[D.mapInfo[m]] || D.mapInfo[m] || ""}</span></span><span class="mbs-heroes">${top.map(([h, n]) => `<span class="mbs-h">${heroChip(h)} <span class="mini">${n}</span></span>`).join("")}</span></div>`; }).join("")
+    : nod("밴 기록 없음");
 
   // ── 밴 포지션별 수치 (밴한 영웅의 역할 기준) ──
   const banPos: Record<string, { us: number; opp: number }> = { Tank: { us: 0, opp: 0 }, DPS: { us: 0, opp: 0 }, Support: { us: 0, opp: 0 } };
@@ -643,17 +671,20 @@ function renderScoutHeroes(D: DataBundle, team: string, deep: DeepUI, view: "pic
   const banTrend = banGroup("tf", `${esc(team)} 선밴`) + banGroup("ts", `${esc(team)} 후밴`) + banGroup("of", `상대가 ${esc(team)}에게 선밴`) + banGroup("os", `상대가 ${esc(team)}에게 후밴`);
 
   // 모드별 성적 (맨 위) — 요약 분석에서 이동
-  const T = D.teams[team];
   const ms = T ? modeWinrate(T) : [];
   const mmx = Math.max(1, ...ms.map((m) => m[1].t));
   const modesHtml = ms.length ? ms.map(([m, d]) => barWR(MODE_KO[m] || m, d.w, d.t, mmx)).join("") : nod();
 
   if (view === "ban") return `
-    <div class="grid2">
-      <div class="panel"><h2>밴 순서별 승률 <span class="count">선밴권 / 후밴권</span></h2><div class="wrlines">${banOrder}</div></div>
-      <div class="panel"><h2>밴 포지션별 수치 <span class="count">밴한 영웅의 역할 기준</span></h2>${banPosBlock}</div>
+    <div class="grid4">
+      <div class="panel"><h2>자주 거는 밴 <span class="count">${sum(made)}회</span></h2><div class="bars">${countBars(made, "ban", 6)}</div></div>
+      <div class="panel"><h2>자주 당하는 밴 <span class="count">${T ? sum(T.banAgainst) : 0}회</span></h2><div class="bars">${T ? countBars(T.banAgainst, "ban", 6) : nod()}</div></div>
+      <div class="panel"><h2>선밴 승률 <span class="count">선밴권일 때</span></h2>${banWrCell(bo.first)}</div>
+      <div class="panel"><h2>후밴 승률 <span class="count">후밴권일 때</span></h2>${banWrCell(bo.second)}</div>
     </div>
-    <div class="panel"><h2>밴 경향 <span class="count">칩을 누르면 어느 경기인지 펼침</span></h2><div class="bangrps">${banTrend}</div></div>`;
+    <div class="panel"><h2>밴 포지션별 수치 <span class="count">밴한 영웅의 역할 기준</span></h2>${banPosBlock}</div>
+    <div class="panel"><h2>밴 경향 <span class="count">칩을 누르면 어느 경기인지 펼침</span></h2><div class="bangrps">${banTrend}</div></div>
+    <div class="panel"><h2>맵별 밴 경향 <span class="count">${esc(team)} · 맵별 자주 거는 밴</span></h2><div class="mapbansum">${mapBanSummary}</div></div>`;
   return `
     <div class="panel"><h2>모드별 성적 <span class="count">맵 단위</span></h2><div class="bars">${modesHtml}</div></div>
     <div class="panel"><h2>영웅별 픽률·승률 <span class="count">${esc(team)} 사용 영웅 · 포지션별</span></h2>
@@ -861,62 +892,13 @@ function teamSummary(D: DataBundle, team: string, isUs: boolean, weakExpand: str
         return `<button class="rcard rcard-btn" data-act="goplayer" data-val="${esc(p.name)}"><div class="rn">${esc(p.name)} <span class="rgo">→</span></div><div class="rr">${esc(roleOfR(p.roles))} · ${p.n}맵${th ? ` · ${esc(heroKo(th.hero))}` : ""}</div></button>`;
       }).join("")
     : nod("로스터 데이터가 없음.");
-  const made: Record<string, number> = { ...T.firstBan };
-  Object.entries(T.secondBan).forEach(([h, n]) => (made[h] = (made[h] || 0) + n));
-  // 밴 순서별 승률 (선밴권 / 후밴권) + 맵별 승률
-  const teamSets = D.sets.filter((s) => s.top === team || s.bottom === team);
-  type BO = { w: number; l: number; maps: Record<string, { w: number; l: number }> };
-  const bo = { first: { w: 0, l: 0, maps: {} } as BO, second: { w: 0, l: 0, maps: {} } as BO };
-  const bump = (slot: BO, won: boolean, map: string) => {
-    slot[won ? "w" : "l"]++;
-    if (map) { const mm = (slot.maps[map] = slot.maps[map] || { w: 0, l: 0 }); mm[won ? "w" : "l"]++; }
-  };
-  teamSets.forEach((s) => {
-    const w = setWinner(s); if (!w) return; const won = w === team;
-    const fb = s.bans.find((b) => b.phase === "first");
-    const sb = s.bans.find((b) => b.phase === "second");
-    if (fb && fb.team === team) bump(bo.first, won, s.map);
-    if (sb && sb.team === team) bump(bo.second, won, s.map);
-  });
-  // 칸 안: 승률 상위 3개 / 하위 3개 맵 (중복 제거)
-  const banMapBreak = (maps: Record<string, { w: number; l: number }>) => {
-    const arr = Object.entries(maps).map(([m, v]) => ({ m, n: v.w + v.l, w: v.w, l: v.l, wr: Math.round((v.w / (v.w + v.l)) * 100) }))
-      .sort((a, b) => b.wr - a.wr || b.n - a.n);
-    if (!arr.length) return "";
-    const chip = (x: { m: string; w: number; l: number; wr: number }) => `<span class="bwm"><span class="bwm-map">${mapLink(x.m)}</span><span class="wr ${wrCls(x.wr)}">${x.wr}%</span><span class="mini">${x.w}-${x.l}</span></span>`;
-    if (arr.length <= 3) return `<div class="bwm-sec"><div class="bwm-h">맵별 승률</div><div class="bwm-list">${arr.map(chip).join("")}</div></div>`;
-    const top = arr.slice(0, 3);
-    const topSet = new Set(top.map((x) => x.m));
-    const bottom = arr.slice(-3).filter((x) => !topSet.has(x.m)).reverse();
-    return `<div class="bwm-sec"><div class="bwm-h up">승률 높은 맵 TOP 3</div><div class="bwm-list">${top.map(chip).join("")}</div></div>
-      ${bottom.length ? `<div class="bwm-sec"><div class="bwm-h down">승률 낮은 맵</div><div class="bwm-list">${bottom.map(chip).join("")}</div></div>` : ""}`;
-  };
-  const banWrCell = (r: BO) => {
-    const n = r.w + r.l; const wr = n ? Math.round((r.w / n) * 100) : 0;
-    return n ? `<div class="banwr"><div class="banwr-big"><span class="wr ${wrCls(wr)}">${wr}%</span></div><div class="mini">${r.w}승 ${r.l}패 · ${n}경기</div>${banMapBreak(r.maps)}</div>` : nod("표본 없음");
-  };
-  // 맵별 밴 경향 — 이 팀이 각 맵에서 자주 거는 밴 (표 아닌 일목요연 정리)
-  const banByMap: Record<string, Record<string, number>> = {};
-  teamSets.forEach((s) => { if (!s.map) return; s.bans.forEach((b) => { if (b.team === team && b.hero) (banByMap[s.map] = banByMap[s.map] || {})[b.hero] = (banByMap[s.map][b.hero] || 0) + 1; }); });
-  const mapKeys = Object.keys(banByMap).sort((a, b) => sum(banByMap[b]) - sum(banByMap[a]));
-  const mapBanSummary = mapKeys.length
-    ? mapKeys.map((m) => { const top = Object.entries(banByMap[m]).sort((a, b) => b[1] - a[1]).slice(0, 4); return `<div class="mbs-row"><span class="mbs-map">${mapLink(m)} <span class="mini">${MODE_KO[D.mapInfo[m]] || D.mapInfo[m] || ""}</span></span><span class="mbs-heroes">${top.map(([h, n]) => `<span class="mbs-h">${heroChip(h)} <span class="mini">${n}</span></span>`).join("")}</span></div>`; }).join("")
-    : nod("밴 기록 없음");
   return `
     <div class="panel"><h2>최근 폼 <span class="count">최근 ${last.length}경기</span></h2><div class="form">${form}</div></div>
     <div class="panel"><h2>로스터 <span class="count">${players.length}명 · 누르면 선수 분석</span></h2><div class="roster">${rosterHtml}</div></div>
     <div class="grid2">
       <div class="panel"><h2>맵별 성적 <span class="count">출전·승률</span></h2>${teamMapSummary(T)}</div>
       <div class="panel"><h2>영웅별 요약 <span class="count">자주 쓴 영웅 · 픽·교체 포함</span></h2><div class="bars">${heroPickBars(teamHeroPicks(D, team), 8)}</div></div>
-    </div>
-    <div class="grid4">
-      <div class="panel"><h2>자주 거는 밴 <span class="count">${sum(made)}회</span></h2><div class="bars">${countBars(made, "ban", 6)}</div></div>
-      <div class="panel"><h2>자주 당하는 밴 <span class="count">${sum(T.banAgainst)}회</span></h2><div class="bars">${countBars(T.banAgainst, "ban", 6)}</div></div>
-      <div class="panel"><h2>선밴 승률 <span class="count">선밴권일 때</span></h2>${banWrCell(bo.first)}</div>
-      <div class="panel"><h2>후밴 승률 <span class="count">후밴권일 때</span></h2>${banWrCell(bo.second)}</div>
-    </div>
-    <div class="panel"><h2>맵별 밴 경향 <span class="count">${esc(team)} · 맵별 자주 거는 밴</span></h2>
-      <div class="mapbansum">${mapBanSummary}</div></div>`;
+    </div>`;
 }
 
 // ===== ZANSIDE 데이터 (우리 팀 집약 대시보드) =====
