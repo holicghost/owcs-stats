@@ -1011,6 +1011,16 @@ function banBars(counts: Record<string, number>, f: BanUI, cls = "ban"): string 
     `<div class="bar"><span class="lab">${heroChip(h)}</span><div class="tr"><div class="fl ${cls}" style="width:${Math.round((v / mx) * 100)}%"></div></div><span class="vl">${v}</span></div>`
   ).join("");
 }
+// 라벨 막대 (리그 선밴 상위 양식) — 라벨이 영웅 칩이 아니라 맵/팀 등 임의 텍스트
+function rankBars(counts: Record<string, number>, labelFn: (k: string) => string, cls = "ban", topN = 10): string {
+  let arr = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  if (topN > 0) arr = arr.slice(0, topN);
+  if (!arr.length) return nod("기록 없음");
+  const mx = Math.max(1, ...arr.map((x) => x[1]));
+  return arr.map(([k, v]) =>
+    `<div class="bar"><span class="lab">${labelFn(k)}</span><div class="tr"><div class="fl ${cls}" style="width:${Math.round((v / mx) * 100)}%"></div></div><span class="vl">${v}</span></div>`
+  ).join("");
+}
 interface BanSet { date: string; map: string; replay: string; phase: "first" | "second"; self: { player: string; hero: string }[]; opp: { player: string; hero: string }[]; oppName: string; }
 interface BanHeroAgg { hero: string; first: number; second: number; total: number; maps: Record<string, number>; sets: BanSet[]; }
 function teamBanDetail(D: DataBundle, team: string, banMap: string): BanHeroAgg[] {
