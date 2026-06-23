@@ -157,7 +157,7 @@ function weakItem(D: DataBundle, item: Weak, isUs: boolean, edge: { edge: boolea
   const sets = item.sets.slice().reverse().map((s) =>
     `<div class="wkset"><span class="mini">${fmtDate(s.date)}</span> <b>${mk(s.map)}</b> <span class="mini">${esc(MODE_KO[s.mode] || s.mode)}</span> <span class="mini">vs</span> ${esc(s.opp)} <span class="${s.won ? "ww" : "ll"}">${s.won ? "승" : "패"}</span>${s.replay ? ` <span class="repcode">${esc(s.replay)}</span>` : ""}</div>`
   ).join("");
-  return `<div class="weakitem">${head}${action}<div class="wkdetail">${sets || nod("근거 경기를 찾지 못했어요.")}</div></div>`;
+  return `<div class="weakitem">${head}${action}<div class="wkdetail">${sets || nod("근거 경기 없음")}</div></div>`;
 }
 /** 약점 패널 — ZANSIDE(isUs)면 우리 약점, 아니면 상대 약점(공략 포인트 강조). */
 export function weaknessPanel(D: DataBundle, team: string, isUs: boolean, weakExpand: string): string {
@@ -296,7 +296,7 @@ const STRAT_CLS: Record<StrategyKey, string> = {
   "opp-weakness": "v-cand", "opp-strength": "v-avoid", hold: "v-hold",
 };
 // 단일 소스: 자체 성적(절대)·상대 비교(상대)·표본 상태를 한 곳에서 산출해 모든 화면이 공유한다.
-function classifyMode(mode: string, u?: ModeRec, o?: ModeRec): ModeStrategy {
+export function classifyMode(mode: string, u?: ModeRec, o?: ModeRec): ModeStrategy {
   const ownSample = u ? u.t : 0, oppSample = o ? o.t : 0;
   const ownRate = ownSample ? Math.round((u!.w / ownSample) * 100) : null;
   const oppRate = oppSample ? Math.round((o!.w / oppSample) * 100) : null;
@@ -382,8 +382,8 @@ export function renderMatchday(D: DataBundle, weakExpand: string): string {
       const o = S.top === D.us ? S.bottomW : S.topW;
       const opp = S.top === D.us ? S.bottom : S.top;
       return `<div class="fcard ${w > o ? "w" : "l"}"><div class="res">${w > o ? "WIN" : "LOSS"}</div><div class="opp">vs ${esc(opp)}</div><div class="meta">${w}-${o} · ${fmtDate(S.date)}</div></div>`;
-    }).join("") : nod("아직 치른 경기가 없어요.");
-    return `${scope}<div class="panel"><h2>다음 경기</h2>${nod("잡힌 다음 경기가 없어요. 대진표가 갱신되면 여기에 표시됩니다.")}</div>
+    }).join("") : nod("아직 치른 경기가 없음.");
+    return `${scope}<div class="panel"><h2>다음 경기</h2>${nod("예정된 다음 경기 없음 · 대진표 갱신 시 표시")}</div>
       <div class="panel"><h2>최근 흐름</h2><div class="form">${form}</div></div>
       ${weaknessPanel(D, D.us, true, weakExpand)}`;
   }
@@ -458,7 +458,7 @@ export function renderMatchday(D: DataBundle, weakExpand: string): string {
     const pTot = op.pushW + op.pushL;
     if (pTot >= 3) tendRows.push(`<div class="tendrow"><span class="tend-lab">밀기 성향</span><span class="tend-v">${op.pushW}승 ${op.pushL}패 · ${Math.round((op.pushW / pTot) * 100)}%</span></div>`);
   }
-  const tendHtml = tendRows.length ? tendRows.join("") : nod("상대 표본이 적어 성향 단정은 이릅니다.");
+  const tendHtml = tendRows.length ? tendRows.join("") : nod("상대 표본 부족 · 성향 단정 보류");
 
   // 근거 경기 — 최근 맞대결 또는 상대 최근 경기 (테이블)
   const h2h = D.series.filter((s) => (s.top === D.us && s.bottom === opp) || (s.top === opp && s.bottom === D.us)).slice().reverse();
@@ -546,7 +546,7 @@ function healthPanel(D: DataBundle): string {
     `<div class="issue ${i.level}"><span class="iss-code">${esc(i.code)}</span><span class="iss-where mini">${esc(i.where)}</span><span class="iss-msg">${esc(i.msg)}</span></div>`
   ).join("");
   return `<div class="panel"><h2>데이터 점검 <span class="count">정상 ${h.okRows}경기${h.warn ? ` · 확인필요 ${h.warn}` : ""}${h.dropped ? ` · 제외 ${h.dropped}` : ""}</span></h2>
-    <div class="sub-note">시트에서 이런 점이 보였어요. 통계에 큰 영향은 없지만 한번 확인해 두면 좋아요.</div>
+    <div class="sub-note">시트 점검 항목 · 통계 영향 경미 · 확인 권장</div>
     <div class="issuelist">${items}${h.issues.length > 8 ? `<div class="mini">…외 ${h.issues.length - 8}건</div>` : ""}</div></div>`;
 }
 
@@ -595,7 +595,7 @@ function teamHeroPicks(D: DataBundle, team: string): Record<string, { n: number;
 }
 function heroPickBars(obj: Record<string, { n: number; w: number }>, n: number): string {
   const arr = Object.entries(obj).sort((a, b) => b[1].n - a[1].n).slice(0, n);
-  if (!arr.length) return nod("픽 기록이 없어요.");
+  if (!arr.length) return nod("픽 기록이 없음.");
   const mx = Math.max(1, ...arr.map((x) => x[1].n));
   return arr.map(([h, r]) => {
     const wr = r.n ? Math.round((r.w / r.n) * 100) : 0;
@@ -605,7 +605,7 @@ function heroPickBars(obj: Record<string, { n: number; w: number }>, n: number):
 }
 function teamMapSummary(T: Team): string {
   const maps = Object.entries(T.maps).map(([map, r]) => ({ map, w: r.w, l: r.l, n: r.w + r.l })).sort((a, b) => b.n - a.n);
-  if (!maps.length) return nod("맵 기록이 없어요.");
+  if (!maps.length) return nod("맵 기록이 없음.");
   return `<table><thead><tr><th>맵</th><th class="num">출전</th><th class="num">승-패</th><th class="num">승률</th></tr></thead><tbody>${maps.map((m) => {
     const wr = m.n ? Math.round((m.w / m.n) * 100) : 0;
     const low = m.n === 1;
@@ -635,7 +635,7 @@ function scoutMapByMode(D: DataBundle, team: string, T: Team): string {
   const banByMode: Record<string, Record<string, number>> = {};
   D.sets.forEach((s) => s.bans.forEach((b) => { if (b.team === team && b.hero) (banByMode[s.mode] = banByMode[s.mode] || {})[b.hero] = ((banByMode[s.mode] || {})[b.hero] || 0) + 1; }));
   const modes = MODE_ORDER.filter((m) => byMode[m]);
-  if (!modes.length) return nod("맵 기록이 없어요.");
+  if (!modes.length) return nod("맵 기록이 없음.");
   return modes.map((m) => {
     const maps = byMode[m].slice().sort((a, b) => b.wr - a.wr);
     const high = maps.filter((x) => x.n >= 1 && x.wr >= 50);
@@ -728,7 +728,7 @@ function renderScoutHeroes(D: DataBundle, team: string, deep: DeepUI): string {
         const low = h.n < 3;
         return `<tr class="${low ? "lowsmp-row" : ""}"><td class="hname">${heroChip(h.hero)}</td><td class="num">${h.n}</td><td class="num">${h.rate}%</td><td><div class="tr"><div class="fl ${wrCls(h.wr)}-fl" style="width:${h.wr}%"></div></div></td><td class="num">${h.w}-${h.n - h.w} <b>${h.wr}%</b>${low ? ' <span class="lowsmp">표본&lt;3</span>' : ""}</td></tr>`;
       }).join("")}</tbody></table></div>`;
-  }).join("") || nod("영웅 기록이 없어요.");
+  }).join("") || nod("영웅 기록이 없음.");
 
   // ── 밴 순서별 승률 ──
   const bo = { first: { w: 0, l: 0 }, second: { w: 0, l: 0 } };
@@ -811,7 +811,7 @@ function renderScoutMaps(D: DataBundle, team: string, deep: DeepUI): string {
   const ctrlMax = Math.max(1, ...ctrlRows.map(([, r]) => r.w + r.l));
   const ctrlBlock = ctrlRows.length
     ? ctrlRows.map(([map, r]) => wrLine(mk(map), r.w, r.l, ctrlMax, r.u ? ` <span class="mini">· ${r.u}미기록</span>` : "")).join("")
-    : nod("쟁탈 경기 기록이 없어요.");
+    : nod("쟁탈 경기 기록이 없음.");
 
   // ── 맵 선택권 영향 ──
   const pk = { team: { w: 0, l: 0 }, opp: { w: 0, l: 0 }, none: { w: 0, l: 0 } };
@@ -866,7 +866,7 @@ export function renderScout(D: DataBundle, curScout: string, scoutTab: string, d
     const teamSets = D.sets.filter((s) => s.top === curScout || s.bottom === curScout).slice().reverse();
     body = teamSets.length
       ? teamSets.map((s) => scoutGameCard(D, s, curScout)).join("")
-      : nod("이 팀의 경기 기록이 없어요.");
+      : nod("이 팀의 경기 기록이 없음.");
   } else if (tab === "heroes") {
     body = renderScoutHeroes(D, curScout, deep);
   } else if (tab === "maps") {
@@ -915,7 +915,7 @@ export function renderBanpick(D: DataBundle, bpTeam: string): string {
 // 팀 요약 레이아웃 (우리 팀·상대 팀 공용). 로스터 이름을 누르면 선수 분석으로 이동.
 function teamSummary(D: DataBundle, team: string, isUs: boolean, weakExpand: string): string {
   const T = D.teams[team];
-  if (!T) return nod("팀 데이터가 없어요.");
+  if (!T) return nod("팀 데이터가 없음.");
   const last = D.series.filter((s) => s.top === team || s.bottom === team).slice(-6).reverse();
   const form = last.length
     ? last.map((S) => {
@@ -925,7 +925,7 @@ function teamSummary(D: DataBundle, team: string, isUs: boolean, weakExpand: str
         const won = w > o;
         return `<div class="fcard ${won ? "w" : "l"}"><div class="res">${won ? "WIN" : "LOSS"}</div><div class="opp">vs ${esc(opp)}</div><div class="meta">${w}-${o} · ${fmtDate(S.date)}</div></div>`;
       }).join("")
-    : nod("아직 치른 경기가 없어요.");
+    : nod("아직 치른 경기가 없음.");
   const roleOfR = (roles: Record<string, number>) => { const e = Object.entries(roles).sort((a, b) => b[1] - a[1])[0]; return e ? ROLE_KO[e[0]] || e[0] : ""; };
   const players = D.playerNames.map((n) => D.players[n]).filter((p) => p.team === team).sort((a, b) => b.n - a.n);
   const rosterHtml = players.length
@@ -933,7 +933,7 @@ function teamSummary(D: DataBundle, team: string, isUs: boolean, weakExpand: str
         const th = Object.values(p.heroes).sort((a, b) => b.n - a.n)[0];
         return `<button class="rcard rcard-btn" data-act="goplayer" data-val="${esc(p.name)}"><div class="rn">${esc(p.name)} <span class="rgo">→</span></div><div class="rr">${esc(roleOfR(p.roles))} · ${p.n}맵${th ? ` · ${esc(heroKo(th.hero))}` : ""}</div></button>`;
       }).join("")
-    : nod("로스터 데이터가 없어요.");
+    : nod("로스터 데이터가 없음.");
   const ms = modeWinrate(T);
   const mmx = Math.max(1, ...ms.map((m) => m[1].t));
   const modesHtml = ms.length ? ms.map(([m, d]) => barWR(MODE_KO[m] || m, d.w, d.t, mmx)).join("") : nod();
@@ -960,7 +960,7 @@ function teamSummary(D: DataBundle, team: string, isUs: boolean, weakExpand: str
 export function renderZanside(D: DataBundle, weakExpand: string): string {
   const T = D.teams[D.us];
   const st = standOf(D, D.us);
-  if (!T) return `<div class="panel">${nod("ZANSIDE 데이터가 아직 없어요.")}</div>`;
+  if (!T) return `<div class="panel">${nod("ZANSIDE 데이터가 아직 없음.")}</div>`;
   const diff = T.mapW - T.mapL;
   const up = usUpcoming(D);
   const cards =
@@ -974,7 +974,7 @@ export function renderZanside(D: DataBundle, weakExpand: string): string {
         const opp = g.a === D.us ? g.b : g.a;
         return `<div class="ucard" tabindex="0" data-act="goscout" data-val="${esc(opp)}"><div class="udt">${esc(g.date)} · ${esc(g.label)}</div><div class="uvs">vs</div><div class="uopp">${esc(opp)}</div><div class="ugo">팀별 분석 보기 →</div></div>`;
       }).join("")
-    : nod("예정된 다음 경기가 없어요.");
+    : nod("예정된 다음 경기가 없음.");
 
   return `
     <div class="statrow">${cards}</div>
@@ -1001,12 +1001,12 @@ function modeBanBlocks(D: DataBundle, banByMapH: Record<string, Record<string, n
     const ms = mapsByMode[m].slice().sort();
     return `<div class="modeban-grp"><div class="modeban-mode">${esc(MODE_KO[m] || m)}</div><div class="grid3">${ms.map((map) => `<div class="modeban-map-blk"><div class="modeban-map">${mk(map)}</div><div class="bars">${banBars(banByMapH[map], f, "ban")}</div></div>`).join("")}</div></div>`;
   }).join("");
-  return blocks || nod("밴 기록이 없어요.");
+  return blocks || nod("밴 기록이 없음.");
 }
 function banBars(counts: Record<string, number>, f: BanUI, cls = "ban"): string {
   let arr = Object.entries(counts).filter(([h]) => roleOk(h, f.role)).sort((a, b) => b[1] - a[1]);
   if (f.topN > 0) arr = arr.slice(0, f.topN);
-  if (!arr.length) return nod("해당 조건의 밴이 없어요.");
+  if (!arr.length) return nod("해당 조건의 밴이 없음.");
   const mx = Math.max(1, ...arr.map((x) => x[1]));
   return arr.map(([h, v]) =>
     `<div class="bar"><span class="lab">${heroChip(h)}</span><div class="tr"><div class="fl ${cls}" style="width:${Math.round((v / mx) * 100)}%"></div></div><span class="vl">${v}</span></div>`
@@ -1065,7 +1065,7 @@ export function renderHeroBan(D: DataBundle, ui: HeroBanUI): string {
   const allHeroes = (["Tank", "DPS", "Support"] as const).flatMap((r) => HEROES[r]);
   const matches = q ? allHeroes.filter((h) => h.toLowerCase().includes(q) || heroKo(h).toLowerCase().includes(q)) : [];
   const heroChipBtn = (h: string) => `<button class="hbchip ${h === ui.hero ? "on" : ""}" data-act="hb-hero" data-val="${esc(h)}">${heroIcon(h)}<span class="hbn">${esc(heroKo(h))}</span><span class="hbct">${heroTotals[h] || 0}</span></button>`;
-  const searchResults = q ? `<div class="sub-note">'${esc(ui.search)}' 검색 결과 — 누르면 선택</div><div class="hbgrid">${matches.length ? matches.map(heroChipBtn).join("") : nod("맞는 영웅이 없어요.")}</div>` : "";
+  const searchResults = q ? `<div class="sub-note">'${esc(ui.search)}' 검색 결과 — 누르면 선택</div><div class="hbgrid">${matches.length ? matches.map(heroChipBtn).join("") : nod("맞는 영웅이 없음.")}</div>` : "";
   // 포지션 → 영웅 드롭다운 (선수별 분석과 동일한 양식)
   const roleOpts: Array<[string, string]> = [["all", "전체"], ["Tank", "탱커"], ["DPS", "딜러"], ["Support", "서포터"]];
   const roleSel = `<select data-act="hb-role">${roleOpts.map(([v, l]) => `<option value="${v}" ${ui.role === v ? "selected" : ""}>${l}</option>`).join("")}</select>`;
@@ -1095,12 +1095,12 @@ export function renderHeroBan(D: DataBundle, ui: HeroBanUI): string {
     const banTr = (w: number, max: number) => `<div class="tr mini-tr"><div class="fl ban" style="width:${Math.round((w / max) * 100)}%"></div></div>`;
     const mapTable = mapRows.length
       ? `<table class="hbtable"><thead><tr><th>맵</th><th class="num">선밴</th><th class="num">후밴</th><th class="num">합계</th><th>빈도</th></tr></thead><tbody>${mapRows.map((r) => `<tr><td class="hname">${mk(r.m)} <span class="mini">${esc(MODE_KO[D.mapInfo[r.m]] || D.mapInfo[r.m] || "")}</span></td><td class="num">${r.f}</td><td class="num">${r.s}</td><td class="num"><b>${r.t}</b></td><td>${banTr(r.t, mmax)}</td></tr>`).join("")}</tbody></table>`
-      : nod(ui.team === "all" ? "이 영웅의 밴 기록이 없어요." : "이 팀의 해당 영웅 밴 기록이 없어요.");
+      : nod(ui.team === "all" ? "이 영웅의 밴 기록이 없음." : "이 팀의 해당 영웅 밴 기록이 없음.");
     const teamRows = teams.map((t) => ({ t, ...teamAgg[t], tot: teamAgg[t].f + teamAgg[t].s }));
     const tmax = Math.max(1, ...teamRows.map((r) => r.tot));
     const teamTable = teamRows.length
       ? `<table class="hbtable"><thead><tr><th>팀</th><th class="num">선밴</th><th class="num">후밴</th><th class="num">합계</th><th>빈도</th></tr></thead><tbody>${teamRows.map((r) => `<tr class="${r.t === D.us ? "zanrow" : ""}"><td class="${r.t === D.us ? "zan" : ""}">${esc(r.t)}</td><td class="num">${r.f}</td><td class="num">${r.s}</td><td class="num"><b>${r.tot}</b></td><td>${banTr(r.tot, tmax)}</td></tr>`).join("")}</tbody></table>`
-      : nod("밴 기록이 없어요.");
+      : nod("밴 기록이 없음.");
     detail = `
       <div class="panel hbsel"><div class="hbsel-head">${heroIcon(H)}<div><div class="hbsel-name">${esc(heroKo(H))} <span class="mini">${esc(ROLE_KO[HERO_ROLE[H] || ""] || "")}</span></div><div class="mini">총 ${tf + ts}회 밴 · 선밴 ${tf} · 후밴 ${ts}</div></div></div></div>
       <div class="panel"><h2>맵별 밴 분포 <span class="count">선밴/후밴 · ${ui.team === "all" ? "전체 팀" : esc(ui.team)}</span></h2>
@@ -1153,7 +1153,7 @@ export function renderBanAnalysis(D: DataBundle, f: BanUI): string {
         const sets = h.sets.slice().reverse().map((s) => `<div class="banset"><div class="bs-head"><span class="mini">${fmtDate(s.date)}</span> <b>${mk(s.map)}</b> <span class="rtag ${HERO_ROLE[h.hero] || ""}">${s.phase === "first" ? "선밴" : "후밴"}</span>${s.replay ? ` <span class="repcode">${esc(s.replay)}</span><button class="copyb" data-act="copy" data-val="${esc(s.replay)}">복사</button>` : ""}</div>${banLineup(cur, s.self, cur === D.us)}${banLineup(s.oppName, s.opp, s.oppName === D.us)}</div>`).join("");
         return `${head}<tr class="bandetail"><td colspan="5"><div class="sub-note">맵별 분포</div><div class="utags" style="margin-bottom:10px">${mapDist || nod("맵 기록 없음")}</div><div class="sub-note">밴이 나온 경기 · 라인업(선픽, 없으면 미기록)</div><div class="bansets">${sets}</div></td></tr>`;
       }).join("")}</tbody></table>`
-    : nod("이 팀의 밴 기록이 없어요.");
+    : nod("이 팀의 밴 기록이 없음.");
 
   const modeBlocks = modeBanBlocks(D, banByMapH, f.role);
 
@@ -1287,6 +1287,21 @@ function lineupDetail(name: string, picks: Pick[], zan: boolean): string {
 }
 // 세트 상세: 맵 선택팀·모드·맵·선밴/후밴·양 팀 라인업·스코어·리플레이.
 // (경기 중 영웅 교체는 시트에 없어 표시하지 않음 — 데이터가 생기면 별도 블록으로 추가)
+// 경기 기록 페이지용: 경기 중 교체 영웅 체인 (팀명 선수명: 첫영웅 → 교체1 → 교체2)
+function renderSwapChains(s: SetRec): string {
+  const swaps = swapsByPlayer(s.memo);
+  const rows: string[] = [];
+  ([[s.top, s.picks.top], [s.bottom, s.picks.bottom]] as Array<[string, Pick[]]>).forEach(([team, picks]) => {
+    picks.forEach((p) => {
+      const sw = swaps[p.player];
+      if (!sw || !sw.length) return;
+      const chain = [p.hero, ...sw].filter(Boolean); // 첫 영웅(오프닝) + 교체들
+      const chainHtml = chain.map((h, i) => `${i ? `<span class="sc-arrow">→</span>` : ""}<span class="sc-hero">${heroIcon(h)}<span>${esc(heroKo(h))}</span></span>`).join("");
+      rows.push(`<div class="swapchain"><span class="sc-team">${esc(team)}</span> <span class="sc-player">${esc(p.player)}</span><span class="sc-colon">:</span> ${chainHtml}</div>`);
+    });
+  });
+  return rows.length ? rows.join("") : nod("교체 기록 없음");
+}
 function setDetail(D: DataBundle, s: SetRec): string {
   const w = setWinner(s);
   const picker = s.picker ? esc(s.picker) : "공란/불명";
@@ -1305,7 +1320,7 @@ function setDetail(D: DataBundle, s: SetRec): string {
     <div class="bd-bans">${banLine(fb, "선밴")}${banLine(sb, "후밴")}</div>
     <div class="sub-note" style="margin:10px 0 4px">출전 라인업 <span class="mini">첫픽(오프닝) 기준</span></div>
     <div class="bd-lineups">${lineupDetail(s.top, s.picks.top, s.top === D.us)}${lineupDetail(s.bottom, s.picks.bottom, s.bottom === D.us)}</div>
-    ${s.memo ? `<div class="sub-note" style="margin:10px 0 4px">경기 중 교체 · 메모</div><div class="memobox">${renderMemo(s.memo)}</div>` : ""}
+    ${s.memo ? `<div class="sub-note" style="margin:10px 0 4px">경기 중 교체 영웅</div><div class="swapchains">${renderSwapChains(s)}</div>` : ""}
     <div style="margin-top:10px"><button class="loadbtn" data-act="load-sim" data-val="${esc(setKey(s))}">이 경기로 시뮬레이션 채우기 ↗</button></div>
   </div>`;
 }
@@ -1446,7 +1461,7 @@ export function renderLog(D: DataBundle, f: LogFilter, logExpand: string[], logS
       <td class="num caret">${open ? "▾" : "▸"}</td>
     </tr>`;
     return open ? row + `<tr class="logdetailrow"><td colspan="10">${setDetail(D, s)}</td></tr>` : row;
-  }).join("") : `<tr><td colspan="10">${nod("필터에 해당하는 경기가 없어요.")}</td></tr>`;
+  }).join("") : `<tr><td colspan="10">${nod("필터에 해당하는 경기가 없음.")}</td></tr>`;
 
   return `
     <div class="fbar">
@@ -1610,7 +1625,7 @@ function heroDetail(D: DataBundle, p: Player, hero: string, selMap: string): str
         const on = c.map === selMap;
         return `<button class="hd-mapbtn ${on ? "on" : ""}" data-act="heromap-sel" data-val="${esc(c.map)}"><span class="hd-mapn">${mk(c.map)}</span><span class="mini">${c.w}-${c.n - c.w}</span><span class="wr ${wrCls(wr)}">${wr}%${low ? '<span class="lowsmp"> ⚠</span>' : ""}</span></button>`;
       }).join("")
-    : nod("맵 기록이 없어요.");
+    : nod("맵 기록이 없음.");
 
   let right: string;
   if (!selMap || !cells.some((c) => c.map === selMap)) {
@@ -1634,7 +1649,7 @@ function heroDetail(D: DataBundle, p: Player, hero: string, selMap: string): str
           const line = c.line.map((m) => `<span class="lu-p">${heroIcon(m.hero || "")}<span>${esc(m.player || "?")}</span></span>`).join("");
           return `<div class="hd-comp ${c.won ? "w" : "l"}"><div class="hd-comp-head"><span class="mini">${fmtDate(c.date)}</span> <b>${mk(c.map)}</b> · 상대 ${esc(c.opp)} · <span class="mono">${c.score}</span> <span class="${c.won ? "ww" : "ll"}">${c.won ? "승" : "패"}</span></div><div class="hd-line">${line}</div></div>`;
         }).join("")
-      : nod("해당 맵 경기가 없어요.");
+      : nod("해당 맵 경기가 없음.");
   }
 
   return `<div class="herodetail-inner">
@@ -1644,7 +1659,7 @@ function heroDetail(D: DataBundle, p: Player, hero: string, selMap: string): str
 }
 function heroTable(D: DataBundle, p: Player, heroExpand: string, heroMapSel: string): string {
   const heroes = Object.values(p.heroes).sort((a, b) => b.n - a.n);
-  if (!heroes.length) return nod("아직 기록된 영웅이 없어요. 선픽이 입력되면 채워져요.");
+  if (!heroes.length) return nod("아직 기록된 영웅이 없음. 선픽이 입력되면 채워져요.");
   const mx = Math.max(1, ...heroes.map((h) => h.n));
   return `<table class="herotable"><thead><tr><th>영웅</th><th class="num">사용</th><th class="num">승-패</th><th class="num">승률</th><th>빈도</th><th></th></tr></thead><tbody>${heroes.map((h) => {
     const wr = playerWR(h);
@@ -1662,7 +1677,7 @@ function heroTable(D: DataBundle, p: Player, heroExpand: string, heroMapSel: str
 // 영웅×맵 강점 히트맵 (13.3)
 function heroMapHeatmap(p: Player): string {
   const cells = Object.values(p.cells);
-  if (!cells.length) return nod("아직 기록이 없어요. 선픽이 입력되면 채워져요.");
+  if (!cells.length) return nod("아직 기록이 없음. 선픽이 입력되면 채워져요.");
   const heroTot: Record<string, number> = {};
   const mapTot: Record<string, number> = {};
   cells.forEach((c) => {
@@ -1692,7 +1707,7 @@ function heroMapHeatmap(p: Player): string {
 export function renderPlayers(D: DataBundle, ui: PlayerUI): string {
   setIcons(D.heroIcons);
   if (!D.playerNames.length) {
-    return `<div class="panel"><h2>선수 분석</h2>${nod("아직 선수 기록이 없어요.")}
+    return `<div class="panel"><h2>선수 분석</h2>${nod("아직 선수 기록이 없음.")}
       <div class="sub-note" style="margin-top:12px">시트의 <b>상수팀 첫픽 / 하수팀 첫픽</b> 칸(역할별 선수명·영웅)을 채우면 여기에 자동으로 나타나요.</div></div>`;
   }
   const all = D.playerNames.map((n) => D.players[n]);
@@ -1706,7 +1721,7 @@ export function renderPlayers(D: DataBundle, ui: PlayerUI): string {
   const results = q ? all.filter((p) => p.name.toLowerCase().includes(q)).sort((x, y) => y.n - x.n) : [];
   const searchResults = q
     ? `<div class="sub-note" style="margin-bottom:8px">'${esc(ui.search)}' 검색 결과 — 누르면 선택돼요</div>
-       <div class="plchips" style="margin-bottom:14px">${results.length ? results.slice(0, 30).map((p) => `<button class="plchip ${p.name === a.name ? "on" : ""}" data-act="player" data-val="${esc(p.name)}">${esc(p.name)} <span class="mini">${esc(p.team)} · ${p.n}맵${p.n === 1 ? " ⚠" : ""}</span></button>`).join("") : nod(`'${esc(ui.search)}'에 맞는 선수가 없어요.`)}</div>`
+       <div class="plchips" style="margin-bottom:14px">${results.length ? results.slice(0, 30).map((p) => `<button class="plchip ${p.name === a.name ? "on" : ""}" data-act="player" data-val="${esc(p.name)}">${esc(p.name)} <span class="mini">${esc(p.team)} · ${p.n}맵${p.n === 1 ? " ⚠" : ""}</span></button>`).join("") : nod(`'${esc(ui.search)}'에 맞는 선수가 없음.`)}</div>`
     : "";
 
   return `
@@ -1721,7 +1736,7 @@ export function renderPlayers(D: DataBundle, ui: PlayerUI): string {
     <div class="panel"><h2>① 영웅별 성적 <span class="count">영웅 단위 · 행을 누르면 맵별·조합별로 펼침</span></h2>${heroTable(D, a, ui.heroExpand, ui.heroMapSel)}</div>
     <div class="panel"><h2>② 맵별 성적 <span class="count">맵 단위 · 출전 수·승률</span></h2>${mapTable(a)}</div>
     <div class="panel"><h2>③ 영웅 × 맵 강점 <span class="count">어떤 영웅을 어떤 맵에서 잘하는지</span></h2>${heroMapHeatmap(a)}</div>` : `
-    <div class="panel"><div class="datawait"><div class="dw-i">${esc(a.name)} — 아직 기록된 경기가 없어요</div><div class="sub-note" style="margin:6px 0 0">이 선수의 선픽(오프닝) 기록이 시트에 입력되면 영웅별·맵별·영웅×맵 강점이 자동으로 채워져요.</div></div></div>`}
+    <div class="panel"><div class="datawait"><div class="dw-i">${esc(a.name)} — 아직 기록된 경기가 없음</div><div class="sub-note" style="margin:6px 0 0">이 선수의 선픽(오프닝) 기록이 시트에 입력되면 영웅별·맵별·영웅×맵 강점이 자동으로 채워져요.</div></div></div>`}
     <div class="panel">
       <h2>선수 비교 <span class="count">${b ? `${esc(a.name)} vs ${esc(b.name)}` : "팀과 선수를 고르면 좌우 비교"}</span></h2>
       ${b ? `<button class="clearbtn" data-act="compareclear" style="margin-bottom:12px">비교 닫기 ✕</button>` : ""}
@@ -1732,7 +1747,7 @@ export function renderPlayers(D: DataBundle, ui: PlayerUI): string {
 // 맵별 성적 표 (영웅 구분 없이 맵 단위). 출전 수·승률·저표본 경고.
 function mapTable(p: Player): string {
   const maps = Object.values(p.maps).sort((a, b) => b.n - a.n);
-  if (!maps.length) return nod("아직 맵 기록이 없어요.");
+  if (!maps.length) return nod("아직 맵 기록이 없음.");
   const mx = Math.max(1, ...maps.map((m) => m.n));
   return `<table><thead><tr><th>맵</th><th class="num">출전</th><th class="num">승-패</th><th class="num">승률</th><th>빈도</th></tr></thead><tbody>${maps.map((m) => {
     const wr = m.n ? Math.round((m.w / m.n) * 100) : 0;
