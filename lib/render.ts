@@ -538,7 +538,7 @@ function evidenceTable(D: DataBundle, series: Series[], focusTeam: string): stri
     const other = isTop ? S.bottom : S.top;
     const won = S.winner === focusTeam;
     return `<tr><td class="mini">${fmtDate(S.date)}</td>
-      <td>${esc(other)}</td>
+      <td>${teamLink(other, other === D.us)}</td>
       <td><span class="reslabel ${won ? "win" : "loss"}">${won ? "승" : "패"}</span></td>
       <td class="num mono">${myW}:${opW}</td></tr>`;
   }).join("");
@@ -676,7 +676,7 @@ function scoutGameCard(D: DataBundle, s: SetRec, focus: string): string {
     const sorted = picks.slice().sort((a, b) => (order[a.role] ?? 9) - (order[b.role] ?? 9));
     return `<div class="gl-row"><span class="gl-team ${isFocus ? "zan2" : ""}">${esc(name)}</span>${sorted.map((p) => {
       const sw = swaps[p.player] || [];
-      return `<span class="gl-p">${heroIcon(p.hero || "")}<span>${esc(p.player || "?")}</span><span class="mini">${ROLE_KO[p.role] || ""}</span>${sw.map((h) => `<span class="swp">→${heroIcon(h)}</span>`).join("")}</span>`;
+      return `<span class="gl-p">${heroIcon(p.hero || "")}<span>${playerLink(p.player)}</span><span class="mini">${ROLE_KO[p.role] || ""}</span>${sw.map((h) => `<span class="swp">→${heroIcon(h)}</span>`).join("")}</span>`;
     }).join("")}</div>`;
   };
   const copyIcon = s.replay ? `<span class="gc2-rep"><span class="repcode">${esc(s.replay)}</span><button class="copyb copyicon" data-act="copy" data-val="${esc(s.replay)}" title="리플레이 코드 복사"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button></span>` : "";
@@ -1102,7 +1102,7 @@ function teamBanDetail(D: DataBundle, team: string, banMap: string): BanHeroAgg[
 }
 function banLineup(name: string, lines: { player: string; hero: string }[], zan: boolean): string {
   if (!lines.length) return `<div class="lineup"><span class="lu-team ${zan ? "zan" : ""}">${esc(name)}</span> <span class="mini">라인업 미기록</span></div>`;
-  return `<div class="lineup"><span class="lu-team ${zan ? "zan" : ""}">${esc(name)}</span>${lines.map((p) => `<span class="lu-p">${heroIcon(p.hero || "")}<span>${esc(p.player || "?")}</span></span>`).join("")}</div>`;
+  return `<div class="lineup"><span class="lu-team ${zan ? "zan" : ""}">${esc(name)}</span>${lines.map((p) => `<span class="lu-p">${heroIcon(p.hero || "")}<span>${playerLink(p.player)}</span></span>`).join("")}</div>`;
 }
 // ===== ZANSIDE 영웅 분석 탭 (자주 당하는/거는 밴) — 우리팀 데이터 섹션 =====
 export function renderZansideBan(D: DataBundle, f: BanUI): string {
