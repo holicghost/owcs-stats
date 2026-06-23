@@ -981,8 +981,27 @@ function banLineup(name: string, lines: { player: string; hero: string }[], zan:
   if (!lines.length) return `<div class="lineup"><span class="lu-team ${zan ? "zan" : ""}">${esc(name)}</span> <span class="mini">라인업 미기록</span></div>`;
   return `<div class="lineup"><span class="lu-team ${zan ? "zan" : ""}">${esc(name)}</span>${lines.map((p) => `<span class="lu-p">${heroIcon(p.hero || "")}<span>${esc(p.player || "?")}</span></span>`).join("")}</div>`;
 }
+// ===== ZANSIDE 영웅 분석 탭 (자주 당하는/거는 밴) — 우리팀 데이터 섹션 =====
+export function renderZansideBan(D: DataBundle, f: BanUI): string {
+  setIcons(D.heroIcons);
+  const Z = D.teams[D.us];
+  const made: Record<string, number> = Z ? { ...Z.firstBan } : {};
+  if (Z) Object.entries(Z.secondBan).forEach(([h, n]) => (made[h] = (made[h] || 0) + n));
+  const roles: Array<[string, string]> = [["all", "전체"], ["Tank", "탱커"], ["DPS", "딜러"], ["Support", "서포터"]];
+  const filterBar = `<div class="metabar">
+    <span class="flabel">역할</span><div class="seg">${roles.map(([id, lb]) => `<button class="${f.role === id ? "on" : ""}" data-act="ban-role" data-val="${id}">${lb}</button>`).join("")}</div>
+    <span class="flabel">표시</span><select data-act="ban-topn">${[[12, "상위 12"], [24, "상위 24"], [0, "전체"]].map(([v, lb]) => `<option value="${v}" ${f.topN === v ? "selected" : ""}>${lb}</option>`).join("")}</select>
+  </div>`;
+  return `
+    ${filterBar}
+    <div class="grid2">
+      <div class="panel"><h2>ZANSIDE가 자주 당하는 밴 <span class="count">${Z ? Object.values(Z.banAgainst).reduce((a, b) => a + b, 0) : 0}회</span></h2><div class="bars">${Z ? banBars(Z.banAgainst, f) : nod()}</div></div>
+      <div class="panel"><h2>ZANSIDE가 자주 거는 밴 <span class="count">${Object.values(made).reduce((a, b) => a + b, 0)}회</span></h2><div class="bars">${banBars(made, f)}</div></div>
+    </div>`;
+}
+
 // ===== 영웅 밴 분석 (영웅 중심 탐색: 검색/포지션 선택 → 맵별·팀별 밴 분포) =====
-export interface HeroBanUI { hero: string; search: string; team: string; }
+export interface HeroBanUI { hero: string; search: string; team: string; role: string; }
 export function renderHeroBan(D: DataBundle, ui: HeroBanUI): string {
   setIcons(D.heroIcons);
   const heroTotals: Record<string, number> = {};
@@ -992,9 +1011,14 @@ export function renderHeroBan(D: DataBundle, ui: HeroBanUI): string {
   const allHeroes = (["Tank", "DPS", "Support"] as const).flatMap((r) => HEROES[r]);
   const matches = q ? allHeroes.filter((h) => h.toLowerCase().includes(q) || heroKo(h).toLowerCase().includes(q)) : [];
   const heroChipBtn = (h: string) => `<button class="hbchip ${h === ui.hero ? "on" : ""}" data-act="hb-hero" data-val="${esc(h)}">${heroIcon(h)}<span class="hbn">${esc(heroKo(h))}</span><span class="hbct">${heroTotals[h] || 0}</span></button>`;
-  const selector = q
-    ? `<div class="sub-note">'${esc(ui.search)}' 검색 결과 — 누르면 선택</div><div class="hbgrid">${matches.length ? matches.map(heroChipBtn).join("") : nod("맞는 영웅이 없어요.")}</div>`
-    : (["Tank", "DPS", "Support"] as const).map((r) => `<div class="hbrole"><div class="possum-role">${ROLE_KO[r]}</div><div class="hbgrid">${HEROES[r].map(heroChipBtn).join("")}</div></div>`).join("");
+  const searchResults = q ? `<div class="sub-note">'${esc(ui.search)}' 검색 결과 — 누르면 선택</div><div class="hbgrid">${matches.length ? matches.map(heroChipBtn).join("") : nod("맞는 영웅이 없어요.")}</div>` : "";
+  // 포지션 → 영웅 드롭다운 (선수별 분석과 동일한 양식)
+  const roleOpts: Array<[string, string]> = [["all", "전체"], ["Tank", "탱커"], ["DPS", "딜러"], ["Support", "서포터"]];
+  const roleSel = `<select data-act="hb-role">${roleOpts.map(([v, l]) => `<option value="${v}" ${ui.role === v ? "selected" : ""}>${l}</option>`).join("")}</select>`;
+  const pool = (ui.role === "all" ? allHeroes : HEROES[ui.role as "Tank" | "DPS" | "Support"] || allHeroes).slice();
+  if (ui.hero && !pool.includes(ui.hero)) pool.unshift(ui.hero);
+  const heroSel = `<select data-act="hb-hero"><option value="" ${!ui.hero ? "selected" : ""}>— 영웅 —</option>${pool.map((h) => `<option value="${esc(h)}" ${h === ui.hero ? "selected" : ""}>${esc(heroKo(h))} · ${heroTotals[h] || 0}회</option>`).join("")}</select>`;
+  const selector = `${searchResults}<div class="psel"><label class="estfield"><span class="estlabel">포지션</span>${roleSel}</label><label class="estfield"><span class="estlabel">영웅</span>${heroSel}</label></div>`;
 
   let detail = `<div class="panel">${nod("영웅을 검색하거나 위 목록에서 선택하면, 맵별·팀별 밴 분포(선밴/후밴)를 보여줘요.")}</div>`;
   if (ui.hero) {

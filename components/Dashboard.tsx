@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import type { DataBundle } from "@/lib/types";
 import {
   renderMatchday, renderScout, renderBanAnalysis, renderHeroBan, renderMaps, renderLog,
-  renderScenario, renderPlayers, renderEstimator, renderZanside, setIcons, setToEstInput, setToEstUs, setToEstOppTeam,
+  renderScenario, renderPlayers, renderEstimator, renderZanside, renderZansideBan, setIcons, setToEstInput, setToEstUs, setToEstOppTeam,
   type LogFilter, type EstInput, type BanUI,
 } from "@/lib/render";
 
@@ -36,6 +36,7 @@ const ZANSIDE_TABS = [
   { id: "matchday", label: "다음 경기" },
   { id: "scenario", label: "순위 시나리오" },
   { id: "team", label: "우리팀 임시" },
+  { id: "teamban", label: "영웅 분석" },
 ] as const;
 type ZTab = (typeof ZANSIDE_TABS)[number]["id"];
 
@@ -95,6 +96,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
   const [hbHero, setHbHero] = useState("");
   const [hbSearch, setHbSearch] = useState("");
   const [hbTeam, setHbTeam] = useState("all");
+  const [hbRole, setHbRole] = useState("all");
 
   // 시뮬레이션
   const [est, setEst] = useState<EstInput>(EMPTY_EST);
@@ -112,13 +114,13 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "scout": return renderScout(D, scoutTeam, scoutTab, { agg: deepAgg, sort: deepSort, smp: deepSmp, banExpand: deepBanExpand }, weakExpand);
       case "players": return renderPlayers(D, { playerA, playerB, search: playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel });
       case "log": return renderLog(D, logF, logExpand, logSort);
-      case "ban": return renderHeroBan(D, { hero: hbHero, search: hbSearch, team: hbTeam });
+      case "ban": return renderHeroBan(D, { hero: hbHero, search: hbSearch, team: hbTeam, role: hbRole });
       case "maps": return renderMaps(D, mapsMode, mapsTeam);
       case "legacy": return renderBanAnalysis(D, { role: banRole, topN: banTopN, team: banTeam, banMap, banExpand } as BanUI) + renderMaps(D, mapsMode, mapsTeam);
       case "estimator": return renderEstimator(D, est);
       default: return "";
     }
-  }, [D, tab, scoutTeam, scoutTab, deepAgg, deepSort, deepSmp, deepBanExpand, weakExpand, playerA, playerB, playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel, logF, logExpand, logSort, hbHero, hbSearch, hbTeam, banRole, banTopN, banTeam, banMap, banExpand, mapsMode, mapsTeam, est]);
+  }, [D, tab, scoutTeam, scoutTab, deepAgg, deepSort, deepSmp, deepBanExpand, weakExpand, playerA, playerB, playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel, logF, logExpand, logSort, hbHero, hbSearch, hbTeam, hbRole, banRole, banTopN, banTeam, banMap, banExpand, mapsMode, mapsTeam, est]);
 
   const zansideHtml = useMemo(() => {
     setIcons(D.heroIcons);
@@ -126,9 +128,10 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "matchday": return renderMatchday(D, weakExpand);
       case "scenario": return renderScenario(D);
       case "team": return renderZanside(D, weakExpand);
+      case "teamban": return renderZansideBan(D, { role: banRole, topN: banTopN, team: D.us, banMap: "all", banExpand: "" } as BanUI);
       default: return "";
     }
-  }, [D, zTab, weakExpand]);
+  }, [D, zTab, weakExpand, banRole, banTopN]);
 
   const toTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
   function go(id: TabId) { setMod("owcs"); setTab(id); toTop(); }
@@ -193,6 +196,8 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "ban-team": setBanTeam(v); setBanExpand(""); break;
       case "ban-map": setBanMap(v); setBanExpand(""); break;
       case "hb-team": setHbTeam(v); break;
+      case "hb-role": setHbRole(v); break;
+      case "hb-hero": setHbHero(v); setHbSearch(""); break;
       case "pick-team": {
         const top = D.playerNames.map((n) => D.players[n]).filter((p) => p.team === v).sort((a, b) => b.n - a.n)[0];
         setPickTeam(v); setHeroExpand(""); setHeroMapSel("");
