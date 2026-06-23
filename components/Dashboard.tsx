@@ -305,7 +305,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       {mod === "zanside" && (
         <nav className="tabs">
           {ZANSIDE_TABS.map((t) => (
-            <button key={t.id} className={`tab ${t.id === zTab ? "on" : ""}`} onClick={() => goZ(t.id)}>{t.label}</button>
+            <button key={t.id} className={`tab ${t.id === zTab ? "on" : ""}`} data-cat={TAB_CATEGORY[t.id]} aria-current={t.id === zTab ? "page" : undefined} onClick={() => goZ(t.id)}>{t.label}</button>
           ))}
         </nav>
       )}
