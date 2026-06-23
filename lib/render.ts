@@ -866,7 +866,7 @@ function teamSummary(D: DataBundle, team: string, isUs: boolean, weakExpand: str
         const o = S.top === team ? S.bottomW : S.topW;
         const opp = S.top === team ? S.bottom : S.top;
         const won = w > o;
-        return `<div class="fcard ${won ? "w" : "l"}"><div class="res">${won ? "WIN" : "LOSS"}</div><div class="opp">vs ${esc(opp)}</div><div class="meta">${w}-${o} · ${fmtDate(S.date)}</div></div>`;
+        return `<div class="fcard ${won ? "w" : "l"} clickable" role="button" tabindex="0" data-act="goseries" data-val="${esc(opp)}|${esc(S.date)}"><div class="res">${won ? "WIN" : "LOSS"}</div><div class="opp">vs ${esc(opp)}</div><div class="meta">${w}-${o} · ${fmtDate(S.date)}</div><div class="fgo">경기 기록 →</div></div>`;
       }).join("")
     : nod("아직 치른 경기가 없음.");
   const roleOfR = (roles: Record<string, number>) => { const e = Object.entries(roles).sort((a, b) => b[1] - a[1])[0]; return e ? ROLE_KO[e[0]] || e[0] : ""; };
@@ -878,7 +878,7 @@ function teamSummary(D: DataBundle, team: string, isUs: boolean, weakExpand: str
       }).join("")
     : nod("로스터 데이터가 없음.");
   return `
-    <div class="panel"><h2>최근 폼 <span class="count">최근 ${last.length}경기</span></h2><div class="form">${form}</div></div>
+    <div class="panel"><h2>최근 경기 <span class="count">카드를 누르면 경기 기록</span></h2><div class="form">${form}</div></div>
     <div class="panel"><h2>로스터 <span class="count">${players.length}명 · 누르면 선수 분석</span></h2><div class="roster">${rosterHtml}</div></div>
     <div class="grid2">
       <div class="panel"><h2>맵별 성적 <span class="count">출전·승률</span></h2>${teamMapSummary(T)}</div>
