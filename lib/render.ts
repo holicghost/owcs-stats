@@ -1903,9 +1903,9 @@ function renderPlayerDiff(D: DataBundle, a: Player, b: Player): string {
     }).join("");
   }
 
-  // 주 영웅: 그 선수가 가장 많이 한 영웅(출전 수 순). 기록이 있으면 절대 빈칸이 아님.
+  // 주 영웅: 승률 높은 순(동률은 출전 수). 기록이 있으면 절대 빈칸이 아님.
   const mainList = (p: Player) => {
-    const top = Object.values(p.heroes).filter((h) => h.n >= 1).sort((x, y) => y.n - x.n || playerWR(y) - playerWR(x)).slice(0, 5);
+    const top = Object.values(p.heroes).filter((h) => h.n >= 1).sort((x, y) => playerWR(y) - playerWR(x) || y.n - x.n).slice(0, 5);
     return top.length
       ? top.map((h) => `<span class="utag">${heroChip(h.hero)} <span class="mini">${h.n}회 · ${playerWR(h)}%</span></span>`).join("")
       : `<span class="mini">출전 기록 없음</span>`;
