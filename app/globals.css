@@ -751,6 +751,7 @@ table.banpos .banposcell .num{font-weight:600}
 
 /* 경기 기록 상세 (행 펼침) */
 .mono{font-family:var(--mono)}
+.num,.mono,.vl,.est-big,.wr{font-variant-numeric:tabular-nums}
 .logrow{cursor:pointer}
 .logrow.open{background:var(--panel-2)}
 .logrow .caret{color:var(--tx-dim);width:20px}
