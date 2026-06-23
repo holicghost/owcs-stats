@@ -1600,6 +1600,7 @@ export interface PlayerUI {
   pickTeamB: string; // 비교 대상 팀
   heroExpand: string; // 펼친 영웅 행
   heroMapSel: string; // 펼친 영웅 안에서 고른 맵 (오른쪽 상세)
+  mapExpand: string; // 맵별 성적에서 펼친 맵 (양 팀 조합)
 }
 function playerWR(hs: { n: number; w: number }) {
   return hs.n ? Math.round((hs.w / hs.n) * 100) : 0;
@@ -1760,7 +1761,7 @@ export function renderPlayers(D: DataBundle, ui: PlayerUI): string {
     <div class="panel">${playerCard(D, a)}</div>
     ${a.n > 0 ? `
     <div class="panel"><h2>① 영웅별 성적 <span class="count">영웅 단위 · 행을 누르면 맵별·조합별로 펼침</span></h2>${heroTable(D, a, ui.heroExpand, ui.heroMapSel)}</div>
-    <div class="panel"><h2>② 맵별 성적 <span class="count">맵 단위 · 출전 수·승률</span></h2>${mapTable(a)}</div>
+    <div class="panel"><h2>② 맵별 성적 <span class="count">맵 단위 · 행을 누르면 그 맵의 양 팀 조합</span></h2>${mapTable(D, a, ui.mapExpand)}</div>
     <div class="panel"><h2>③ 영웅 × 맵 강점 <span class="count">어떤 영웅을 어떤 맵에서 잘하는지</span></h2>${heroMapHeatmap(a)}</div>` : `
     <div class="panel"><div class="datawait"><div class="dw-i">${esc(a.name)} — 아직 기록된 경기가 없음</div><div class="sub-note" style="margin:6px 0 0">이 선수의 선픽(오프닝) 기록이 시트에 입력되면 영웅별·맵별·영웅×맵 강점이 자동으로 채워져요.</div></div></div>`}
     <div class="panel">
@@ -1771,18 +1772,46 @@ export function renderPlayers(D: DataBundle, ui: PlayerUI): string {
     ${b ? renderPlayerDiff(D, a, b) : ""}`;
 }
 // 맵별 성적 표 (영웅 구분 없이 맵 단위). 출전 수·승률·저표본 경고.
-function mapTable(p: Player): string {
+// 선수 맵별 성적 펼침: 그 맵의 경기별 양 팀 조합(영웅 + 교체 →)
+function playerMapGames(D: DataBundle, p: Player, map: string): string {
+  const inSet = (s: SetRec) => [...s.picks.top, ...s.picks.bottom].some((x) => x.player === p.name);
+  const games = D.sets.filter((s) => s.map === map && inSet(s)).slice().reverse();
+  if (!games.length) return nod("경기 기록 없음");
+  const order: Record<string, number> = { Tank: 0, DPS: 1, Support: 2 };
+  const compLine = (team: string, picks: Pick[], swaps: Record<string, string[]>, focus: boolean) =>
+    `<div class="mg-team ${focus ? "mine" : ""}"><span class="mg-tn">${esc(team)}</span><div class="mg-ps">${picks.slice().sort((a, b) => (order[a.role] ?? 9) - (order[b.role] ?? 9)).map((pk) => {
+      const chain = [pk.hero, ...(swaps[pk.player] || [])].filter(Boolean);
+      return `<span class="mg-p ${pk.player === p.name ? "me" : ""}"><span class="mg-pn">${esc(pk.player)}</span><span class="mg-chain">${chain.map((h, i) => `${i ? '<span class="mg-arr">→</span>' : ""}${heroIcon(h)}`).join("")}</span></span>`;
+    }).join("")}</div></div>`;
+  return games.map((s) => {
+    const w = setWinner(s);
+    const focusTop = s.picks.top.some((x) => x.player === p.name);
+    const myWin = (focusTop ? s.top : s.bottom) === w;
+    const swaps = swapsByPlayer(s.memo);
+    const opp = focusTop ? s.bottom : s.top;
+    return `<div class="mapgame"><div class="mg-head"><span class="${myWin ? "ww" : w ? "ll" : "mini"}">${myWin ? "승" : w ? "패" : "·"}</span> <span class="mini">${fmtDate(s.date)} · ${esc(s.match)}</span> <span class="mini">vs</span> <b>${esc(opp)}</b></div>
+      ${compLine(s.top, s.picks.top, swaps, s.top === p.team)}
+      ${compLine(s.bottom, s.picks.bottom, swaps, s.bottom === p.team)}</div>`;
+  }).join("");
+}
+function mapTable(D: DataBundle, p: Player, mapExpand: string): string {
   const maps = Object.values(p.maps).sort((a, b) => b.n - a.n);
   if (!maps.length) return nod("아직 맵 기록이 없음.");
-  const mx = Math.max(1, ...maps.map((m) => m.n));
-  return `<table><thead><tr><th>맵</th><th class="num">출전</th><th class="num">승-패</th><th class="num">승률</th><th>빈도</th></tr></thead><tbody>${maps.map((m) => {
+  const repsOf = (mapName: string) => Object.values(p.cells).filter((c) => c.map === mapName).sort((a, b) => b.n - a.n).slice(0, 4);
+  return `<table class="maptable"><thead><tr><th>맵</th><th class="num">출전</th><th class="num">승-패</th><th class="num">승률</th><th>대표 영웅</th><th></th></tr></thead><tbody>${maps.map((m) => {
     const wr = m.n ? Math.round((m.w / m.n) * 100) : 0;
     const low = m.n === 1;
-    return `<tr><td class="hname">${mk(m.map)}</td>
+    const open = mapExpand === m.map;
+    const reps = repsOf(m.map);
+    const repHtml = reps.length ? reps.map((c) => `<span class="mrep" title="${esc(heroKo(c.hero))} ${c.n}회">${heroIcon(c.hero)}</span>`).join("") : '<span class="mini">-</span>';
+    const row = `<tr class="maprow ${open ? "open" : ""}" data-act="map-expand" data-val="${esc(m.map)}">
+      <td class="hname">${mk(m.map)}</td>
       <td class="num">${m.n}${low ? ' <span class="lowsmp" title="표본 적음">⚠</span>' : ""}</td>
       <td class="num">${m.w}-${m.n - m.w}</td>
       <td class="num"><span class="wr ${wrCls(wr)}">${wr}%</span></td>
-      <td><div class="tr mini-tr"><div class="fl" style="width:${Math.round((m.n / mx) * 100)}%"></div></div></td></tr>`;
+      <td class="mapreps">${repHtml}</td>
+      <td class="num caret">${open ? "▾" : "▸"}</td></tr>`;
+    return open ? row + `<tr class="mapdetail"><td colspan="6"><div class="sub-note">이 맵 경기 · 양 팀 조합 (영웅 · 교체 →)</div><div class="mapgames">${playerMapGames(D, p, m.map)}</div></td></tr>` : row;
   }).join("")}</tbody></table>`;
 }
 

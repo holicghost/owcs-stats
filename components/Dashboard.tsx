@@ -84,6 +84,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
   const [pickTeamB, setPickTeamB] = useState(nextOpp || opps[0] || "");
   const [heroExpand, setHeroExpand] = useState("");
   const [heroMapSel, setHeroMapSel] = useState("");
+  const [mapExpand, setMapExpand] = useState("");
 
   // 영웅 밴 분석
   const [banRole, setBanRole] = useState<"all" | Role>("all");
@@ -112,7 +113,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
     setIcons(D.heroIcons);
     switch (tab) {
       case "scout": return renderScout(D, scoutTeam, scoutTab, { agg: deepAgg, sort: deepSort, smp: deepSmp, banExpand: deepBanExpand }, weakExpand);
-      case "players": return renderPlayers(D, { playerA, playerB, search: playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel });
+      case "players": return renderPlayers(D, { playerA, playerB, search: playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel, mapExpand });
       case "log": return renderLog(D, logF, logExpand, logSort);
       case "ban": return renderHeroBan(D, { hero: hbHero, search: hbSearch, team: hbTeam, role: hbRole });
       case "maps": return renderMaps(D, { mode: mapsMode, map: mapsSel });
@@ -120,7 +121,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "estimator": return renderEstimator(D, est);
       default: return "";
     }
-  }, [D, tab, scoutTeam, scoutTab, deepAgg, deepSort, deepSmp, deepBanExpand, weakExpand, playerA, playerB, playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel, logF, logExpand, logSort, hbHero, hbSearch, hbTeam, hbRole, banRole, banTopN, banTeam, banMap, banExpand, mapsMode, mapsSel, est]);
+  }, [D, tab, scoutTeam, scoutTab, deepAgg, deepSort, deepSmp, deepBanExpand, weakExpand, playerA, playerB, playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel, mapExpand, logF, logExpand, logSort, hbHero, hbSearch, hbTeam, hbRole, banRole, banTopN, banTeam, banMap, banExpand, mapsMode, mapsSel, est]);
 
   const zansideHtml = useMemo(() => {
     setIcons(D.heroIcons);
@@ -159,6 +160,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "compareclear": setPlayerB(""); break;
       case "hero-expand": setHeroExpand((c) => (c === val ? "" : val)); setHeroMapSel(""); break;
       case "heromap-sel": setHeroMapSel((c) => (c === val ? "" : val)); break;
+      case "map-expand": setMapExpand((c) => (c === val ? "" : val)); break;
       case "ban-role": setBanRole(val as "all" | Role); break;
       case "ban-expand": setBanExpand((c) => (c === val ? "" : val)); break;
       case "hb-hero": setHbHero(val); setHbSearch(""); break;
