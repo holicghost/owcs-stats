@@ -229,6 +229,15 @@ select:focus{outline:2px solid var(--accent-dim);outline-offset:1px}
 .est-band{font-family:var(--mono);font-size:12.5px;color:var(--tx-mid);margin:6px 0 4px}
 .est-empty{text-align:center;padding:14px 0}
 .est-empty .est-big{font-size:26px;color:var(--tx-dim)}
+/* 추정 vs 실제 결과 요약 (불러온 경기) */
+.est-actual{text-align:left;margin-top:12px;border-top:1px solid var(--line-soft);padding-top:12px}
+.est-actual.vhit{border-top-color:var(--accent-dim)} .est-actual.vmiss{border-top-color:rgba(255,93,115,.4)}
+.ea-head{font-family:var(--mono);font-size:11.5px;color:var(--tx-dim);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+.ea-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ea-cell{display:flex;flex-direction:column;gap:2px;background:var(--panel-2);border:1px solid var(--line-soft);border-radius:8px;padding:7px 10px}
+.ea-k{font-size:11px;color:var(--tx-dim)}
+.ea-v{font-size:14px;font-weight:700}
+.est-actual .sub-note{text-align:left;margin-top:8px}
 .frows{display:flex;flex-direction:column;gap:4px}
 .frow{display:grid;grid-template-columns:1.5fr 56px 56px 2fr;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line-soft);font-size:13px}
 .frow.head{color:var(--tx-dim);font-family:var(--mono);font-size:10.5px;text-transform:uppercase;border-bottom:1px solid var(--line)}

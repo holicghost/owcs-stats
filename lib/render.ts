@@ -2057,14 +2057,36 @@ export function renderEstimator(D: DataBundle, e: EstInput): string {
   const oppSel = `<select data-act="est-oppteam"><option value="" ${!e.oppTeam ? "selected" : ""}>— 상대 팀(선택) —</option>${D.teamNames.filter((n) => n !== D.us).map((n) => `<option value="${esc(n)}" ${n === e.oppTeam ? "selected" : ""}>${esc(n)}</option>`).join("")}</select>`;
 
   const r = h2hEstimate(D, e);
+  // 불러온 경기가 실제 결과를 가지면 추정 vs 실제 요약을 추정 결과에 함께 표시
+  let actualSummary = "";
+  if (r.pct != null && e.srcKey) {
+    const s = findSetByKey(D, e.srcKey);
+    if (s && s.winner) {
+      const won = s.winner === D.us;
+      const hit = (r.pct > 50) === won;
+      const probForOutcome = won ? r.pct : 100 - r.pct; // 추정이 실제 결과에 부여한 확률
+      const oppName = s.top === D.us ? s.bottom : s.top;
+      actualSummary = `<div class="est-actual ${hit ? "vhit" : "vmiss"}">
+        <div class="ea-head">실제 결과 대조 <span class="mini">${fmtDate(s.date)} · vs ${esc(oppName)}</span></div>
+        <div class="ea-grid">
+          <div class="ea-cell"><span class="ea-k">추정</span><span class="ea-v"><span class="wr ${wrCls(r.pct)}">${r.pct}%</span> ${r.pct > 50 ? "우세" : r.pct < 50 ? "열세" : "백중"}</span></div>
+          <div class="ea-cell"><span class="ea-k">실제</span><span class="ea-v"><b class="${won ? "ww" : "ll"}">${won ? "ZANSIDE 승" : "ZANSIDE 패"}</b></span></div>
+          <div class="ea-cell"><span class="ea-k">판정</span><span class="ea-v"><b>${hit ? "적중 ✓" : "빗나감 ✗"}</b></span></div>
+          <div class="ea-cell"><span class="ea-k">실제 결과 확률</span><span class="ea-v">${probForOutcome}%</span></div>
+        </div>
+        <div class="sub-note">추정이 실제로 일어난 결과에 부여했던 확률이 ${probForOutcome}%${hit ? " (50% 초과 → 적중)" : " (50% 미만 → 빗나감)"}.</div>
+      </div>`;
+    }
+  }
   let result: string;
   if (r.pct == null) {
-    result = `<div class="est-empty"><div class="est-big">입력 대기</div><div class="sub-note">${r.missing.length ? `더 채우면 추정해요: <b>${esc(r.missing.join(", "))}</b>` : "맵을 먼저 고르세요."}</div></div>`;
+    result = `<div class="est-empty"><div class="est-big">입력 대기</div><div class="sub-note">${r.missing.length ? `더 채우면 추정: <b>${esc(r.missing.join(", "))}</b>` : "맵을 먼저 선택"}</div></div>`;
   } else {
     result = `<div class="est-result"><div class="est-big"><span class="wr ${wrCls(r.pct)}">${r.pct}%</span></div>
       <div class="est-band">예상 범위 ${r.lo}~${r.hi}% · 신뢰도 ${r.conf} · 최소 표본 ${r.minS}</div>
-      <div class="sub-note">예측이 아니라 <b>가중 합산 추정</b>이에요. 소수점까지 믿을 숫자는 아니에요.</div>
-      ${r.missing.length ? `<div class="sub-note">아직 빈 입력: ${esc(r.missing.join(", "))} — 채운 만큼만 반영했어요.</div>` : ""}</div>`;
+      <div class="sub-note">예측이 아니라 <b>가중 합산 추정</b> · 소수점까지 믿을 값은 아님</div>
+      ${r.missing.length ? `<div class="sub-note">빈 입력: ${esc(r.missing.join(", "))} — 채운 만큼만 반영</div>` : ""}
+      ${actualSummary}</div>`;
   }
   const rows = r.factors.length
     ? r.factors.map((f) => `<div class="frow ${f.active ? "" : "off"}"><span class="fl-label">${f.label}<span class="fw">가중치 ${Math.round(f.w * 100)}%</span></span><span class="fl-contrib">${f.active ? `${f.contrib >= 0 ? "+" : ""}${Math.round(f.w * f.contrib * 100)}p` : "—"}</span><span class="fl-note mini">${f.note}</span></div>`).join("")
@@ -2130,19 +2152,8 @@ export function renderEstimator(D: DataBundle, e: EstInput): string {
   const bt = backtestUs(D);
   let verifPanel = "";
   if (bt.n) {
-    let single = "";
-    if (e.srcKey) {
-      const s = findSetByKey(D, e.srcKey);
-      const cur = h2hEstimate(D, e);
-      if (s && s.winner && cur.pct != null) {
-        const won = s.winner === D.us;
-        const hit = (cur.pct > 50) === won;
-        single = `<div class="verif-single ${hit ? "vhit" : "vmiss"}"><b>${fmtDate(s.date)} vs ${esc(s.top === D.us ? s.bottom : s.top)}</b> · 모델 예측 <span class="wr ${wrCls(cur.pct)}">${cur.pct}%</span> → 실제 <b>${won ? "ZANSIDE 승" : "ZANSIDE 패"}</b> · ${hit ? "예측 적중 ✓" : "예측 빗나감 ✗"}</div>`;
-      }
-    }
-    verifPanel = `<div class="panel"><h2>예측 검증 <span class="count">과거 ZANSIDE 경기로 모델 검증</span></h2>
-      ${single}
-      <div class="statrow" style="grid-template-columns:repeat(3,1fr);margin:10px 0 0">
+    verifPanel = `<div class="panel"><h2>예측 검증 <span class="count">과거 ZANSIDE 경기 전체로 모델 검증</span></h2>
+      <div class="statrow" style="grid-template-columns:repeat(3,1fr)">
         <div class="stat"><div class="k">예측 경기</div><div class="v">${bt.n}</div></div>
         <div class="stat"><div class="k">적중률</div><div class="v">${Math.round((bt.hits / bt.n) * 100)}%<small> ${bt.hits}/${bt.n}</small></div></div>
         <div class="stat"><div class="k">Brier</div><div class="v">${bt.brier.toFixed(3)}</div></div>
