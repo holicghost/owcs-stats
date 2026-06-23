@@ -148,63 +148,6 @@ export function renderHome(D: DataBundle): string {
     </div>`;
 }
 
-// ===== 약점 분석 (명세 42) =====
-function weakItem(D: DataBundle, item: Weak, isUs: boolean, edge: { edge: boolean; usWr: number | null }, open: boolean): string {
-  const badge = !isUs && edge.edge ? `<span class="edge">공략 포인트</span>` : "";
-  const deltaTxt = `<span class="mini">리그 대비 ${item.deltaLeague > 0 ? "+" : ""}${item.deltaLeague}%p</span>`;
-  const head = `<div class="weakrow ${open ? "open" : ""}" data-act="weak-expand" data-val="${esc(item.key)}">
-    <div class="wk-main"><span class="wk-label">${esc(item.label)}</span>${badge}</div>
-    <div class="wk-nums"><span class="wr ${item.wr >= 50 ? "mid" : "lo"}">${item.wr}%</span> ${deltaTxt} <span class="mini">${item.sample}맵</span> <span class="caret">${open ? "▾" : "▸"}</span></div>
-  </div>`;
-  const usNote = !isUs && edge.usWr != null ? ` <span class="mini">(우리 ${edge.usWr}%)</span>` : "";
-  const action = `<div class="wk-action">→ ${item.action(isUs)}${usNote}</div>`;
-  if (!open) return `<div class="weakitem">${head}${action}</div>`;
-  const sets = item.sets.slice().reverse().map((s) =>
-    `<div class="wkset"><span class="mini">${fmtDate(s.date)}</span> <b>${mk(s.map)}</b> <span class="mini">${esc(MODE_KO[s.mode] || s.mode)}</span> <span class="mini">vs</span> ${esc(s.opp)} <span class="${s.won ? "ww" : "ll"}">${s.won ? "승" : "패"}</span>${s.replay ? ` <span class="repcode">${esc(s.replay)}</span>` : ""}</div>`
-  ).join("");
-  return `<div class="weakitem">${head}${action}<div class="wkdetail">${sets || nod("근거 경기 없음")}</div></div>`;
-}
-/** 약점 패널 — ZANSIDE(isUs)면 우리 약점, 아니면 상대 약점(공략 포인트 강조). */
-export function weaknessPanel(D: DataBundle, team: string, isUs: boolean, weakExpand: string): string {
-  const dims = dimensions(D, team);
-  const usDims = isUs ? dims : dimensions(D, D.us);
-  const who = isUs ? "ZANSIDE" : esc(team);
-  const isFirst = (d: Weak) => d.kind === "firstmap";
-  // 첫 맵(경기 순서 지표)은 모드 약점과 분리 (P1)
-  const modeWeak = dims.filter((d) => !isFirst(d) && d.status === "weak").sort((a, b) => a.wr - b.wr);
-  const modeLow = dims.filter((d) => !isFirst(d) && d.status === "lowsample");
-  const fm = dims.find(isFirst) || null;
-
-  const weakHtml = modeWeak.length
-    ? modeWeak.map((it) => weakItem(D, it, isUs, crossEdge(usDims, it), weakExpand === it.key)).join("")
-    : `<div class="wk-empty">확정 약점 없음</div>`;
-  const lowHtml = modeLow.length
-    ? `<div class="wk-sec"><div class="wk-h">표본 부족 항목</div>
-        <div class="lowlist">${modeLow.map((it) => `<span class="utag">${esc(it.label)} <span class="mini">${it.wr}% · ${it.sample}맵</span></span>`).join("")}</div>
-        <div class="sub-note">최소 ${WEAK_SAMPLE_MIN}맵 미만 · 약점 판정 제외</div></div>`
-    : "";
-  let flowHtml = "";
-  if (fm) {
-    const won = fm.sets.filter((s) => s.won).length, lost = fm.sets.length - won;
-    const fmLabel = fm.status === "weak" ? (isUs ? "첫 맵 약세" : "첫 맵 공략 후보") : fm.status === "lowsample" ? "표본 부족" : "첫 맵 양호";
-    const open = weakExpand === fm.key;
-    const detail = open
-      ? `<div class="wkdetail">${fm.sets.slice().reverse().map((s) => `<div class="wkset"><span class="mini">${fmtDate(s.date)}</span> <b>${mk(s.map)}</b> <span class="mini">${esc(MODE_KO[s.mode] || s.mode)}</span> <span class="mini">vs</span> ${esc(s.opp)} <span class="${s.won ? "ww" : "ll"}">${s.won ? "승" : "패"}</span></div>`).join("")}</div>`
-      : "";
-    flowHtml = `<div class="wk-sec"><div class="wk-h">경기 흐름 특징</div>
-      <div class="weakitem"><div class="weakrow ${open ? "open" : ""}" data-act="weak-expand" data-val="${esc(fm.key)}">
-        <div class="wk-main"><span class="wk-label">첫 맵 승률</span></div>
-        <div class="wk-nums"><span class="wr ${fm.wr >= 50 ? "mid" : "lo"}">${fm.wr}%</span> <span class="mini">${won}승 ${lost}패</span> <span class="mini">${fm.sample}맵</span> <span class="caret">${open ? "▾" : "▸"}</span></div>
-      </div><div class="wk-action">→ ${fmLabel}</div>${detail}</div></div>`;
-  }
-  return `<div class="panel weakpanel">
-    <h2>${who} 약점 <span class="count">리그 평균 −${WEAK_MARGIN}%p 이상 · ${WEAK_SAMPLE_MIN}맵 이상</span></h2>
-    <div class="wk-sec"><div class="wk-h">모드 약점</div>${weakHtml}</div>
-    ${lowHtml}
-    ${flowHtml}
-  </div>`;
-}
-
 // ===== MATCH DAY 홈 (명세 29) =====
 function teamMapWR(t: Team | undefined) {
   if (!t) return 0.5;
@@ -294,8 +237,8 @@ interface ModeStrategy {
 }
 const STRAT_LABEL: Record<StrategyKey, string> = {
   priority: "우선 공략", conditional: "조건부 공략", avoid: "우선 회피",
-  "own-strength": "우리 강점 후보", "own-weakness": "우리 약점 후보",
-  "opp-weakness": "상대 약점 후보", "opp-strength": "상대 강점 주의", hold: "판단 보류",
+  "own-strength": "우리 강점 후보", "own-weakness": "우리 점검 후보",
+  "opp-weakness": "상대 공략 후보", "opp-strength": "상대 강점 주의", hold: "판단 보류",
 };
 const STRAT_CLS: Record<StrategyKey, string> = {
   priority: "v-attack", conditional: "v-cond", avoid: "v-avoid",
@@ -436,7 +379,7 @@ export function renderMatchday(D: DataBundle, weakExpand: string): string {
     <div class="mdc-k">모드 전략</div>
     ${bucket("우선 공략", "v-attack", ["priority"])}
     ${bucket("조건부 공략", "v-cond", ["conditional"])}
-    ${bucket("우리 강점 후보", "v-cand", ["own-strength", "opp-weakness"])}
+    ${bucket("강점·공략 후보", "v-cand", ["own-strength", "opp-weakness"])}
     ${bucket("판단 보류", "v-hold", ["hold", "own-weakness", "opp-strength"])}
     ${bucket("우선 회피", "v-avoid", ["avoid"])}
   </div>`;
@@ -446,7 +389,8 @@ export function renderMatchday(D: DataBundle, weakExpand: string): string {
   byStrat("priority").forEach((m) => actCandidates.push({ t: `${m.label} 우선 선택`, s: m.reason }));
   if (banPick) actCandidates.push({ t: `${heroKo(banPick.hero)} 선밴 검토`, s: `상대 핵심 픽 · ${banPick.n}회 사용` });
   byStrat("conditional").forEach((m) => actCandidates.push({ t: `${m.label} 조건부 선택`, s: m.reason }));
-  [...byStrat("own-strength"), ...byStrat("opp-weakness")].forEach((m) => actCandidates.push({ t: `${m.label} 강점 후보 검토`, s: m.reason }));
+  byStrat("own-strength").forEach((m) => actCandidates.push({ t: `${m.label} 강점 활용`, s: m.reason }));
+  byStrat("opp-weakness").forEach((m) => actCandidates.push({ t: `${m.label} 공략 후보`, s: m.reason }));
   byStrat("avoid").forEach((m) => actCandidates.push({ t: `${m.label} 회피 우선`, s: m.reason }));
   const top3 = actCandidates.slice(0, 3);
   const actsHtml = top3.length
@@ -481,9 +425,9 @@ export function renderMatchday(D: DataBundle, weakExpand: string): string {
     <details class="sb-more"><summary>분석 기준 보기</summary>
       <ul class="sb-list">
         <li>모드 판단: 자체 성적(절대 승률)·상대 비교(표시 승률 차)·표본 상태를 단일 결과로 산출. 핵심 요약·추천 대응·모드 비교가 동일 결과 사용.</li>
-        <li>표본 처리: 양 팀 ${MODE_MIN_SAMPLE}맵 이상 → 우선 공략/조건부/회피. 한쪽만 충족 → 강점·약점 후보(비교 보류). 둘 다 미달 → 판단 보류.</li>
+        <li>표본 처리: 양 팀 ${MODE_MIN_SAMPLE}맵 이상 → 우선 공략/조건부/회피. 한쪽만 충족 → 강점·공략 후보(비교 보류). 둘 다 미달 → 판단 보류.</li>
         <li>임계값: 최소 표본 ${MODE_MIN_SAMPLE}맵 · 상대 비교 ±${MODE_REL_MARGIN}%p(표시 승률 기준) · 자체 높음 ${MODE_SELF_HI}% / 낮음 ${MODE_SELF_LO}%.</li>
-        <li>약점은 결과 요약 지표이며 패배의 직접 원인을 의미하지 않습니다. 상대·맵·밴 상황에 따라 달라질 수 있습니다.</li>
+        <li>모드 판단은 결과 요약 지표이며 상대·맵·밴 상황에 따라 달라질 수 있습니다.</li>
         <li>예상 승률은 학습 모델이 아닌 가중 합산 추정치이며, 소수점 정밀도를 보장하지 않습니다.</li>
       </ul></details>
   </div>`;
