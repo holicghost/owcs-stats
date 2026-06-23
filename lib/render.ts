@@ -8,7 +8,7 @@ import { esc, wrCls, nod, hk, mk, heroChip, heroIcon, setIcons } from "./ui";
 export { esc, setIcons };
 
 // 교차 링크: 맵/선수/팀 이름을 누르면 해당 분석 페이지로 이동 (전 화면 공용)
-const mapLink = (m: string) => m ? `<button class="xlink" data-act="gomap" data-val="${esc(m)}">${mk(m)}</button>` : '<span class="mini">-</span>';
+const mapLink = (m: string) => m ? mk(m) : '<span class="mini">-</span>';
 const playerLink = (p: string) => p ? `<button class="xlink" data-act="goplayer" data-val="${esc(p)}">${esc(p)}</button>` : '<span class="mini">?</span>';
 const teamLink = (t: string, us = false) => t ? `<button class="xlink ${us ? "zan" : ""}" data-act="goteam" data-val="${esc(t)}">${esc(t)}</button>` : '<span class="mini">-</span>';
 
@@ -326,7 +326,7 @@ export function renderMatchday(D: DataBundle, weakExpand: string): string {
   const tendRows: string[] = [];
   if (op) {
     const pm = Object.entries(op.pickMaps).sort((a, b) => b[1] - a[1]).slice(0, 3).map((x) => x[0]);
-    if (pm.length) tendRows.push(`<div class="tendrow"><span class="tend-lab">자주 고르는 맵</span><span class="tend-v">${pm.map((m) => `<span class="kvchip">${esc(mapKo(m))}</span>`).join("")}</span></div>`);
+    if (pm.length) tendRows.push(`<div class="tendrow"><span class="tend-lab">자주 고르는 맵</span><span class="tend-v">${pm.map((m) => `<span class="kvchip">${mk(m)}</span>`).join("")}</span></div>`);
     const fb = Object.entries(op.firstBan).sort((a, b) => b[1] - a[1]).slice(0, 3);
     if (fb.length) tendRows.push(`<div class="tendrow"><span class="tend-lab">주요 선밴</span><span class="tend-v">${fb.map(([h, n]) => `${heroChip(h)}<span class="mini">${n}</span>`).join(" ")}</span></div>`);
     const pTot = op.pushW + op.pushL;
@@ -1596,7 +1596,7 @@ function playerCard(D: DataBundle, p: Player): string {
   return `<div class="pcard">
     <div class="pc-name">${esc(p.name)}</div>
     <div class="pc-meta">${esc(ROLE_KO[repRole(p.roles)] || repRole(p.roles))} · <span class="${p.team === D.us ? "zan" : ""}">${esc(p.team)}</span></div>
-    <div class="pc-tags"><span class="pc-lab">주 영웅</span> <span class="pc-val">${th ? heroChip(th.hero) : "—"}</span> &nbsp;&nbsp; <span class="pc-lab">강점 맵</span> <span class="pc-val">${sm.length ? sm.map((m) => esc(mapKo(m.map))).join(", ") : "—"}</span></div>
+    <div class="pc-tags"><span class="pc-lab">주 영웅</span> <span class="pc-val">${th ? heroChip(th.hero) : "—"}</span> &nbsp;&nbsp; <span class="pc-lab">강점 맵</span> <span class="pc-val">${sm.length ? sm.map((m) => mk(m.map)).join(", ") : "—"}</span></div>
   </div>`;
 }
 
@@ -1608,7 +1608,7 @@ function heroDetail(D: DataBundle, p: Player, hero: string, selMap: string): str
         const wr = c.n ? Math.round((c.w / c.n) * 100) : 0;
         const low = c.n === 1;
         const on = c.map === selMap;
-        return `<button class="hd-mapbtn ${on ? "on" : ""}" data-act="heromap-sel" data-val="${esc(c.map)}"><span class="hd-mapn">${mk(c.map)}</span><span class="mini">${c.w}-${c.n - c.w}</span><span class="wr ${wrCls(wr)}">${wr}%</span></button>`;
+        return `<button class="hd-mapbtn ${on ? "on" : ""}" data-act="heromap-sel" data-val="${esc(c.map)}"><span class="hd-mapn">${esc(mapKo(c.map))}</span><span class="mini">${c.w}-${c.n - c.w}</span><span class="wr ${wrCls(wr)}">${wr}%</span></button>`;
       }).join("")
     : nod("맵 기록이 없음.");
 
@@ -2087,7 +2087,7 @@ export function renderEstimator(D: DataBundle, e: EstInput): string {
     // 맵 추천 (이 조합에 유리한 맵)
     const recMaps = recommendMaps(D, e).slice(0, 5);
     const mapHtml = recMaps.length
-      ? recMaps.map((m, idx) => `<div class="recmapitem ${m.map === e.map ? "cur" : ""}" data-act="est-map" data-val="${esc(m.map)}">${idx === 0 ? "<b>👍</b> " : ""}${mk(m.map)} <span class="mini">${MODE_KO[m.mode] || m.mode}</span> <span class="wr ${wrCls(m.pct!)}">예상 ${m.pct}%</span>${m.wr != null ? ` <span class="mini">실적 ${m.wr}%(${m.n})</span>` : ' <span class="mini">실적 없음</span>'}</div>`).join("")
+      ? recMaps.map((m, idx) => `<div class="recmapitem ${m.map === e.map ? "cur" : ""}" data-act="est-map" data-val="${esc(m.map)}">${idx === 0 ? "<b>👍</b> " : ""}${esc(mapKo(m.map))} <span class="mini">${MODE_KO[m.mode] || m.mode}</span> <span class="wr ${wrCls(m.pct!)}">예상 ${m.pct}%</span>${m.wr != null ? ` <span class="mini">실적 ${m.wr}%(${m.n})</span>` : ' <span class="mini">실적 없음</span>'}</div>`).join("")
       : nod("맵 추천 표본이 부족해요.");
     recPanel = `<div class="panel"><h2>조합 추천 <span class="count">${e.oppTeam ? `vs ${esc(e.oppTeam)} · ` : ""}${esc(mapKo(e.map))} 고승률 조합</span></h2>
       <div class="sub-note">ZANSIDE가 <b>실제로 굴린 5인 조합</b>을 이 매치업에 대입해 예상 승률 높은 순으로 보여줘요. <b>이 조합 적용</b>은 현재 맵·상대를 유지한 채 우리 라인업만 채웁니다.</div>
@@ -2102,7 +2102,7 @@ export function renderEstimator(D: DataBundle, e: EstInput): string {
     const sens = oppSensitivity(D, e);
     const fav = sens.slice(0, 4);
     const unfav = sens.slice().reverse().filter((x) => !fav.includes(x)).slice(0, 4);
-    const sensItem = (x: typeof sens[number]) => `<div class="sensitem clickable" data-act="load-sim" data-val="${esc(x.key)}"><span class="mini">${fmtDate(x.date)} · ${mk(x.map)}</span> <span class="senshe">${x.heroes.map((h) => heroChip(h)).join(" ")}</span> <span class="wr ${wrCls(x.pct)}">우리 ${x.pct}%</span></div>`;
+    const sensItem = (x: typeof sens[number]) => `<div class="sensitem clickable" data-act="load-sim" data-val="${esc(x.key)}"><span class="mini">${fmtDate(x.date)} · ${esc(mapKo(x.map))}</span> <span class="senshe">${x.heroes.map((h) => heroChip(h)).join(" ")}</span> <span class="wr ${wrCls(x.pct)}">우리 ${x.pct}%</span></div>`;
     sensPanel = `<div class="panel"><h2>상대 조합별 승률 <span class="count">${esc(e.oppTeam)} 과거 조합 → 우리 예상 승률</span></h2>
       <div class="grid2">
         <div><div class="sub-note" style="color:var(--accent)">우리에게 유리한 상대 조합</div>${fav.length ? fav.map(sensItem).join("") : nod("기록이 적어요")}</div>

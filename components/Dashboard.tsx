@@ -170,6 +170,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "ban-role": setBanRole(val as "all" | Role); break;
       case "ban-expand": setBanExpand((c) => (c === val ? "" : val)); break;
       case "hb-hero": setHbHero(val); setHbSearch(""); break;
+      case "gohero": setHbHero(val); setHbSearch(""); setHbRole("all"); setMod("owcs"); setTab("ban"); toTop(); break; // 어디서든 영웅 이름 클릭 → 영웅 분석
       case "weak-expand": setWeakExpand((c) => (c === val ? "" : val)); break;
       case "log-expand": setLogExpand((arr) => (arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val])); break;
       case "load-sim": { const inp = setToEstInput(D, val); if (inp) { setEst(inp); go("estimator"); } break; }

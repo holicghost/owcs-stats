@@ -14,7 +14,8 @@ export function setIcons(m: Record<string, string> | undefined) {
 }
 
 export const hk = (h: string) => esc(heroKo(h)); // 영웅 한글명(이스케이프)
-export const mk = (m: string) => esc(mapKo(m)); // 맵 한글명(이스케이프)
+// 맵 한글명. 이름이 있으면 클릭 시 맵 분석으로 이동(어디서나). 선택 UI는 mapKo()를 직접 써서 비활성.
+export const mk = (m: string) => m ? `<span class="mchip-link" data-act="gomap" data-val="${esc(m)}">${esc(mapKo(m))}</span>` : esc(mapKo(m));
 
 export function heroIcon(name: string): string {
   const u = ICONS[heroSlug(name)];
@@ -22,5 +23,7 @@ export function heroIcon(name: string): string {
   // 아이콘이 없으면 한글 첫 글자 배지로 대체
   return `<span class="hicon hicon-x">${esc((heroKo(name) || "?").slice(0, 1))}</span>`;
 }
-// 아이콘 + 한글명 한 묶음
-export const heroChip = (name: string) => `<span class="hchip">${heroIcon(name)}<span class="hchip-n">${esc(heroKo(name))}</span></span>`;
+// 아이콘 + 한글명 한 묶음. 이름이 있으면 클릭 시 영웅 분석으로 이동(어디서나).
+export const heroChip = (name: string) => name
+  ? `<span class="hchip hchip-link" data-act="gohero" data-val="${esc(name)}">${heroIcon(name)}<span class="hchip-n">${esc(heroKo(name))}</span></span>`
+  : `<span class="hchip">${heroIcon(name)}<span class="hchip-n">${esc(heroKo(name))}</span></span>`;
