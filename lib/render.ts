@@ -1193,7 +1193,7 @@ export function renderHeroBan(D: DataBundle, ui: HeroBanUI): string {
     // 자주 플레이하는 선수 — 픽 대비 승률 높은 순(동률은 픽 수)
     const ppRows = Object.entries(pickPl).map(([p, v]) => ({ p, ...v })).sort((a, b) => (b.w / b.n) - (a.w / a.n) || b.n - a.n);
     const playPlayerTable = ppRows.length
-      ? `<table class="hbtable"><thead><tr><th>선수</th><th>팀</th><th class="num">픽</th><th class="num">승률</th></tr></thead><tbody>${ppRows.map((r) => { const wr = r.n ? Math.round((r.w / r.n) * 100) : 0; return `<tr class="${r.team === D.us ? "zanrow" : ""}"><td class="${r.team === D.us ? "zan" : ""}">${esc(r.p)}</td><td class="mini">${esc(r.team)}</td><td class="num">${r.n}</td><td class="num"><span class="wr ${wrCls(wr)}">${wr}%</span></td></tr>`; }).join("")}</tbody></table>`
+      ? `<table class="hbtable"><thead><tr><th>선수</th><th>팀</th><th class="num">픽</th><th class="num">승률</th></tr></thead><tbody>${ppRows.map((r) => { const wr = r.n ? Math.round((r.w / r.n) * 100) : 0; return `<tr class="${r.team === D.us ? "zanrow" : ""}"><td>${playerLink(r.p)}</td><td class="mini">${teamLink(r.team, r.team === D.us)}</td><td class="num">${r.n}</td><td class="num"><span class="wr ${wrCls(wr)}">${wr}%</span></td></tr>`; }).join("")}</tbody></table>`
       : nod("픽 기록 없음");
     // 자주 플레이하는 맵 — 팀 선택 시 그 팀이 이 영웅을 언제·어느 맵에서 플레이했고 승률은 어땠는지
     const heroTeams = [...new Set(Object.values(pickPl).map((p) => p.team))].sort((a, b) => (a === D.us ? -1 : b === D.us ? 1 : a.localeCompare(b)));
@@ -1210,7 +1210,7 @@ export function renderHeroBan(D: DataBundle, ui: HeroBanUI): string {
       games.forEach((s) => { const w = setWinner(s); if (w === ui.team) gw++; else if (w) gl++; });
       mapPanelBody = games.length
         ? `<div class="sub-note">${esc(ui.team)} · ${esc(heroKo(H))} ${gw}승 ${gl}패 (${gw + gl ? Math.round(gw / (gw + gl) * 100) : 0}%)</div>
-          <table class="hbtable"><thead><tr><th>날짜</th><th>맵</th><th>상대</th><th class="num">결과</th></tr></thead><tbody>${games.map((s) => { const w = setWinner(s); const won = w === ui.team; const opp = s.top === ui.team ? s.bottom : s.top; return `<tr><td class="mini">${fmtDate(s.date)}</td><td class="hname">${mk(s.map)}</td><td>${esc(opp)}</td><td class="num"><span class="reslabel ${won ? "win" : "loss"}">${won ? "승" : w ? "패" : "·"}</span></td></tr>`; }).join("")}</tbody></table>`
+          <table class="hbtable"><thead><tr><th>날짜</th><th>맵</th><th>상대</th><th class="num">결과</th></tr></thead><tbody>${games.map((s) => { const w = setWinner(s); const won = w === ui.team; const opp = s.top === ui.team ? s.bottom : s.top; return `<tr><td class="mini">${fmtDate(s.date)}</td><td class="hname">${mapLink(s.map)}</td><td>${teamLink(opp, opp === D.us)}</td><td class="num"><span class="reslabel ${won ? "win" : "loss"}">${won ? "승" : w ? "패" : "·"}</span></td></tr>`; }).join("")}</tbody></table>`
         : nod("이 팀의 해당 영웅 경기 없음");
     } else {
       const pmRows = Object.entries(pickMap).map(([m, v]) => ({ m, ...v })).sort((a, b) => b.n - a.n);
@@ -1416,7 +1416,7 @@ function renderSwapChains(s: SetRec): string {
       if (!sw || !sw.length) return;
       const chain = [p.hero, ...sw].filter(Boolean); // 첫 영웅(오프닝) + 교체들
       const chainHtml = chain.map((h, i) => `${i ? `<span class="sc-arrow">→</span>` : ""}<span class="sc-hero">${heroIcon(h)}<span>${esc(heroKo(h))}</span></span>`).join("");
-      rows.push(`<div class="swapchain"><span class="sc-team">${esc(team)}</span> <span class="sc-player">${esc(p.player)}</span><span class="sc-colon">:</span> ${chainHtml}</div>`);
+      rows.push(`<div class="swapchain"><span class="sc-team">${esc(team)}</span> <span class="sc-player">${playerLink(p.player)}</span><span class="sc-colon">:</span> ${chainHtml}</div>`);
     });
   });
   return rows.length ? rows.join("") : nod("교체 기록 없음");
