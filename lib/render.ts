@@ -4,7 +4,6 @@ import {
   MODE_KO, MODE_ORDER, ROLE_KO, HEROES, EST_WEIGHTS, EST_THRESH, heroKo, mapKo, HERO_ROLE,
 } from "./constants";
 import type { DataBundle, ModeRec, Pick, Player, PStatRow, SetRec, Series, Standing, Team } from "./types";
-import { dimensions, crossEdge, WEAK_MARGIN, WEAK_SAMPLE_MIN, type Weak } from "./weakness";
 import { esc, wrCls, nod, hk, mk, heroChip, heroIcon, setIcons } from "./ui";
 export { esc, setIcons };
 
@@ -563,43 +562,6 @@ function teamMapSummary(T: Team): string {
   }).join("")}</tbody></table>`;
 }
 
-// 선수 한 명: 강점 영웅(승률 상위 2~3) + 약점 영웅(승률 하위)
-function playerHeroRow(p: Player): string {
-  const heroes = Object.values(p.heroes).filter((h) => h.n >= 1).map((h) => ({ ...h, wr: Math.round((h.w / h.n) * 100) }));
-  const byWr = heroes.slice().sort((a, b) => b.wr - a.wr || b.n - a.n);
-  const strong = byWr.slice(0, 3);
-  const strongSet = new Set(strong.map((h) => h.hero));
-  const weak = byWr.slice().reverse().filter((h) => !strongSet.has(h.hero)).slice(0, 2);
-  const chip = (h: { hero: string; n: number; wr: number }) => `<span class="hsum">${heroChip(h.hero)}<span class="wr ${wrCls(h.wr)}">${h.wr}%</span><span class="mini">${h.n}</span></span>`;
-  return `<div class="phrow"><span class="phn">${esc(p.name)}</span>
-    <span class="phg"><span class="ph-lab good">강점</span>${strong.length ? strong.map(chip).join("") : '<span class="mini">표본 부족</span>'}</span>
-    <span class="phg"><span class="ph-lab bad">약점</span>${weak.length ? weak.map(chip).join("") : '<span class="mini">—</span>'}</span></div>`;
-}
-// 모드(맵 종류)별 요약: 잘하는 맵 / 못하는 맵 + 그 모드에서 자주 한 밴
-function scoutMapByMode(D: DataBundle, team: string, T: Team): string {
-  const byMode: Record<string, Array<{ map: string; n: number; wr: number }>> = {};
-  Object.entries(T.maps).forEach(([map, r]) => {
-    const n = r.w + r.l;
-    (byMode[r.mode] = byMode[r.mode] || []).push({ map, n, wr: n ? Math.round((r.w / n) * 100) : 0 });
-  });
-  const banByMode: Record<string, Record<string, number>> = {};
-  D.sets.forEach((s) => s.bans.forEach((b) => { if (b.team === team && b.hero) (banByMode[s.mode] = banByMode[s.mode] || {})[b.hero] = ((banByMode[s.mode] || {})[b.hero] || 0) + 1; }));
-  const modes = MODE_ORDER.filter((m) => byMode[m]);
-  if (!modes.length) return nod("맵 기록이 없음.");
-  return modes.map((m) => {
-    const maps = byMode[m].slice().sort((a, b) => b.wr - a.wr);
-    const high = maps.filter((x) => x.n >= 1 && x.wr >= 50);
-    const low = maps.filter((x) => x.n >= 1 && x.wr < 50);
-    const bans = topN(banByMode[m] || {}, 3);
-    const line = (arr: typeof maps) => arr.length ? arr.map((x) => `${mk(x.map)} <span class="wr ${wrCls(x.wr)}">${x.wr}%</span><span class="mini">(${x.n})</span>`).join(" · ") : '<span class="mini">—</span>';
-    return `<div class="modesum">
-      <div class="modesum-h">${MODE_KO[m] || m}</div>
-      <div class="modesum-r"><span class="ph-lab good">잘함</span> ${line(high)}</div>
-      <div class="modesum-r"><span class="ph-lab bad">못함</span> ${line(low)}</div>
-      <div class="modesum-r"><span class="mini">밴</span> ${bans.length ? bans.map(([h, n]) => `${esc(heroKo(h))} <span class="mini">${n}</span>`).join(" · ") : '<span class="mini">—</span>'}</div>
-    </div>`;
-  }).join("");
-}
 // 경기별 분석 카드 — 4줄 압축 (승패=focus팀 기준)
 function scoutGameCard(D: DataBundle, s: SetRec, focus: string): string {
   const won = setWinner(s) === focus;
