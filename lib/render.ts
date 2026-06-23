@@ -582,14 +582,16 @@ function teamHeroPicks(D: DataBundle, team: string): Record<string, { n: number;
     const side = s.top === team ? s.picks.top : s.bottom === team ? s.picks.bottom : null;
     if (!side) return;
     const won = setWinner(s) === team;
+    const swaps = swapsByPlayer(s.memo); // 오프닝 픽 + 교체 영웅 모두 집계
     const seen = new Set<string>();
-    side.forEach((p) => {
-      if (!p.hero || seen.has(p.hero)) return;
-      seen.add(p.hero);
-      const a = (picks[p.hero] = picks[p.hero] || { n: 0, w: 0 });
+    const add = (h: string) => {
+      if (!h || seen.has(h)) return;
+      seen.add(h);
+      const a = (picks[h] = picks[h] || { n: 0, w: 0 });
       a.n++;
       if (won) a.w++;
-    });
+    };
+    side.forEach((p) => { add(p.hero); (swaps[p.player] || []).forEach(add); });
   });
   return picks;
 }
@@ -946,7 +948,7 @@ function teamSummary(D: DataBundle, team: string, isUs: boolean, weakExpand: str
     </div>
     <div class="grid2">
       <div class="panel"><h2>맵별 성적 <span class="count">출전·승률</span></h2>${teamMapSummary(T)}</div>
-      <div class="panel"><h2>영웅별 요약 <span class="count">자주 꺼낸 영웅</span></h2><div class="bars">${heroPickBars(teamHeroPicks(D, team), 8)}</div></div>
+      <div class="panel"><h2>영웅별 요약 <span class="count">자주 쓴 영웅 · 픽·교체 포함</span></h2><div class="bars">${heroPickBars(teamHeroPicks(D, team), 8)}</div></div>
     </div>
     ${weaknessPanel(D, team, isUs, weakExpand)}
     <div class="grid2">
