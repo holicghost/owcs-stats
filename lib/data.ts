@@ -147,7 +147,8 @@ function parseStandings(text: string): Standing[] {
     const rank = norm(row[0]);
     const team = norm(row[1]);
     if (!/^\d+$/.test(rank) || !team) continue;
-    const diff = parseInt(norm(row[4]).replace(/[^\d-]/g, "").replace(/^−/, "-"), 10);
+    // 유니코드 마이너스(−, en/em dash 등)를 ASCII '-'로 먼저 변환한 뒤 숫자 외 문자 제거 — 음수 부호 보존
+    const diff = parseInt(norm(row[4]).replace(/[−–—‐‑]/g, "-").replace(/[^\d-]/g, ""), 10);
     out.push({
       rank: +rank, team,
       win: +norm(row[2]) || 0, lose: +norm(row[3]) || 0,
