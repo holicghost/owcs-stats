@@ -477,7 +477,7 @@ function wrLine(label: string, w: number, l: number, max: number, suffix = ""): 
 const roleBadge = (r: string) => `<span class="rtag ${r}">${({ Tank: "탱", DPS: "딜", Support: "힐" } as Record<string, string>)[r] || "?"}</span>`;
 
 // ── 영웅 분석 탭: 영웅별 픽률·승률 + 밴 순서별 승률 + 밴 포지션별 수치 ──
-function renderScoutHeroes(D: DataBundle, team: string, deep: DeepUI): string {
+function renderScoutHeroes(D: DataBundle, team: string, deep: DeepUI, view: "pick" | "ban" = "pick"): string {
   const teamSets = D.sets.filter((s) => s.top === team || s.bottom === team);
   const sideOf = (s: SetRec) => (s.top === team ? s.picks.top : s.picks.bottom);
   const oppOf = (s: SetRec) => (s.top === team ? s.bottom : s.top);
@@ -578,21 +578,21 @@ function renderScoutHeroes(D: DataBundle, team: string, deep: DeepUI): string {
   const mmx = Math.max(1, ...ms.map((m) => m[1].t));
   const modesHtml = ms.length ? ms.map(([m, d]) => barWR(MODE_KO[m] || m, d.w, d.t, mmx)).join("") : nod();
 
+  if (view === "ban") return `
+    <div class="grid2">
+      <div class="panel"><h2>밴 순서별 승률 <span class="count">선밴권 / 후밴권</span></h2><div class="wrlines">${banOrder}</div></div>
+      <div class="panel"><h2>밴 포지션별 수치 <span class="count">밴한 영웅의 역할 기준</span></h2>${banPosBlock}</div>
+    </div>
+    <div class="panel"><h2>밴 경향 <span class="count">칩을 누르면 어느 경기인지 펼침</span></h2><div class="bangrps">${banTrend}</div></div>`;
   return `
     <div class="panel"><h2>모드별 성적 <span class="count">맵 단위</span></h2><div class="bars">${modesHtml}</div></div>
-    <div class="panel"><h2>① 영웅별 픽률·승률 <span class="count">${esc(team)} 사용 영웅 · 포지션별</span></h2>
-      ${pickToggles}${pickBlock}</div>
-    <div class="grid2">
-      <div class="panel"><h2>② 밴 순서별 승률 <span class="count">선밴권 / 후밴권</span></h2><div class="wrlines">${banOrder}</div></div>
-      <div class="panel"><h2>③ 밴 포지션별 수치 <span class="count">밴한 영웅의 역할 기준</span></h2>${banPosBlock}</div>
-    </div>
-    <div class="panel"><h2>④ 밴 경향 <span class="count">칩을 누르면 어느 경기인지 펼침</span></h2><div class="bangrps">${banTrend}</div></div>`;
+    <div class="panel"><h2>영웅별 픽률·승률 <span class="count">${esc(team)} 사용 영웅 · 포지션별</span></h2>
+      ${pickToggles}${pickBlock}</div>`;
 }
 
 // ── 맵 분석 탭: 쟁탈 맵 승률 + 맵 선택권 영향 + 맵에서 밴 많이 하는 순위 ──
-function renderScoutMaps(D: DataBundle, team: string, deep: DeepUI): string {
+function renderScoutMaps(D: DataBundle, team: string, deep: DeepUI, view: "perf" | "pick" = "perf"): string {
   const teamSets = D.sets.filter((s) => s.top === team || s.bottom === team);
-  const oppOf = (s: SetRec) => (s.top === team ? s.bottom : s.top);
 
   // ── 쟁탈 맵 승률 ──
   const ctrl: Record<string, { w: number; l: number; u: number }> = {};
