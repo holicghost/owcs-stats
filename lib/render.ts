@@ -1263,6 +1263,34 @@ function setDetail(D: DataBundle, s: SetRec): string {
   const banLine = (b: typeof fb, label: string) => b
     ? `<span class="bd-ban"><span class="mini">${label}</span> <b>${esc(b.team)}</b> 밴 ${heroChip(b.hero)}</span>`
     : `<span class="bd-ban"><span class="mini">${label}</span> <span class="mini">기록 없음</span></span>`;
+
+  // OWCS 선수 스탯 (리플레이 코드로 매칭) — 이 경기의 per-game 실측
+  const gstats = s.replay ? D.playerStats.filter((r) => r.replay && r.replay.trim() === s.replay.trim()) : [];
+  let statsBlock = "";
+  if (gstats.length) {
+    const nk = (n: string) => String(n || "").toLowerCase().replace(/0/g, "o").replace(/\s+/g, "");
+    const topSet = new Set(s.picks.top.map((p) => nk(p.player)));
+    const botSet = new Set(s.picks.bottom.map((p) => nk(p.player)));
+    const sideOf = (r: PStatRow) => topSet.has(nk(r.name)) ? "top" : botSet.has(nk(r.name)) ? "bottom" : r.team === s.top ? "top" : r.team === s.bottom ? "bottom" : "top";
+    const roleOrd: Record<string, number> = { Tank: 0, DPS: 1, Support: 2 };
+    const fmtN = (v: number) => Math.round(v).toLocaleString();
+    const dur = gstats[0]?.durMin || 0;
+    const mmss = dur ? `${Math.floor(dur)}:${String(Math.round((dur - Math.floor(dur)) * 60)).padStart(2, "0")}` : "";
+    const tbl = (side: "top" | "bottom") => {
+      const rows = gstats.filter((r) => sideOf(r) === side).sort((a, b) => (roleOrd[a.role] ?? 9) - (roleOrd[b.role] ?? 9));
+      if (!rows.length) return nod("스탯 없음");
+      return `<table class="hbtable psgame"><thead><tr><th>선수</th><th>영웅</th><th class="num">E</th><th class="num">A</th><th class="num">D</th><th class="num">딜</th><th class="num">힐</th><th class="num">방어</th></tr></thead><tbody>${rows.map((r) => `<tr><td>${playerLink(r.name)}</td><td class="hname">${r.hero ? heroChip(r.hero) : '<span class="mini">-</span>'}</td><td class="num">${r.e}</td><td class="num">${r.a}</td><td class="num">${r.d}</td><td class="num">${fmtN(r.dmg)}</td><td class="num">${fmtN(r.heal)}</td><td class="num">${fmtN(r.mit)}</td></tr>`).join("")}</tbody></table>`;
+    };
+    statsBlock = `<div class="sub-note" style="margin:12px 0 4px">선수 스탯 <span class="mini">OWCS 선수 스탯 시트 · 이 경기 실측${mmss ? ` · ${mmss}` : ""}</span></div>
+      <div class="bd-stats">
+        <div class="psg-team"><div class="psg-th">${teamLink(s.top, s.top === D.us)}</div>${tbl("top")}</div>
+        <div class="psg-team"><div class="psg-th">${teamLink(s.bottom, s.bottom === D.us)}</div>${tbl("bottom")}</div>
+      </div>
+      <div class="sub-note">딜·힐·방어는 이 경기 실측 누적값. 딜러의 힐·방어 0은 정상값.</div>`;
+  } else if (s.replay) {
+    statsBlock = `<div class="sub-note" style="margin:12px 0 4px">선수 스탯 <span class="mini">이 경기(리플레이 ${esc(s.replay)})는 'OWCS 선수 스탯' 시트에 아직 없음</span></div>`;
+  }
+
   return `<div class="setdetail">
     <div class="bd-meta">
       <span><span class="mini">맵</span> <b>${mk(s.map)}</b> · ${esc(MODE_KO[s.mode] || s.mode)}</span>
@@ -1274,6 +1302,7 @@ function setDetail(D: DataBundle, s: SetRec): string {
     <div class="sub-note" style="margin:10px 0 4px">출전 라인업 <span class="mini">첫픽(오프닝) 기준</span></div>
     <div class="bd-lineups">${lineupDetail(s.top, s.picks.top, s.top === D.us)}${lineupDetail(s.bottom, s.picks.bottom, s.bottom === D.us)}</div>
     ${s.memo ? `<div class="sub-note" style="margin:10px 0 4px">경기 중 교체 영웅</div><div class="swapchains">${renderSwapChains(s)}</div>` : ""}
+    ${statsBlock}
     <div style="margin-top:10px"><button class="loadbtn" data-act="load-sim" data-val="${esc(setKey(s))}">이 경기로 시뮬레이션 채우기 ↗</button></div>
   </div>`;
 }
