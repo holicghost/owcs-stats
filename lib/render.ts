@@ -1220,6 +1220,21 @@ export function renderBanAnalysis(D: DataBundle, f: BanUI): string {
 }
 
 // ===== MAPS (5.4) =====
+// ZANSIDE 데이터 → 맵 분석: 모드별 ZANSIDE vs 리그
+export function renderZansideMaps(D: DataBundle): string {
+  const Z = D.teams[D.us];
+  const leagueMode: Record<string, { t: number }> = {};
+  Object.values(D.teams).forEach((t) => Object.entries(t.modes).forEach(([m, d]) => ((leagueMode[m] = leagueMode[m] || { t: 0 }).t += d.t)));
+  const modeBody = MODE_ORDER.map((m) => {
+    const d = Z && Z.modes[m];
+    const wr = d && d.t ? Math.round((d.w / d.t) * 100) : -1;
+    const lg = leagueMode[m] ? Math.round(leagueMode[m].t / 2) : 0;
+    return `<tr><td class="hname">${esc(MODE_KO[m] || m)}</td><td class="num">${d ? `${d.w}-${d.t - d.w}` : '<span class="mini">-</span>'}</td><td class="num">${wr < 0 ? '<span class="mini">-</span>' : `<span class="wr ${wrCls(wr)}">${wr}%</span> <span class="mini">(${d!.t})</span>`}</td><td class="num mini">${lg}</td></tr>`;
+  }).join("");
+  return `<div class="panel"><h2>모드별 — ZANSIDE vs 리그 <span class="count">맵 단위 승률 · 괄호는 표본(맵 수)</span></h2>
+    <table><thead><tr><th>모드</th><th class="num">우리 전적</th><th class="num">우리 승률</th><th class="num">리그 평균 맵수</th></tr></thead><tbody>${modeBody}</tbody></table></div>`;
+}
+
 // ===== 맵 분석 (맵 선택 → 픽/밴 팀 + 팀·선수별 승률) — 영웅 분석과 동일 구조 =====
 export interface MapsUI { mode: string; map: string; }
 export function renderMaps(D: DataBundle, ui: MapsUI): string {
@@ -1234,18 +1249,10 @@ export function renderMaps(D: DataBundle, ui: MapsUI): string {
 
   let detail: string;
   if (!ui.map) {
-    // 맵 선택 전 개요: 모드별 ZANSIDE vs 리그
-    const Z = D.teams[D.us];
-    const leagueMode: Record<string, { t: number }> = {};
-    Object.values(D.teams).forEach((t) => Object.entries(t.modes).forEach(([m, d]) => ((leagueMode[m] = leagueMode[m] || { t: 0 }).t += d.t)));
-    const modeBody = MODE_ORDER.map((m) => {
-      const d = Z && Z.modes[m];
-      const wr = d && d.t ? Math.round((d.w / d.t) * 100) : -1;
-      const lg = leagueMode[m] ? Math.round(leagueMode[m].t / 2) : 0;
-      return `<tr><td class="hname">${esc(MODE_KO[m] || m)}</td><td class="num">${d ? `${d.w}-${d.t - d.w}` : '<span class="mini">-</span>'}</td><td class="num">${wr < 0 ? '<span class="mini">-</span>' : `<span class="wr ${wrCls(wr)}">${wr}%</span> <span class="mini">(${d!.t})</span>`}</td><td class="num mini">${lg}</td></tr>`;
-    }).join("");
-    detail = `<div class="panel"><h2>모드별 — ZANSIDE vs 리그 <span class="count">맵 선택 전 개요</span></h2>
-      <table><thead><tr><th>모드</th><th class="num">우리 전적</th><th class="num">우리 승률</th><th class="num">리그 평균 맵수</th></tr></thead><tbody>${modeBody}</tbody></table></div>`;
+    // 맵 선택 전: 모드별 밴 분포 (OWCS 기타 탭에서 이전)
+    const banByMapH: Record<string, Record<string, number>> = {};
+    D.sets.forEach((s) => s.bans.forEach((b) => { if (b.hero && s.map) (banByMapH[s.map] = banByMapH[s.map] || {})[b.hero] = ((banByMapH[s.map] || {})[b.hero] || 0) + 1; }));
+    detail = `<div class="panel"><h2>모드별 밴 분포 <span class="count">모드 안 각 맵별 · 상위 5</span></h2><div class="modebans">${modeBanBlocks(D, banByMapH, "all")}</div></div>`;
   } else {
     const M = ui.map;
     const mapSets = D.sets.filter((s) => s.map === M);

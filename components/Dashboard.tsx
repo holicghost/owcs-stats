@@ -3,8 +3,8 @@ import { useEffect, useMemo, useRef, useState, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import type { DataBundle } from "@/lib/types";
 import {
-  renderMatchday, renderScout, renderBanAnalysis, renderHeroBan, renderMaps, renderLog,
-  renderScenario, renderPlayers, renderEstimator, renderZanside, renderZansideBan, setIcons, setToEstInput, setToEstUs, setToEstOppTeam,
+  renderMatchday, renderScout, renderHeroBan, renderMaps, renderLog,
+  renderScenario, renderPlayers, renderEstimator, renderZanside, renderZansideBan, renderZansideMaps, setIcons, setToEstInput, setToEstUs, setToEstOppTeam,
   type LogFilter, type EstInput, type BanUI,
 } from "@/lib/render";
 
@@ -19,7 +19,6 @@ const OWCS_GROUPS = [
       { id: "players", label: "선수별 분석" },
       { id: "ban", label: "영웅 분석" },
       { id: "maps", label: "맵 분석" },
-      { id: "legacy", label: "기타" },
     ],
   },
   {
@@ -37,6 +36,7 @@ const ZANSIDE_TABS = [
   { id: "scenario", label: "순위 시나리오" },
   { id: "team", label: "ZANSIDE 분석" },
   { id: "teamban", label: "영웅 분석" },
+  { id: "teammaps", label: "맵 분석" },
 ] as const;
 type ZTab = (typeof ZANSIDE_TABS)[number]["id"];
 
@@ -117,7 +117,6 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "log": return renderLog(D, logF, logExpand, logSort);
       case "ban": return renderHeroBan(D, { hero: hbHero, search: hbSearch, team: hbTeam, role: hbRole });
       case "maps": return renderMaps(D, { mode: mapsMode, map: mapsSel });
-      case "legacy": return renderBanAnalysis(D, { role: banRole, topN: banTopN, team: banTeam, banMap, banExpand } as BanUI);
       case "estimator": return renderEstimator(D, est);
       default: return "";
     }
@@ -130,6 +129,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "scenario": return renderScenario(D);
       case "team": return renderZanside(D, weakExpand);
       case "teamban": return renderZansideBan(D, { role: banRole, topN: banTopN, team: D.us, banMap: "all", banExpand: "" } as BanUI);
+      case "teammaps": return renderZansideMaps(D);
       default: return "";
     }
   }, [D, zTab, weakExpand, banRole, banTopN]);
