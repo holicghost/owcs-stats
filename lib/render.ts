@@ -218,15 +218,17 @@ function oppOpeningPicks(D: DataBundle, team: string) {
   D.sets.forEach((s) => {
     const side = s.top === team ? s.picks.top : s.bottom === team ? s.picks.bottom : null;
     if (!side) return;
-    const w = s.winner === team || (!s.winner && false);
+    const won = s.winner === team;
+    const swaps = swapsByPlayer(s.memo); // 오프닝 + 교체 영웅 모두 집계 (teamHeroPicks와 동일)
     const seen = new Set<string>();
-    side.forEach((p) => {
-      if (!p.hero || seen.has(p.hero)) return;
-      seen.add(p.hero);
-      const a = (agg[p.hero] = agg[p.hero] || { n: 0, w: 0 });
+    const add = (hero: string) => {
+      if (!hero || seen.has(hero)) return;
+      seen.add(hero);
+      const a = (agg[hero] = agg[hero] || { n: 0, w: 0 });
       a.n++;
-      if (s.winner === team) a.w++;
-    });
+      if (won) a.w++;
+    };
+    side.forEach((p) => { add(p.hero); (swaps[p.player] || []).forEach(add); });
   });
   return Object.entries(agg).map(([hero, v]) => ({ hero, ...v })).sort((a, b) => b.n - a.n);
 }
@@ -1116,12 +1118,12 @@ export function renderHeroBan(D: DataBundle, ui: HeroBanUI): string {
     const pmRows = Object.entries(pickMap).map(([m, v]) => ({ m, ...v })).sort((a, b) => b.n - a.n);
     const pmMax = Math.max(1, ...pmRows.map((r) => r.n));
     const playMapTable = pmRows.length
-      ? `<table class="hbtable"><thead><tr><th>맵</th><th class="num">픽</th><th class="num">승률</th><th>빈도</th></tr></thead><tbody>${pmRows.map((r) => { const wr = Math.round((r.w / r.n) * 100); return `<tr><td class="hname">${mk(r.m)}</td><td class="num">${r.n}</td><td class="num"><span class="wr ${wrCls(wr)}">${wr}%</span></td><td>${banTr(r.n, pmMax)}</td></tr>`; }).join("")}</tbody></table>`
+      ? `<table class="hbtable"><thead><tr><th>맵</th><th class="num">픽</th><th class="num">승률</th><th>빈도</th></tr></thead><tbody>${pmRows.map((r) => { const wr = r.n ? Math.round((r.w / r.n) * 100) : 0; return `<tr><td class="hname">${mk(r.m)}</td><td class="num">${r.n}</td><td class="num"><span class="wr ${wrCls(wr)}">${wr}%</span></td><td>${banTr(r.n, pmMax)}</td></tr>`; }).join("")}</tbody></table>`
       : nod("픽 기록 없음");
     // 자주 플레이하는 선수
     const ppRows = Object.entries(pickPl).map(([p, v]) => ({ p, ...v })).sort((a, b) => b.n - a.n);
     const playPlayerTable = ppRows.length
-      ? `<table class="hbtable"><thead><tr><th>선수</th><th>팀</th><th class="num">픽</th><th class="num">승률</th></tr></thead><tbody>${ppRows.map((r) => { const wr = Math.round((r.w / r.n) * 100); return `<tr class="${r.team === D.us ? "zanrow" : ""}"><td class="${r.team === D.us ? "zan" : ""}">${esc(r.p)}</td><td class="mini">${esc(r.team)}</td><td class="num">${r.n}</td><td class="num"><span class="wr ${wrCls(wr)}">${wr}%</span></td></tr>`; }).join("")}</tbody></table>`
+      ? `<table class="hbtable"><thead><tr><th>선수</th><th>팀</th><th class="num">픽</th><th class="num">승률</th></tr></thead><tbody>${ppRows.map((r) => { const wr = r.n ? Math.round((r.w / r.n) * 100) : 0; return `<tr class="${r.team === D.us ? "zanrow" : ""}"><td class="${r.team === D.us ? "zan" : ""}">${esc(r.p)}</td><td class="mini">${esc(r.team)}</td><td class="num">${r.n}</td><td class="num"><span class="wr ${wrCls(wr)}">${wr}%</span></td></tr>`; }).join("")}</tbody></table>`
       : nod("픽 기록 없음");
     const mapLabel = (m: string) => mk(m);
     const teamLabel = (t: string) => `<span class="${t === D.us ? "zan" : ""}">${esc(t)}</span>`;

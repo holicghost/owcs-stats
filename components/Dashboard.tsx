@@ -64,7 +64,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
   // 팀별 분석 / 맵 / 로그
   const [scoutTeam, setScoutTeam] = useState(nextOpp || opps[0] || "");
   const [scoutTab, setScoutTab] = useState<ScoutTab>("summary");
-  const [deepAgg, setDeepAgg] = useState<"main" | "swap">("main");
+  const [deepAgg, setDeepAgg] = useState<"main" | "swap">("swap");
   const [deepSort, setDeepSort] = useState<"pick" | "wr">("pick");
   const [deepSmp, setDeepSmp] = useState(0);
   const [deepBanExpand, setDeepBanExpand] = useState("");
