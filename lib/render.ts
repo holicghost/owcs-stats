@@ -761,8 +761,8 @@ export function renderScout(D: DataBundle, curScout: string, scoutTab: string, d
     body = renderScoutHeroes(D, curScout, deep, "ban");
   } else if (tab === "maps") {
     body = renderScoutMaps(D, curScout, deep, "perf");
-  } else if (tab === "mapban") {
-    body = renderScoutMaps(D, curScout, deep, "ban");
+  } else if (tab === "mappick") {
+    body = renderScoutMaps(D, curScout, deep, "pick");
   } else {
     body = teamSummary(D, curScout, curScout === D.us, weakExpand);
   }
