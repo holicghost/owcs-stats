@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import type { DataBundle } from "@/lib/types";
 import {
   renderMatchday, renderScout, renderHeroBan, renderMaps, renderLog,
-  renderScenario, renderPlayers, renderPlayerStats, renderEstimator, renderZanside, renderZansideBan, renderZansideMaps, setIcons, setToEstInput, setToEstUs, setToEstOppTeam,
+  renderScenario, renderPlayers, renderEstimator, renderZanside, renderZansideBan, renderZansideMaps, setIcons, setToEstInput, setToEstUs, setToEstOppTeam,
   type LogFilter, type EstInput, type BanUI,
 } from "@/lib/render";
 
@@ -17,7 +17,6 @@ const OWCS_GROUPS = [
     label: "분석", tabs: [
       { id: "scout", label: "팀별 분석" },
       { id: "players", label: "선수별 분석" },
-      { id: "pstats", label: "선수 스탯" },
       { id: "ban", label: "영웅 분석" },
       { id: "maps", label: "맵 분석" },
     ],
@@ -92,7 +91,6 @@ export default function Dashboard({ data }: { data: DataBundle }) {
   const [heroExpand, setHeroExpand] = useState("");
   const [heroMapSel, setHeroMapSel] = useState("");
   const [mapExpand, setMapExpand] = useState("");
-  const [psPlayer, setPsPlayer] = useState("");
 
   // 영웅 밴 분석
   const [banRole, setBanRole] = useState<"all" | Role>("all");
@@ -122,7 +120,6 @@ export default function Dashboard({ data }: { data: DataBundle }) {
     switch (tab) {
       case "scout": return renderScout(D, scoutTeam, scoutTab, { agg: deepAgg, sort: deepSort, smp: deepSmp, banExpand: deepBanExpand }, weakExpand);
       case "players": return renderPlayers(D, { playerA, playerB, search: playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel, mapExpand });
-      case "pstats": return renderPlayerStats(D, psPlayer);
       case "log": return renderLog(D, logF, logExpand, logSort);
       case "ban": return renderHeroBan(D, { hero: hbHero, search: hbSearch, team: hbTeam, role: hbRole });
       case "maps": return renderMaps(D, { mode: mapsMode, map: mapsSel });

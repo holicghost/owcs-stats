@@ -894,28 +894,20 @@ function aggStats(rows: PStatRow[]): StatAgg | null {
   return { n, ed: avg((r) => r.ed), dmg10: avg((r) => r.dmg10), heal10: avg((r) => r.heal10), mit10: avg((r) => r.mit10), death10: avg((r) => r.death10), e10: avg((r) => r.e10) };
 }
 const statCaveat = `<div class="sub-note causenote">누적값은 10분당 정규화 비교(원시값 단독 비교 금지). 상관은 인과가 아님 · 스크림 미포함 · 표본 한정. 딜러의 힐·방어 0은 정상값.</div>`;
-export function renderPlayerStats(D: DataBundle, sel: string): string {
-  const ps = D.playerStats;
-  if (!ps.length) {
-    return `<div class="panel"><h2>선수 스탯 <span class="count">리그 전체 · 선수 프로필</span></h2>
-      ${nod("선수 스탯 표본 없음 — 'OWCS 선수 스탯' 시트가 채워지면 영웅별 E/D·10분당 딜/힐/방어·데스/10가 자동 표시됩니다.")}${statCaveat}</div>`;
+// 선수 스탯 패널 — 선수별 분석 페이지(선수 요약 아래)에 삽입. 이미 선택된 선수 기준.
+export function playerStatsPanel(D: DataBundle, name: string): string {
+  const mine = D.playerStats.filter((r) => r.name === name);
+  if (!mine.length) {
+    return `<div class="panel"><h2>선수 스탯 <span class="count">10분당 정규화 · 리그 평균 대비</span></h2>
+      ${nod("이 선수의 스탯 표본 없음 — 'OWCS 선수 스탯' 시트가 채워지면 영웅별 E/D·딜/힐/방어/10·데스/10가 자동 표시됩니다.")}${statCaveat}</div>`;
   }
-  const names = [...new Set(ps.map((r) => r.name))].sort((a, b) => ps.filter((r) => r.name === b).length - ps.filter((r) => r.name === a).length || a.localeCompare(b));
-  const cur = names.includes(sel) ? sel : names[0];
-  const mine = ps.filter((r) => r.name === cur);
   const roleCnt: Record<string, number> = {};
   mine.forEach((r) => (roleCnt[r.role] = (roleCnt[r.role] || 0) + 1));
   const role = Object.entries(roleCnt).sort((a, b) => b[1] - a[1])[0]?.[0] || "";
-  const sup = role === "Support";
-  // 리그 영웅별 평균 (기준선)
   const leagueByHero: Record<string, PStatRow[]> = {};
-  ps.forEach((r) => (leagueByHero[r.hero || "(미상)"] = leagueByHero[r.hero || "(미상)"] || []).push(r));
-  // 선택 선수 영웅별
+  D.playerStats.forEach((r) => (leagueByHero[r.hero || "(미상)"] = leagueByHero[r.hero || "(미상)"] || []).push(r));
   const byHero: Record<string, PStatRow[]> = {};
   mine.forEach((r) => (byHero[r.hero || "(미상)"] = byHero[r.hero || "(미상)"] || []).push(r));
-  const playerOpts = names.map((n) => `<option value="${esc(n)}" ${n === cur ? "selected" : ""}>${esc(n)}${D.players[n] ? ` · ${esc(D.players[n].team)}` : ""}</option>`).join("");
-  const sel2 = `<select data-act="psplayer">${playerOpts}</select>`;
-  // 편차 셀: 값 + (리그 평균 대비 ±)
   const dev = (val: number, league: number | null, digits: number, hi = true) => {
     const v = digits ? val.toFixed(digits) : Math.round(val).toLocaleString();
     if (league == null) return `<span>${v}</span>`;
@@ -933,18 +925,15 @@ export function renderPlayerStats(D: DataBundle, sel: string): string {
       <td class="num">${me.n}${low ? ' <span class="lowsmp">⚠</span>' : ""}</td>
       <td class="num">${dev(me.ed, lg.ed, 2)}</td>
       <td class="num">${dev(me.dmg10, lg.dmg10, 0)}</td>
-      <td class="num">${sup ? dev(me.heal10, lg.heal10, 0) : '<span class="mini">-</span>'}</td>
-      <td class="num">${role === "Tank" ? dev(me.mit10, lg.mit10, 0) : '<span class="mini">-</span>'}</td>
+      <td class="num">${dev(me.heal10, lg.heal10, 0)}</td>
+      <td class="num">${dev(me.mit10, lg.mit10, 0)}</td>
       <td class="num">${dev(me.death10, lg.death10, 1, false)}</td></tr>`;
   }).join("");
-  return `
-    <div class="panel"><h2>선수 선택 <span class="count">리그 전체 · 스탯 입력된 선수만</span></h2>
-      <div class="sub-note">선수를 고르면 영웅별 평균 지표와 <b>리그 평균 대비 편차(±)</b>를 표시. 좋은 방향이 초록.</div>
-      <div class="psel"><label class="estfield"><span class="estlabel">선수</span>${sel2}</label></div></div>
-    <div class="panel"><h2>${esc(cur)} <span class="count">${esc(ROLE_KO[role] || role)} · ${mine.length}경기 표본</span></h2>
-      <div class="tablewrap"><table class="hbtable psstat"><thead><tr><th>영웅</th><th class="num">경기</th><th class="num">E/D</th><th class="num">딜/10</th><th class="num">힐/10</th><th class="num">방어/10</th><th class="num">데스/10</th></tr></thead>
-        <tbody>${rows || `<tr><td colspan="7">${nod("표본 없음")}</td></tr>`}</tbody></table></div>
-      ${statCaveat}</div>`;
+  return `<div class="panel"><h2>선수 스탯 <span class="count">${esc(ROLE_KO[role] || role)} · ${mine.length}경기 · 리그 평균 대비 편차(±)</span></h2>
+    <div class="sub-note">영웅별 평균 지표와 리그 평균 대비 편차. 좋은 방향이 초록.</div>
+    <div class="tablewrap"><table class="hbtable psstat"><thead><tr><th>영웅</th><th class="num">경기</th><th class="num">E/D</th><th class="num">딜/10</th><th class="num">힐/10</th><th class="num">방어/10</th><th class="num">데스/10</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="7">${nod("표본 없음")}</td></tr>`}</tbody></table></div>
+    ${statCaveat}</div>`;
 }
 
 // ===== BANPICK (5.3) =====
@@ -1828,6 +1817,7 @@ export function renderPlayers(D: DataBundle, ui: PlayerUI): string {
       ${playerSelect2(D, { pickTeam, selName: a.name, teamAct: "pick-team", playerAct: "pick-player" })}
     </div>
     <div class="panel">${playerCard(D, a)}</div>
+    ${playerStatsPanel(D, a.name)}
     ${a.n > 0 ? `
     <div class="panel"><h2>① 영웅별 성적 <span class="count">영웅 단위 · 행을 누르면 맵별·조합별로 펼침</span></h2>${heroTable(D, a, ui.heroExpand, ui.heroMapSel)}</div>
     <div class="panel"><h2>② 맵별 성적 <span class="count">맵 단위 · 행을 누르면 그 맵의 양 팀 조합</span></h2>${mapTable(D, a, ui.mapExpand)}</div>
