@@ -391,8 +391,7 @@ export function renderMatchday(D: DataBundle, weakExpand: string): string {
       return `<div class="fcard ${w > o ? "w" : "l"}"><div class="res">${w > o ? "WIN" : "LOSS"}</div><div class="opp">vs ${esc(opp)}</div><div class="meta">${w}-${o} · ${fmtDate(S.date)}</div></div>`;
     }).join("") : nod("아직 치른 경기가 없음.");
     return `${scope}<div class="panel"><h2>다음 경기</h2>${nod("예정된 다음 경기 없음 · 대진표 갱신 시 표시")}</div>
-      <div class="panel"><h2>최근 흐름</h2><div class="form">${form}</div></div>
-      ${weaknessPanel(D, D.us, true, weakExpand)}`;
+      <div class="panel"><h2>최근 흐름</h2><div class="form">${form}</div></div>`;
   }
 
   const g = up[0];
@@ -509,8 +508,6 @@ export function renderMatchday(D: DataBundle, weakExpand: string): string {
     </div>
     <section class="panel"><h2>모드 비교 <span class="count">자체 성적 ↔ 상대 비교 분리</span></h2>
       <div class="modecompare">${strats.length ? modeCompareRows(strats) : nod("모드 표본이 부족합니다.")}</div></section>
-    ${weaknessPanel(D, D.us, true, weakExpand)}
-    ${weaknessPanel(D, opp, false, weakExpand)}
     <section class="panel"><h2>근거 경기 <span class="count">${useH2h ? "최근 맞대결" : `${esc(opp)} 최근 경기`}</span></h2>${evidence}</section>
     <section class="panel"><details class="calc"><summary><span class="calc-sum">예상 승률 산출 기준</span><span class="mini">학습 모델이 아닌 가중 합산 방식 · 자세히 보기</span></summary>
       <div class="calc-body">
@@ -904,7 +901,7 @@ export function playerStatsPanel(D: DataBundle, name: string): string {
   const mine = D.playerStats.filter((r) => r.name === name);
   if (!mine.length) {
     return `<div class="panel"><h2>선수 스탯 <span class="count">10분당 정규화 · 리그 평균 대비</span></h2>
-      ${nod("이 선수의 스탯 표본 없음 — 'OWCS 선수 스탯' 시트가 채워지면 영웅별 E/D·딜/힐/방어/10·데스/10가 자동 표시됩니다.")}${statCaveat}</div>`;
+      ${nod("이 선수의 스탯 표본 없음 — 'OWCS 선수 스탯' 시트가 채워지면 영웅별 E/D·딜/힐/방어/데스(10분당)가 자동 표시됩니다.")}${statCaveat}</div>`;
   }
   const roleCnt: Record<string, number> = {};
   mine.forEach((r) => (roleCnt[r.role] = (roleCnt[r.role] || 0) + 1));
@@ -935,8 +932,8 @@ export function playerStatsPanel(D: DataBundle, name: string): string {
       <td class="num">${dev(me.death10, lg.death10, 1, false)}</td></tr>`;
   }).join("");
   return `<div class="panel"><h2>선수 스탯 <span class="count">${esc(ROLE_KO[role] || role)} · ${mine.length}경기 · 리그 평균 대비 편차(±)</span></h2>
-    <div class="sub-note">영웅별 평균 지표와 리그 평균 대비 편차. 좋은 방향이 초록.</div>
-    <div class="tablewrap"><table class="hbtable psstat"><thead><tr><th>영웅</th><th class="num">경기</th><th class="num">E/D</th><th class="num">딜/10</th><th class="num">힐/10</th><th class="num">방어/10</th><th class="num">데스/10</th></tr></thead>
+    <div class="sub-note">영웅별 평균 지표와 리그 평균 대비 편차. 좋은 방향이 초록. <b>/10분</b> = 경기 시간이 달라도 비교되도록 10분당으로 환산한 값(딜량·힐량 등 ÷ 경기 시간 × 10분).</div>
+    <div class="tablewrap"><table class="hbtable psstat"><thead><tr><th>영웅</th><th class="num">경기</th><th class="num">E/D</th><th class="num">딜/10분</th><th class="num">힐/10분</th><th class="num">방어/10분</th><th class="num">데스/10분</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="7">${nod("표본 없음")}</td></tr>`}</tbody></table></div>
     ${statCaveat}</div>`;
 }
@@ -1029,7 +1026,6 @@ function teamSummary(D: DataBundle, team: string, isUs: boolean, weakExpand: str
       <div class="panel"><h2>맵별 성적 <span class="count">출전·승률</span></h2>${teamMapSummary(T)}</div>
       <div class="panel"><h2>영웅별 요약 <span class="count">자주 쓴 영웅 · 픽·교체 포함</span></h2><div class="bars">${heroPickBars(teamHeroPicks(D, team), 8)}</div></div>
     </div>
-    ${weaknessPanel(D, team, isUs, weakExpand)}
     <div class="grid4">
       <div class="panel"><h2>자주 거는 밴 <span class="count">${sum(made)}회</span></h2><div class="bars">${countBars(made, "ban", 6)}</div></div>
       <div class="panel"><h2>자주 당하는 밴 <span class="count">${sum(T.banAgainst)}회</span></h2><div class="bars">${countBars(T.banAgainst, "ban", 6)}</div></div>
