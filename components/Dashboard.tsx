@@ -126,7 +126,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "estimator": return renderEstimator(D, est);
       default: return "";
     }
-  }, [D, tab, scoutTeam, scoutTab, deepAgg, deepSort, deepSmp, deepBanExpand, weakExpand, playerA, playerB, playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel, mapExpand, psPlayer, logF, logExpand, logSort, hbHero, hbSearch, hbTeam, hbRole, banRole, banTopN, banTeam, banMap, banExpand, mapsMode, mapsSel, est]);
+  }, [D, tab, scoutTeam, scoutTab, deepAgg, deepSort, deepSmp, deepBanExpand, weakExpand, playerA, playerB, playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel, mapExpand, logF, logExpand, logSort, hbHero, hbSearch, hbTeam, hbRole, banRole, banTopN, banTeam, banMap, banExpand, mapsMode, mapsSel, est]);
 
   const zansideHtml = useMemo(() => {
     setIcons(D.heroIcons);
@@ -195,7 +195,6 @@ export default function Dashboard({ data }: { data: DataBundle }) {
     switch (act) {
       case "mapsmode": setMapsMode(v); break;
       case "maps-sel": setMapsSel(v); break;
-      case "psplayer": setPsPlayer(v); break;
       case "logteam": setLogF((f) => ({ ...f, team: v })); break;
       case "logmode": setLogF((f) => ({ ...f, mode: v })); break;
       case "logmap": setLogF((f) => ({ ...f, map: v })); break;
