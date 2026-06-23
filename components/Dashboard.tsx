@@ -157,6 +157,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "goplayer": setPlayerA(val); setPlayerB(""); setHeroExpand(""); setHeroMapSel(""); setPickTeam(D.players[val]?.team || pickTeam); go("players"); break;
       case "gomap": setMapsSel(val); setMapsMode("all"); go("maps"); break;
       case "gomapmode": setMapsMode(val); setMapsSel(""); go("maps"); break;
+      case "goseries": { const [opp, date] = val.split("|"); setLogF({ z: "all", team: opp || "", mode: "", map: "", date: date || "" }); setMod("owcs"); setTab("log"); toTop(); break; }
       case "goteam": if (val === D.us) { goZ("team"); } else { setScoutTeam(val); go("scout"); } break;
       case "logz": setLogF((f) => ({ ...f, z: val as LogFilter["z"] })); break;
       case "player": // 검색 결과 클릭 → 선수 선택 + 드롭다운 자동 맞춤 + 검색 비움
