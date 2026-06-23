@@ -2169,11 +2169,10 @@ export function renderEstimator(D: DataBundle, e: EstInput): string {
       </div>
     </div>
     <div class="grid2">
-      <div class="panel"><h2>추정 결과</h2>${result}</div>
+      <div class="panel"><h2>추정 결과</h2>${result}${verifSummary}</div>
       <div class="panel"><h2>요인 분해 <span class="count">기여 = 가중치 × (승률−50%)</span></h2><div class="frows">${rows}</div>
         <div class="sub-note" style="margin-top:10px">활성 요인의 가중치 합으로 정규화해 50%에 더해요.</div></div>
     </div>
-    ${verifPanel}
     ${recPanel}
     ${sensPanel}`;
 }
