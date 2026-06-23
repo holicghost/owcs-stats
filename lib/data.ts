@@ -10,6 +10,7 @@ import type {
 import { PLAYER_NAME_FIX, PLAYER_CANON, TEAM_NAME_FIX } from "./aliases";
 import { validateSets, crossIssues } from "./validate";
 import { SWAP_DATA_RAW } from "./swapData";
+import { PLAYER_STATS_URL, parsePlayerStatsCSV, joinPlayerStats } from "./playerStats";
 
 // ===== 파싱 헬퍼 =====
 function norm(s: unknown): string {
@@ -504,11 +505,12 @@ async function fetchHeroIcons(): Promise<Record<string, string>> {
 }
 
 export async function getData(): Promise<DataBundle> {
-  const [mainTxt, brkTxt, stTxt, heroIcons] = await Promise.all([
+  const [mainTxt, brkTxt, stTxt, heroIcons, psTxt] = await Promise.all([
     fetchMain(),
     fetchText(BRACKET_URL),
     fetchText(STANDINGS_URL),
     fetchHeroIcons(),
+    fetchText(PLAYER_STATS_URL).catch(() => ""), // 선수 스탯은 없어도 화면 정상
   ]);
   const parsed = parseMain(mainTxt);
   if (!parsed.length) throw new Error("경기 데이터 행을 찾지 못했습니다.");
@@ -521,6 +523,13 @@ export async function getData(): Promise<DataBundle> {
   // 28.5 검수: 치명적 오류 행은 통계에서 제외
   const { clean: sets, issues: rowIssues, dropped } = validateSets(parsed);
   const d = derive(sets, standings);
+  // 선수 스탯: 매치 메타(replay)·영웅(이름 매칭)으로 조인. 시트가 비면 빈 배열.
+  let playerStats: DataBundle["playerStats"] = [];
+  try {
+    playerStats = psTxt ? joinPlayerStats(parsePlayerStatsCSV(psTxt), sets, d.playerNames) : [];
+  } catch (e) {
+    console.warn("선수 스탯 파싱 실패:", (e as Error).message);
+  }
   const cross = crossIssues(d.series, d.teams, schedule, standings);
   const issues = [...rowIssues, ...cross];
   const health: DataHealth = {
@@ -534,7 +543,7 @@ export async function getData(): Promise<DataBundle> {
   return {
     sets, series: d.series, teams: d.teams, standings, schedule,
     teamNames: d.teamNames, players: d.players, playerNames: d.playerNames,
-    usHeroSignal: d.usHeroSignal, mapInfo: d.mapInfo, health, heroIcons,
+    usHeroSignal: d.usHeroSignal, mapInfo: d.mapInfo, health, heroIcons, playerStats,
     fetchedAt: new Date().toISOString(), us: US,
   };
 }

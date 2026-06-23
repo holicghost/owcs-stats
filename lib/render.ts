@@ -3,7 +3,7 @@
 import {
   MODE_KO, MODE_ORDER, ROLE_KO, HEROES, EST_WEIGHTS, EST_THRESH, heroKo, mapKo, HERO_ROLE,
 } from "./constants";
-import type { DataBundle, ModeRec, Pick, Player, SetRec, Series, Standing, Team } from "./types";
+import type { DataBundle, ModeRec, Pick, Player, PStatRow, SetRec, Series, Standing, Team } from "./types";
 import { dimensions, crossEdge, WEAK_MARGIN, WEAK_SAMPLE_MIN, type Weak } from "./weakness";
 import { esc, wrCls, nod, hk, mk, heroChip, heroIcon, setIcons } from "./ui";
 export { esc, setIcons };
