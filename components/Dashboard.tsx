@@ -9,7 +9,7 @@ import {
 } from "@/lib/render";
 
 type Role = "Tank" | "DPS" | "Support";
-type ScoutTab = "summary" | "games" | "heroes" | "heroban" | "maps" | "mapban";
+type ScoutTab = "summary" | "games" | "heroes" | "heroban" | "maps" | "mappick";
 
 // OWCS 데이터 탭 메뉴 — 분석 / 데이터 두 묶음 (다음 경기·순위 시나리오는 ZANSIDE 탭으로 이동)
 const OWCS_GROUPS = [
