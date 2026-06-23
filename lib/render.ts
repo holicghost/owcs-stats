@@ -1083,42 +1083,67 @@ export function renderHeroBan(D: DataBundle, ui: HeroBanUI): string {
   const heroSel = `<select data-act="hb-hero"><option value="" ${!ui.hero ? "selected" : ""}>— 영웅 —</option>${pool.map((h) => `<option value="${esc(h)}" ${h === ui.hero ? "selected" : ""}>${esc(heroKo(h))} · ${heroTotals[h] || 0}회</option>`).join("")}</select>`;
   const selector = `${searchResults}<div class="psel"><label class="estfield"><span class="estlabel">포지션</span>${roleSel}</label><label class="estfield"><span class="estlabel">영웅</span>${heroSel}</label></div>`;
 
-  let detail = `<div class="panel">${nod("영웅을 검색하거나 위 목록에서 선택하면, 맵별·팀별 밴 분포(선밴/후밴)를 보여줘요.")}</div>`;
+  let detail = `<div class="panel">${nod("영웅 선택 시 플레이 맵·선수와 선밴/후밴 순위 표시")}</div>`;
   if (ui.hero) {
     const H = ui.hero;
-    const mapAgg: Record<string, { f: number; s: number }> = {};
-    const teamAgg: Record<string, { f: number; s: number }> = {};
+    // 밴 집계 (선밴/후밴 × 맵/팀)
+    const fbMap: Record<string, number> = {}, sbMap: Record<string, number> = {}, fbTeam: Record<string, number> = {}, sbTeam: Record<string, number> = {};
     let tf = 0, ts = 0;
     D.sets.forEach((s) => s.bans.forEach((b) => {
       if (b.hero !== H) return;
-      const ta = (teamAgg[b.team] = teamAgg[b.team] || { f: 0, s: 0 });
-      if (b.phase === "first") { ta.f++; tf++; } else { ta.s++; ts++; }
-      if (ui.team !== "all" && b.team !== ui.team) return;
-      const ma = (mapAgg[s.map] = mapAgg[s.map] || { f: 0, s: 0 });
-      if (b.phase === "first") ma.f++; else ma.s++;
+      if (b.phase === "first") { tf++; if (s.map) fbMap[s.map] = (fbMap[s.map] || 0) + 1; fbTeam[b.team] = (fbTeam[b.team] || 0) + 1; }
+      else { ts++; if (s.map) sbMap[s.map] = (sbMap[s.map] || 0) + 1; sbTeam[b.team] = (sbTeam[b.team] || 0) + 1; }
     }));
-    const teams = Object.keys(teamAgg).sort((a, b) => (teamAgg[b].f + teamAgg[b].s) - (teamAgg[a].f + teamAgg[a].s));
-    const teamSel = `<select data-act="hb-team"><option value="all" ${ui.team === "all" ? "selected" : ""}>전체 팀</option>${teams.map((t) => `<option value="${esc(t)}" ${t === ui.team ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>`;
-    const mapRows = Object.entries(mapAgg).map(([m, v]) => ({ m, ...v, t: v.f + v.s })).sort((a, b) => b.t - a.t || mapKo(a.m).localeCompare(mapKo(b.m)));
-    const mmax = Math.max(1, ...mapRows.map((r) => r.t));
+    // 픽 집계 (맵/선수 × 승률)
+    const pickMap: Record<string, { n: number; w: number }> = {};
+    const pickPl: Record<string, { n: number; w: number; team: string }> = {};
+    let totalPick = 0;
+    D.sets.forEach((s) => {
+      const w = setWinner(s);
+      ([[s.top, s.picks.top], [s.bottom, s.picks.bottom]] as Array<[string, Pick[]]>).forEach(([team, picks]) => {
+        picks.forEach((p) => {
+          if (p.hero !== H) return;
+          totalPick++;
+          const won = w === team;
+          if (s.map) { const m = (pickMap[s.map] = pickMap[s.map] || { n: 0, w: 0 }); m.n++; if (won) m.w++; }
+          const pl = (pickPl[p.player] = pickPl[p.player] || { n: 0, w: 0, team }); pl.n++; if (won) pl.w++;
+        });
+      });
+    });
     const banTr = (w: number, max: number) => `<div class="tr mini-tr"><div class="fl ban" style="width:${Math.round((w / max) * 100)}%"></div></div>`;
-    const mapTable = mapRows.length
-      ? `<table class="hbtable"><thead><tr><th>맵</th><th class="num">선밴</th><th class="num">후밴</th><th class="num">합계</th><th>빈도</th></tr></thead><tbody>${mapRows.map((r) => `<tr><td class="hname">${mk(r.m)} <span class="mini">${esc(MODE_KO[D.mapInfo[r.m]] || D.mapInfo[r.m] || "")}</span></td><td class="num">${r.f}</td><td class="num">${r.s}</td><td class="num"><b>${r.t}</b></td><td>${banTr(r.t, mmax)}</td></tr>`).join("")}</tbody></table>`
-      : nod(ui.team === "all" ? "이 영웅의 밴 기록이 없음." : "이 팀의 해당 영웅 밴 기록이 없음.");
-    const teamRows = teams.map((t) => ({ t, ...teamAgg[t], tot: teamAgg[t].f + teamAgg[t].s }));
-    const tmax = Math.max(1, ...teamRows.map((r) => r.tot));
-    const teamTable = teamRows.length
-      ? `<table class="hbtable"><thead><tr><th>팀</th><th class="num">선밴</th><th class="num">후밴</th><th class="num">합계</th><th>빈도</th></tr></thead><tbody>${teamRows.map((r) => `<tr class="${r.t === D.us ? "zanrow" : ""}"><td class="${r.t === D.us ? "zan" : ""}">${esc(r.t)}</td><td class="num">${r.f}</td><td class="num">${r.s}</td><td class="num"><b>${r.tot}</b></td><td>${banTr(r.tot, tmax)}</td></tr>`).join("")}</tbody></table>`
-      : nod("밴 기록이 없음.");
+    // 자주 플레이하는 맵 (모드별 성적 양식)
+    const pmRows = Object.entries(pickMap).map(([m, v]) => ({ m, ...v })).sort((a, b) => b.n - a.n);
+    const pmMax = Math.max(1, ...pmRows.map((r) => r.n));
+    const playMapTable = pmRows.length
+      ? `<table class="hbtable"><thead><tr><th>맵</th><th class="num">픽</th><th class="num">승률</th><th>빈도</th></tr></thead><tbody>${pmRows.map((r) => { const wr = Math.round((r.w / r.n) * 100); return `<tr><td class="hname">${mk(r.m)}</td><td class="num">${r.n}</td><td class="num"><span class="wr ${wrCls(wr)}">${wr}%</span></td><td>${banTr(r.n, pmMax)}</td></tr>`; }).join("")}</tbody></table>`
+      : nod("픽 기록 없음");
+    // 자주 플레이하는 선수
+    const ppRows = Object.entries(pickPl).map(([p, v]) => ({ p, ...v })).sort((a, b) => b.n - a.n);
+    const playPlayerTable = ppRows.length
+      ? `<table class="hbtable"><thead><tr><th>선수</th><th>팀</th><th class="num">픽</th><th class="num">승률</th></tr></thead><tbody>${ppRows.map((r) => { const wr = Math.round((r.w / r.n) * 100); return `<tr class="${r.team === D.us ? "zanrow" : ""}"><td class="${r.team === D.us ? "zan" : ""}">${esc(r.p)}</td><td class="mini">${esc(r.team)}</td><td class="num">${r.n}</td><td class="num"><span class="wr ${wrCls(wr)}">${wr}%</span></td></tr>`; }).join("")}</tbody></table>`
+      : nod("픽 기록 없음");
+    const mapLabel = (m: string) => mk(m);
+    const teamLabel = (t: string) => `<span class="${t === D.us ? "zan" : ""}">${esc(t)}</span>`;
     detail = `
-      <div class="panel hbsel"><div class="hbsel-head">${heroIcon(H)}<div><div class="hbsel-name">${esc(heroKo(H))} <span class="mini">${esc(ROLE_KO[HERO_ROLE[H] || ""] || "")}</span></div><div class="mini">총 ${tf + ts}회 밴 · 선밴 ${tf} · 후밴 ${ts}</div></div></div></div>
-      <div class="panel"><h2>맵별 밴 분포 <span class="count">선밴/후밴 · ${ui.team === "all" ? "전체 팀" : esc(ui.team)}</span></h2>
-        <div class="fbar"><span class="flabel">팀</span>${teamSel}</div>${mapTable}</div>
-      <div class="panel"><h2>팀별 밴 분포 <span class="count">어떤 팀이 이 영웅을 밴하나 · 선밴/후밴</span></h2>${teamTable}</div>`;
+      <div class="panel hbsel"><div class="hbsel-head">${heroIcon(H)}<div><div class="hbsel-name">${esc(heroKo(H))} <span class="mini">${esc(ROLE_KO[HERO_ROLE[H] || ""] || "")}</span></div><div class="mini">픽 ${totalPick}회 · 총 밴 ${tf + ts}회 (선밴 ${tf} · 후밴 ${ts})</div></div></div></div>
+      <div class="grid2">
+        <div class="panel"><h2>자주 플레이하는 맵 <span class="count">픽 기준</span></h2>${playMapTable}</div>
+        <div class="panel"><h2>자주 플레이하는 선수 <span class="count">픽 기준</span></h2>${playPlayerTable}</div>
+      </div>
+      <div class="panel"><h2>밴 순위 <span class="count">선밴/후밴 · 맵·팀별 (상위 10)</span></h2>
+        <div class="grid2">
+          <div><div class="sub-note">선밴 순위 · 맵</div><div class="bars">${rankBars(fbMap, mapLabel)}</div></div>
+          <div><div class="sub-note">선밴 순위 · 팀</div><div class="bars">${rankBars(fbTeam, teamLabel)}</div></div>
+        </div>
+        <div class="grid2" style="margin-top:14px">
+          <div><div class="sub-note">후밴 순위 · 맵</div><div class="bars">${rankBars(sbMap, mapLabel)}</div></div>
+          <div><div class="sub-note">후밴 순위 · 팀</div><div class="bars">${rankBars(sbTeam, teamLabel)}</div></div>
+        </div>
+      </div>`;
   }
   return `
-    <div class="panel"><h2>영웅 밴 분석 <span class="count">영웅을 고르면 맵별·팀별 밴 분포</span></h2>
-      <div class="sub-note">위 검색창에서 영웅 이름(한글/영문)으로 찾거나, 아래 포지션별 목록에서 골라요. 칩의 숫자는 총 피밴 수예요.</div>
+    <div class="panel"><h2>영웅 밴 분석 <span class="count">영웅을 고르면 플레이·밴 분석</span></h2>
+      <div class="sub-note">위 검색창에서 영웅 이름(한글/영문)으로 검색하거나, 포지션·영웅 드롭다운에서 선택. 드롭다운 숫자는 총 피밴 수.</div>
       ${selector}</div>
     ${detail}`;
 }
