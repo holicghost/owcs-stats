@@ -269,6 +269,20 @@ function emptyTeam(name: string): Team {
   };
 }
 
+// 세트 메모("선수: 교체1, 교체2" 줄 모음) → 선수별 교체 영웅 목록
+function swapsFromMemo(memo: string): Record<string, string[]> {
+  const map: Record<string, string[]> = {};
+  if (!memo) return map;
+  memo.split(/\n/).forEach((line) => {
+    const i = line.indexOf(":");
+    if (i < 0) return;
+    const name = line.slice(0, i).trim();
+    const heroes = line.slice(i + 1).split(",").map((x) => canonHero(x)).filter(Boolean);
+    if (name && heroes.length) map[name] = heroes;
+  });
+  return map;
+}
+
 // ===== 파생 (명세 4.2 / 4.3 / 13) =====
 function derive(sets: SetRec[], standings: Standing[]): {
   series: Series[];
@@ -376,7 +390,8 @@ function derive(sets: SetRec[], standings: Standing[]): {
         const opp = b.team === s.top ? s.bottom : s.top;
         if (teams[opp]) teams[opp].banAgainst[b.hero] = (teams[opp].banAgainst[b.hero] || 0) + 1;
       });
-      // 로스터 + 선수/영웅 집계 (첫픽 입력 시)
+      // 로스터 + 선수/영웅 집계 (오프닝 픽 + 교체 영웅 모두 반영)
+      const swaps = swapsFromMemo(s.memo);
       ([[s.picks.top, s.top], [s.picks.bottom, s.bottom]] as Array<[Pick[], string]>).forEach(([ps, nm]) => {
         if (!teams[nm]) return;
         const won = w === nm;
@@ -393,11 +408,25 @@ function derive(sets: SetRec[], standings: Standing[]): {
           pl.n++;
           pl.roles[p.role] = (pl.roles[p.role] || 0) + 1;
           (playerTeamN[p.player] = playerTeamN[p.player] || {})[nm] = (playerTeamN[p.player][nm] || 0) + 1;
-          if (p.hero) {
-            const hs = (pl.heroes[p.hero] = pl.heroes[p.hero] || { hero: p.hero, n: 0, w: 0 });
+          // 플레이한 영웅 = 오프닝 픽 + 교체(메모). 교체 영웅도 선수 지표·히트맵·신호에 포함.
+          const played: string[] = [];
+          if (p.hero) played.push(p.hero);
+          (swaps[p.player] || []).forEach((h) => { if (h && !played.includes(h)) played.push(h); });
+          played.forEach((h) => {
+            const hs = (pl.heroes[h] = pl.heroes[h] || { hero: h, n: 0, w: 0 });
             hs.n++;
             if (won) hs.w++;
-          }
+            if (s.map) {
+              const ck = `${h} ${s.map}`;
+              const cc = (pl.cells[ck] = pl.cells[ck] || { hero: h, map: s.map, mode: s.mode, n: 0, w: 0 });
+              cc.n++;
+              if (won) cc.w++;
+            }
+            if (nm === US) {
+              const sig = (usHeroSignal[h] = usHeroSignal[h] || { w: 0, l: 0 });
+              won ? sig.w++ : sig.l++;
+            }
+          });
           if (s.map) {
             const pm = (pl.maps[s.map] = pl.maps[s.map] || { map: s.map, mode: s.mode, n: 0, w: 0 });
             pm.n++;
@@ -407,18 +436,6 @@ function derive(sets: SetRec[], standings: Standing[]): {
             const mm = (pl.modes[s.mode] = pl.modes[s.mode] || { w: 0, t: 0 });
             mm.t++;
             if (won) mm.w++;
-          }
-          // 영웅×맵 셀 (13.3 히트맵)
-          if (p.hero && s.map) {
-            const ck = `${p.hero} ${s.map}`;
-            const cc = (pl.cells[ck] = pl.cells[ck] || { hero: p.hero, map: s.map, mode: s.mode, n: 0, w: 0 });
-            cc.n++;
-            if (won) cc.w++;
-          }
-          // ZANSIDE 영웅 신호 (12.3.3)
-          if (nm === US && p.hero) {
-            const sig = (usHeroSignal[p.hero] = usHeroSignal[p.hero] || { w: 0, l: 0 });
-            won ? sig.w++ : sig.l++;
           }
         });
       });

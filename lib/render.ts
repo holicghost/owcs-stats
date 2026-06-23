@@ -1067,20 +1067,17 @@ export function renderZansideBan(D: DataBundle, f: BanUI): string {
 export interface HeroBanUI { hero: string; search: string; team: string; role: string; }
 export function renderHeroBan(D: DataBundle, ui: HeroBanUI): string {
   setIcons(D.heroIcons);
-  const heroTotals: Record<string, number> = {};
-  D.sets.forEach((s) => s.bans.forEach((b) => { if (b.hero) heroTotals[b.hero] = (heroTotals[b.hero] || 0) + 1; }));
-
   const q = ui.search.trim().toLowerCase();
   const allHeroes = (["Tank", "DPS", "Support"] as const).flatMap((r) => HEROES[r]);
   const matches = q ? allHeroes.filter((h) => h.toLowerCase().includes(q) || heroKo(h).toLowerCase().includes(q)) : [];
-  const heroChipBtn = (h: string) => `<button class="hbchip ${h === ui.hero ? "on" : ""}" data-act="hb-hero" data-val="${esc(h)}">${heroIcon(h)}<span class="hbn">${esc(heroKo(h))}</span><span class="hbct">${heroTotals[h] || 0}</span></button>`;
+  const heroChipBtn = (h: string) => `<button class="hbchip ${h === ui.hero ? "on" : ""}" data-act="hb-hero" data-val="${esc(h)}">${heroIcon(h)}<span class="hbn">${esc(heroKo(h))}</span></button>`;
   const searchResults = q ? `<div class="sub-note">'${esc(ui.search)}' 검색 결과 — 누르면 선택</div><div class="hbgrid">${matches.length ? matches.map(heroChipBtn).join("") : nod("맞는 영웅이 없음.")}</div>` : "";
   // 포지션 → 영웅 드롭다운 (선수별 분석과 동일한 양식)
   const roleOpts: Array<[string, string]> = [["all", "전체"], ["Tank", "탱커"], ["DPS", "딜러"], ["Support", "서포터"]];
   const roleSel = `<select data-act="hb-role">${roleOpts.map(([v, l]) => `<option value="${v}" ${ui.role === v ? "selected" : ""}>${l}</option>`).join("")}</select>`;
   const pool = (ui.role === "all" ? allHeroes : HEROES[ui.role as "Tank" | "DPS" | "Support"] || allHeroes).slice();
   if (ui.hero && !pool.includes(ui.hero)) pool.unshift(ui.hero);
-  const heroSel = `<select data-act="hb-hero"><option value="" ${!ui.hero ? "selected" : ""}>— 영웅 —</option>${pool.map((h) => `<option value="${esc(h)}" ${h === ui.hero ? "selected" : ""}>${esc(heroKo(h))} · ${heroTotals[h] || 0}회</option>`).join("")}</select>`;
+  const heroSel = `<select data-act="hb-hero"><option value="" ${!ui.hero ? "selected" : ""}>— 영웅 —</option>${pool.map((h) => `<option value="${esc(h)}" ${h === ui.hero ? "selected" : ""}>${esc(heroKo(h))}</option>`).join("")}</select>`;
   const selector = `${searchResults}<div class="psel"><label class="estfield"><span class="estlabel">포지션</span>${roleSel}</label><label class="estfield"><span class="estlabel">영웅</span>${heroSel}</label></div>`;
 
   let detail = `<div class="panel">${nod("영웅 선택 시 플레이 맵·선수와 선밴/후밴 순위 표시")}</div>`;
@@ -1100,9 +1097,11 @@ export function renderHeroBan(D: DataBundle, ui: HeroBanUI): string {
     let totalPick = 0;
     D.sets.forEach((s) => {
       const w = setWinner(s);
+      const swaps = swapsByPlayer(s.memo); // 교체로 그 영웅을 든 경우도 '플레이'에 포함
       ([[s.top, s.picks.top], [s.bottom, s.picks.bottom]] as Array<[string, Pick[]]>).forEach(([team, picks]) => {
         picks.forEach((p) => {
-          if (p.hero !== H) return;
+          const playedH = p.hero === H || (swaps[p.player] || []).includes(H);
+          if (!playedH) return;
           totalPick++;
           const won = w === team;
           if (s.map) { const m = (pickMap[s.map] = pickMap[s.map] || { n: 0, w: 0 }); m.n++; if (won) m.w++; }
@@ -1130,20 +1129,20 @@ export function renderHeroBan(D: DataBundle, ui: HeroBanUI): string {
         <div class="panel"><h2>자주 플레이하는 맵 <span class="count">픽 기준</span></h2>${playMapTable}</div>
         <div class="panel"><h2>자주 플레이하는 선수 <span class="count">픽 기준</span></h2>${playPlayerTable}</div>
       </div>
-      <div class="panel"><h2>밴 순위 <span class="count">선밴/후밴 · 맵·팀별 (상위 10)</span></h2>
-        <div class="grid2">
-          <div><div class="sub-note">선밴 순위 · 맵</div><div class="bars">${rankBars(fbMap, mapLabel)}</div></div>
-          <div><div class="sub-note">선밴 순위 · 팀</div><div class="bars">${rankBars(fbTeam, teamLabel)}</div></div>
+      <div class="grid2">
+        <div class="panel"><h2>선밴 순위 <span class="count">맵 · 팀 (상위 10)</span></h2>
+          <div class="sub-note">맵</div><div class="bars">${rankBars(fbMap, mapLabel)}</div>
+          <div class="sub-note" style="margin-top:12px">팀</div><div class="bars">${rankBars(fbTeam, teamLabel)}</div>
         </div>
-        <div class="grid2" style="margin-top:14px">
-          <div><div class="sub-note">후밴 순위 · 맵</div><div class="bars">${rankBars(sbMap, mapLabel)}</div></div>
-          <div><div class="sub-note">후밴 순위 · 팀</div><div class="bars">${rankBars(sbTeam, teamLabel)}</div></div>
+        <div class="panel"><h2>후밴 순위 <span class="count">맵 · 팀 (상위 10)</span></h2>
+          <div class="sub-note">맵</div><div class="bars">${rankBars(sbMap, mapLabel)}</div>
+          <div class="sub-note" style="margin-top:12px">팀</div><div class="bars">${rankBars(sbTeam, teamLabel)}</div>
         </div>
       </div>`;
   }
   return `
     <div class="panel"><h2>영웅 선택</h2>
-      <div class="sub-note">맨 위 검색창은 전체 영웅에서 이름(한글/영문)으로 검색. 또는 아래에서 포지션 → 영웅 순으로 선택. 드롭다운 숫자는 총 피밴 수.</div>
+      <div class="sub-note">맨 위 검색창은 전체 영웅에서 이름(한글/영문)으로 검색. 또는 아래에서 포지션 → 영웅 순으로 선택.</div>
       ${selector}</div>
     ${detail}`;
 }
