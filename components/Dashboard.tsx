@@ -69,7 +69,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
   const [deepSmp, setDeepSmp] = useState(0);
   const [deepBanExpand, setDeepBanExpand] = useState("");
   const [mapsMode, setMapsMode] = useState("all");
-  const [mapsTeam, setMapsTeam] = useState("ZANSIDE");
+  const [mapsSel, setMapsSel] = useState("");
   const [logF, setLogF] = useState<LogFilter>({ z: "all", team: "", mode: "", map: "", date: "" });
   const [logExpand, setLogExpand] = useState<string[]>([]);
   const [logSort, setLogSort] = useState("new");
@@ -115,12 +115,12 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "players": return renderPlayers(D, { playerA, playerB, search: playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel });
       case "log": return renderLog(D, logF, logExpand, logSort);
       case "ban": return renderHeroBan(D, { hero: hbHero, search: hbSearch, team: hbTeam, role: hbRole });
-      case "maps": return renderMaps(D, mapsMode, mapsTeam);
-      case "legacy": return renderBanAnalysis(D, { role: banRole, topN: banTopN, team: banTeam, banMap, banExpand } as BanUI) + renderMaps(D, mapsMode, mapsTeam);
+      case "maps": return renderMaps(D, { mode: mapsMode, map: mapsSel });
+      case "legacy": return renderBanAnalysis(D, { role: banRole, topN: banTopN, team: banTeam, banMap, banExpand } as BanUI);
       case "estimator": return renderEstimator(D, est);
       default: return "";
     }
-  }, [D, tab, scoutTeam, scoutTab, deepAgg, deepSort, deepSmp, deepBanExpand, weakExpand, playerA, playerB, playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel, logF, logExpand, logSort, hbHero, hbSearch, hbTeam, hbRole, banRole, banTopN, banTeam, banMap, banExpand, mapsMode, mapsTeam, est]);
+  }, [D, tab, scoutTeam, scoutTab, deepAgg, deepSort, deepSmp, deepBanExpand, weakExpand, playerA, playerB, playerSearch, pickTeam, pickTeamB, heroExpand, heroMapSel, logF, logExpand, logSort, hbHero, hbSearch, hbTeam, hbRole, banRole, banTopN, banTeam, banMap, banExpand, mapsMode, mapsSel, est]);
 
   const zansideHtml = useMemo(() => {
     setIcons(D.heroIcons);
@@ -186,7 +186,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
     if (act.startsWith("est-opphero-")) { const i = +act.slice(12); setEst((s) => { const a = [...s.oppHeroes]; a[i] = v; return { ...s, oppHeroes: a, srcKey: "" }; }); return; }
     switch (act) {
       case "mapsmode": setMapsMode(v); break;
-      case "mapsteam": setMapsTeam(v); break;
+      case "maps-sel": setMapsSel(v); break;
       case "logteam": setLogF((f) => ({ ...f, team: v })); break;
       case "logmode": setLogF((f) => ({ ...f, mode: v })); break;
       case "logmap": setLogF((f) => ({ ...f, map: v })); break;

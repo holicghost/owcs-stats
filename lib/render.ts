@@ -1084,7 +1084,27 @@ export function renderHeroBan(D: DataBundle, ui: HeroBanUI): string {
   const heroSel = `<select data-act="hb-hero"><option value="" ${!ui.hero ? "selected" : ""}>— 영웅 —</option>${pool.map((h) => `<option value="${esc(h)}" ${h === ui.hero ? "selected" : ""}>${esc(heroKo(h))}</option>`).join("")}</select>`;
   const selector = `${searchResults}<div class="psel"><label class="estfield"><span class="estlabel">포지션</span>${roleSel}</label><label class="estfield"><span class="estlabel">영웅</span>${heroSel}</label></div>`;
 
-  let detail = `<div class="panel">${nod("영웅 선택 시 플레이 맵·선수와 선밴/후밴 순위 표시")}</div>`;
+  // 영웅 선택 전 기본: 리그 선밴/후밴 순위 + 팀별 밴 성향(맵별 분포 미리보기)
+  const f2: BanUI = { role: (ui.role || "all") as BanUI["role"], topN: 12, team: "", banMap: "all", banExpand: "" };
+  const gFirst: Record<string, number> = {}, gSecond: Record<string, number> = {};
+  D.sets.forEach((s) => s.bans.forEach((b) => { if (b.hero) (b.phase === "first" ? gFirst : gSecond)[b.hero] = ((b.phase === "first" ? gFirst : gSecond)[b.hero] || 0) + 1; }));
+  const teamForBan = ui.team && D.teamNames.includes(ui.team) ? ui.team : D.us;
+  const banTeamSel = `<select data-act="hb-team">${D.teamNames.map((n) => `<option value="${esc(n)}" ${n === teamForBan ? "selected" : ""}>${esc(n)}${n === D.us ? " · 우리 팀" : ""}</option>`).join("")}</select>`;
+  const tbAgg = teamBanDetail(D, teamForBan, "all").filter((h) => roleOk(h.hero, f2.role)).slice(0, 20);
+  const banTendTable = tbAgg.length
+    ? `<table class="bantable"><thead><tr><th>영웅</th><th class="num">선밴</th><th class="num">후밴</th><th class="num">합계</th><th>맵별 분포</th></tr></thead><tbody>${tbAgg.map((h) => {
+        const mapDist = Object.entries(h.maps).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([m, n]) => `<span class="utag">${mk(m)} <span class="mini">${n}</span></span>`).join("");
+        return `<tr><td class="hname">${heroChip(h.hero)}</td><td class="num">${h.first}</td><td class="num">${h.second}</td><td class="num"><b>${h.total}</b></td><td><div class="utags">${mapDist || '<span class="mini">-</span>'}</div></td></tr>`;
+      }).join("")}</tbody></table>`
+    : nod("이 팀의 밴 기록 없음");
+  let detail = `
+    <div class="grid2">
+      <div class="panel"><h2>리그 선밴 순위</h2><div class="bars">${banBars(gFirst, f2)}</div></div>
+      <div class="panel"><h2>리그 후밴 순위</h2><div class="bars">${banBars(gSecond, f2)}</div></div>
+    </div>
+    <div class="panel"><h2>팀별 밴 성향 <span class="count">${esc(teamForBan)} · 맵별 분포 미리보기</span></h2>
+      <div class="fbar"><span class="flabel">팀</span>${banTeamSel}</div>
+      ${banTendTable}</div>`;
   if (ui.hero) {
     const H = ui.hero;
     // 밴 집계 (선밴/후밴 × 맵/팀)
@@ -1210,76 +1230,66 @@ export function renderBanAnalysis(D: DataBundle, f: BanUI): string {
 }
 
 // ===== MAPS (5.4) =====
-export function renderMaps(D: DataBundle, mapsMode: string, mapsTeam: string): string {
-  const Z = D.teams[D.us];
-  const leagueMode: Record<string, { t: number }> = {};
-  Object.values(D.teams).forEach((t) =>
-    Object.entries(t.modes).forEach(([m, d]) => ((leagueMode[m] = leagueMode[m] || { t: 0 }).t += d.t))
-  );
-  const modeBody = MODE_ORDER.map((m) => {
-    const d = Z && Z.modes[m];
-    const wr = d && d.t ? Math.round((d.w / d.t) * 100) : -1;
-    const lg = leagueMode[m] ? Math.round(leagueMode[m].t / 2) : 0;
-    return `<tr><td class="hname">${MODE_KO[m] || m}</td>
-      <td class="num">${d ? `${d.w}-${d.t - d.w}` : '<span class="mini">-</span>'}</td>
-      <td class="num">${wr < 0 ? '<span class="mini">-</span>' : `<span class="wr ${wrCls(wr)}">${wr}%</span> <span class="mini">(${d!.t})</span>`}</td>
-      <td class="num mini">${lg}</td></tr>`;
-  }).join("");
-
+// ===== 맵 분석 (맵 선택 → 픽/밴 팀 + 팀·선수별 승률) — 영웅 분석과 동일 구조 =====
+export interface MapsUI { mode: string; map: string; }
+export function renderMaps(D: DataBundle, ui: MapsUI): string {
+  setIcons(D.heroIcons);
   const modes = MODE_ORDER.filter((m) => D.sets.some((s) => s.mode === m));
-  const modeFilter = `<select data-act="mapsmode"><option value="all" ${mapsMode === "all" ? "selected" : ""}>전체 모드</option>${modes.map((m) => `<option value="${m}" ${mapsMode === m ? "selected" : ""}>${MODE_KO[m] || m}</option>`).join("")}</select>`;
-  const teamFilter = `<select data-act="mapsteam"><option value="ZANSIDE" ${mapsTeam === "ZANSIDE" ? "selected" : ""}>ZANSIDE</option><option value="all" ${mapsTeam === "all" ? "selected" : ""}>리그 전체</option></select>`;
+  const allMaps = [...new Set(D.sets.map((s) => s.map).filter(Boolean))];
+  const modeSel = `<select data-act="mapsmode"><option value="all" ${ui.mode === "all" ? "selected" : ""}>전체</option>${modes.map((m) => `<option value="${m}" ${ui.mode === m ? "selected" : ""}>${esc(MODE_KO[m] || m)}</option>`).join("")}</select>`;
+  const pool = allMaps.filter((m) => ui.mode === "all" || D.mapInfo[m] === ui.mode).sort((a, b) => mapKo(a).localeCompare(mapKo(b)));
+  if (ui.map && !pool.includes(ui.map)) pool.unshift(ui.map);
+  const mapSel = `<select data-act="maps-sel"><option value="" ${!ui.map ? "selected" : ""}>— 맵 —</option>${pool.map((m) => `<option value="${esc(m)}" ${m === ui.map ? "selected" : ""}>${esc(mapKo(m))}</option>`).join("")}</select>`;
+  const selector = `<div class="psel"><label class="estfield"><span class="estlabel">모드</span>${modeSel}</label><label class="estfield"><span class="estlabel">맵</span>${mapSel}</label></div>`;
 
-  // 맵 집계
-  const rows: Record<string, { map: string; mode: string; n: number; w: number; l: number; pickers: Record<string, number> }> = {};
-  D.sets.forEach((s) => {
-    if (!s.map) return;
-    if (mapsMode !== "all" && s.mode !== mapsMode) return;
-    const r = (rows[s.map] = rows[s.map] || { map: s.map, mode: s.mode, n: 0, w: 0, l: 0, pickers: {} });
-    const w = setWinner(s);
-    if (mapsTeam === "ZANSIDE") {
-      if (s.top !== D.us && s.bottom !== D.us) return;
-      r.n++;
-      if (w === D.us) r.w++;
-      else if (w) r.l++;
-    } else {
-      r.n++;
-    }
-    if (s.picker && s.picker !== "ADMIN") r.pickers[s.picker] = (r.pickers[s.picker] || 0) + 1;
-  });
-  const arr = Object.values(rows).filter((r) => r.n > 0).sort((a, b) => b.n - a.n);
-  const mapBody = arr.length
-    ? arr.map((r) => {
-        const wr = r.w + r.l ? Math.round((r.w / (r.w + r.l)) * 100) : -1;
-        const pk = topN(r.pickers, 1)[0];
-        return `<tr><td class="hname">${mk(r.map)}</td><td class="mini">${MODE_KO[r.mode] || r.mode}</td>
-          <td class="num">${r.n}</td>
-          <td class="num">${mapsTeam === "ZANSIDE" ? `${r.w}-${r.l}` : '<span class="mini">-</span>'}</td>
-          <td class="num">${mapsTeam === "ZANSIDE" && wr >= 0 ? `<span class="wr ${wrCls(wr)}">${wr}%</span>` : '<span class="mini">-</span>'}</td>
-          <td class="num mini">${pk ? `${esc(pk[0])} (${pk[1]})` : "-"}</td></tr>`;
-      }).join("")
-    : `<tr><td colspan="6">${nod("해당 조건 맵 없음")}</td></tr>`;
-
-  return `
-    <div class="panel">
-      <h2>모드별 — ZANSIDE vs 리그 <span class="count">맵 단위 승률</span></h2>
-      <div class="sub-note">밀기는 거리 비교로 승패를 판정해요. 승률 옆 괄호는 표본(맵 수)</div>
-      <table>
-        <thead><tr><th>모드</th><th class="num">우리 전적</th><th class="num">우리 승률</th><th class="num">리그 평균 맵수</th></tr></thead>
-        <tbody>${modeBody}</tbody>
-      </table>
-    </div>
-    <div class="panel">
-      <h2>맵별 드릴다운 <span class="count">${arr.length}개 맵 · ${mapsTeam === "ZANSIDE" ? "ZANSIDE 기준" : "리그 전체"}</span></h2>
-      <div class="fbar">
-        <span class="flabel">모드</span>${modeFilter}
-        <span class="flabel">팀</span>${teamFilter}
+  let detail: string;
+  if (!ui.map) {
+    // 맵 선택 전 개요: 모드별 ZANSIDE vs 리그
+    const Z = D.teams[D.us];
+    const leagueMode: Record<string, { t: number }> = {};
+    Object.values(D.teams).forEach((t) => Object.entries(t.modes).forEach(([m, d]) => ((leagueMode[m] = leagueMode[m] || { t: 0 }).t += d.t)));
+    const modeBody = MODE_ORDER.map((m) => {
+      const d = Z && Z.modes[m];
+      const wr = d && d.t ? Math.round((d.w / d.t) * 100) : -1;
+      const lg = leagueMode[m] ? Math.round(leagueMode[m].t / 2) : 0;
+      return `<tr><td class="hname">${esc(MODE_KO[m] || m)}</td><td class="num">${d ? `${d.w}-${d.t - d.w}` : '<span class="mini">-</span>'}</td><td class="num">${wr < 0 ? '<span class="mini">-</span>' : `<span class="wr ${wrCls(wr)}">${wr}%</span> <span class="mini">(${d!.t})</span>`}</td><td class="num mini">${lg}</td></tr>`;
+    }).join("");
+    detail = `<div class="panel"><h2>모드별 — ZANSIDE vs 리그 <span class="count">맵 선택 전 개요</span></h2>
+      <table><thead><tr><th>모드</th><th class="num">우리 전적</th><th class="num">우리 승률</th><th class="num">리그 평균 맵수</th></tr></thead><tbody>${modeBody}</tbody></table></div>`;
+  } else {
+    const M = ui.map;
+    const mapSets = D.sets.filter((s) => s.map === M);
+    const pickCnt: Record<string, number> = {};
+    const banCnt: Record<string, number> = {};
+    mapSets.forEach((s) => {
+      if (s.picker && s.picker !== "ADMIN") pickCnt[s.picker] = (pickCnt[s.picker] || 0) + 1;
+      s.bans.forEach((b) => { if (b.team) banCnt[b.team] = (banCnt[b.team] || 0) + 1; });
+    });
+    const teamLabel = (t: string) => `<span class="${t === D.us ? "zan" : ""}">${esc(t)}</span>`;
+    const teamWr = D.teamNames.map((t) => { const r = D.teams[t]?.maps[M]; return r ? { t, w: r.w, l: r.l, n: r.w + r.l } : null; }).filter((x): x is { t: string; w: number; l: number; n: number } => !!x && x.n > 0).sort((a, b) => b.n - a.n);
+    const teamTable = teamWr.length
+      ? `<table class="hbtable"><thead><tr><th>팀</th><th class="num">승-패</th><th class="num">승률</th><th class="num">맵</th></tr></thead><tbody>${teamWr.map((r) => { const wr = r.n ? Math.round((r.w / r.n) * 100) : 0; return `<tr class="${r.t === D.us ? "zanrow" : ""}"><td class="${r.t === D.us ? "zan" : ""}">${esc(r.t)}</td><td class="num">${r.w}-${r.l}</td><td class="num"><span class="wr ${wrCls(wr)}">${wr}%</span></td><td class="num">${r.n}</td></tr>`; }).join("")}</tbody></table>`
+      : nod("기록 없음");
+    const plWr = D.playerNames.map((p) => { const P = D.players[p]; const r = P?.maps[M]; return r && r.n ? { p, team: P.team, w: r.w, n: r.n } : null; }).filter((x): x is { p: string; team: string; w: number; n: number } => !!x).sort((a, b) => b.n - a.n).slice(0, 15);
+    const plTable = plWr.length
+      ? `<table class="hbtable"><thead><tr><th>선수</th><th>팀</th><th class="num">승-패</th><th class="num">승률</th></tr></thead><tbody>${plWr.map((r) => { const wr = r.n ? Math.round((r.w / r.n) * 100) : 0; return `<tr class="${r.team === D.us ? "zanrow" : ""}"><td class="${r.team === D.us ? "zan" : ""}">${esc(r.p)}</td><td class="mini">${esc(r.team)}</td><td class="num">${r.w}-${r.n - r.w}</td><td class="num"><span class="wr ${wrCls(wr)}">${wr}%</span></td></tr>`; }).join("")}</tbody></table>`
+      : nod("기록 없음");
+    detail = `
+      <div class="panel hbsel"><div class="hbsel-head"><div><div class="hbsel-name">${esc(mapKo(M))} <span class="mini">${esc(MODE_KO[D.mapInfo[M]] || D.mapInfo[M] || "")}</span></div><div class="mini">${mapSets.length}경기</div></div></div></div>
+      <div class="grid2">
+        <div class="panel"><h2>자주 픽하는 팀 <span class="count">맵 선택권 기준</span></h2><div class="bars">${rankBars(pickCnt, teamLabel)}</div></div>
+        <div class="panel"><h2>자주 밴하는 팀 <span class="count">이 맵 경기의 영웅 밴 횟수</span></h2><div class="bars">${rankBars(banCnt, teamLabel)}</div></div>
       </div>
-      <table>
-        <thead><tr><th>맵</th><th>모드</th><th class="num">플레이</th><th class="num">승-패</th><th class="num">승률</th><th class="num">최다 픽 팀</th></tr></thead>
-        <tbody>${mapBody}</tbody>
-      </table>
-    </div>`;
+      <div class="grid2">
+        <div class="panel"><h2>팀별 맵 승률</h2>${teamTable}</div>
+        <div class="panel"><h2>선수별 맵 승률 <span class="count">상위 15</span></h2>${plTable}</div>
+      </div>`;
+  }
+  return `
+    <div class="panel"><h2>맵 선택</h2>
+      <div class="sub-note">모드 → 맵 순으로 선택. 맵을 고르면 픽/밴 팀과 팀·선수별 승률 표시.</div>
+      ${selector}</div>
+    ${detail}`;
 }
 
 // ===== LOG (5.5) =====
