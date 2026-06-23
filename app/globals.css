@@ -2,8 +2,11 @@
   --bg:#0a0c11; --panel:#12151d; --panel-2:#181c26; --panel-3:#1f2430;
   --line:#242a37; --line-soft:#1b212e;
   --tx:#eef0f6; --tx-mid:#a4abbd; --tx-dim:#6b7388;
-  --accent:#19e3c0; --accent-dim:#0e8a78;        /* ZANSIDE 강조색 */
+  --accent:#19e3c0; --accent-dim:#0e8a78;        /* ZANSIDE 강조색(브랜드·승리=고정) */
   --warn:#ff5d73; --gold:#ffcf5c; --blue:#4d8dff;
+  /* 카테고리 색(내비/구조 강조) — 한 곳에서 바꾸면 하위 전체가 따라감 */
+  --cat-team:#E64B5A; --cat-scout:#3B82F6; --cat-log:#22B07D; --cat-forecast:#E0A33E;
+  --cat:var(--cat-team); /* 활성 카테고리 강조색 (data-category로 주입) */
   --r:14px;
   --mono:"SF Mono",ui-monospace,"Cascadia Code","JetBrains Mono",Menlo,Consolas,monospace;
 }
@@ -34,14 +37,28 @@ h1 .thin{font-weight:300;color:var(--tx-mid)}
 
 nav.tabs{position:sticky;top:0;z-index:10;display:flex;gap:3px;padding:12px 0;background:linear-gradient(var(--bg) 72%,transparent);margin-bottom:6px;overflow-x:auto;scrollbar-width:none}
 nav.tabs::-webkit-scrollbar{display:none}
-.tab{flex:0 0 auto;font-family:inherit;font-size:14px;font-weight:600;color:var(--tx-mid);background:transparent;border:none;padding:9px 15px;border-radius:10px;cursor:pointer;transition:.15s;white-space:nowrap}
+/* 카테고리 색 주입: data-category 만으로 강조색 전환 (컴포넌트 색 하드코딩 없음) */
+[data-category="team"]{--cat:var(--cat-team)}
+[data-category="scout"]{--cat:var(--cat-scout)}
+[data-category="log"]{--cat:var(--cat-log)}
+[data-category="forecast"]{--cat:var(--cat-forecast)}
+.tab{flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;font-family:inherit;font-size:14px;font-weight:600;color:var(--tx-mid);background:transparent;border:none;padding:9px 15px;border-radius:10px;cursor:pointer;transition:.15s;white-space:nowrap}
+/* 탭마다 소속 카테고리 점(색각 이상 대비: 점=형태 신호) */
+.tab[data-cat]::before{content:"";width:7px;height:7px;border-radius:50%;flex:none;background:var(--tx-dim)}
+.tab[data-cat="team"]::before{background:var(--cat-team)}
+.tab[data-cat="scout"]::before{background:var(--cat-scout)}
+.tab[data-cat="log"]::before{background:var(--cat-log)}
+.tab[data-cat="forecast"]::before{background:var(--cat-forecast)}
 .tab:hover{color:var(--tx)}
-.tab.on{color:var(--bg);background:var(--accent);font-weight:700}
+.tab.on{color:var(--bg);background:var(--cat);font-weight:700;box-shadow:inset 0 -3px 0 rgba(0,0,0,.28)}
+.tab:hover:not(.on){color:var(--tx);background:var(--panel-2)}
 .tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .tabgroup-label{flex:0 0 auto;align-self:center;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--tx-dim);padding:0 6px 0 2px}
 .tabdiv{flex:0 0 auto;align-self:center;width:1px;height:18px;background:var(--line);margin:0 8px}
 
-.panel{background:var(--panel);border:1px solid var(--line-soft);border-radius:var(--r);padding:18px;margin-bottom:16px}
+.panel{background:var(--panel);border:1px solid var(--line-soft);border-left:3px solid var(--cat);border-radius:var(--r);padding:18px;margin-bottom:16px}
+/* 섹션 제목 좌측 카테고리 보더(형태 신호) */
+.panel>h2{border-left:3px solid var(--cat);padding-left:9px;margin-left:-4px}
 .panel h2{font-size:12.5px;letter-spacing:.04em;color:var(--tx-mid);font-weight:600;text-transform:uppercase;margin-bottom:14px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
 .panel h2 .count{font-family:var(--mono);color:var(--accent);font-size:11.5px;text-transform:none;font-weight:500}
 .panel .sub-note{font-size:12px;color:var(--tx-dim);margin:-6px 0 14px}
@@ -318,7 +335,7 @@ select:focus{outline:2px solid var(--accent-dim);outline-offset:1px}
 .logtable .logrow.open{background:var(--panel-2)}
 .logtable .caret{color:var(--tx-dim);width:20px}
 .logtable .zan{color:var(--accent);font-weight:600}
-.linkbtn{font-family:inherit;font-size:13.5px;font-weight:600;color:var(--accent);background:transparent;border:none;cursor:pointer;padding:0}
+.linkbtn{font-family:inherit;font-size:13.5px;font-weight:600;color:var(--cat);background:transparent;border:none;cursor:pointer;padding:0}
 .linkbtn:hover{text-decoration:underline}
 .diffrow.gap{border-color:var(--accent-dim)}
 
@@ -697,7 +714,7 @@ table.banpos .banposcell .num{font-weight:600}
 .subtabs::-webkit-scrollbar{display:none}
 .subtab{flex:0 0 auto;font-family:inherit;font-size:14px;font-weight:600;color:var(--tx-mid);background:none;border:none;border-bottom:2px solid transparent;padding:10px 16px;cursor:pointer;margin-bottom:-1px;white-space:nowrap}
 .subtab:hover{color:var(--tx)}
-.subtab.on{color:var(--accent);border-bottom-color:var(--accent)}
+.subtab.on{color:var(--cat);border-bottom-color:var(--cat)}
 .gamecard{padding:14px}
 .gc-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;font-weight:700}
 .gc-head .zan2{color:var(--accent)}
