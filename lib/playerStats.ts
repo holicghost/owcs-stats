@@ -60,16 +60,18 @@ export function parsePlayerStatsCSV(text: string): RawStat[] {
 }
 
 // RawStat + 매치 메타(replay로 조인) + 영웅(이름 매칭) → PStatRow. 상수/하수는 side로 절대 안 뒤섞임.
-export function joinPlayerStats(raws: RawStat[], sets: SetRec[], canonicalNames: string[]): PStatRow[] {
+export function joinPlayerStats(raws: RawStat[], sets: SetRec[], canonicalNames: string[], teamFix: Record<string, string> = {}): PStatRow[] {
   const byReplay = new Map<string, SetRec>();
   sets.forEach((s) => { if (s.replay) byReplay.set(s.replay.trim(), s); });
   const nameMap = new Map<string, string>();
   canonicalNames.forEach((n) => nameMap.set(normKey(n), n));
   const canon = (n: string) => nameMap.get(normKey(n)) || n;
+  // 스탯 시트의 팀명도 메인 시트와 동일하게 정규화 (canonicalizeTeams가 sets만 고치므로 일치시킴)
+  const fixTeam = (n: string) => teamFix[n] || n;
   return raws.map((rw) => {
     const s = byReplay.get(rw.replay);
-    const team = rw.side === "top" ? rw.topTeam : rw.botTeam;
-    const oppTeam = rw.side === "top" ? rw.botTeam : rw.topTeam;
+    const team = fixTeam(rw.side === "top" ? rw.topTeam : rw.botTeam);
+    const oppTeam = fixTeam(rw.side === "top" ? rw.botTeam : rw.topTeam);
     const name = canon(rw.name);
     let hero = "", map = "", mode = "", won: boolean | null = null;
     if (s) {

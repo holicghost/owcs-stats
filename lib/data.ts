@@ -527,7 +527,7 @@ export async function getData(): Promise<DataBundle> {
   // 선수 스탯: 매치 메타(replay)·영웅(이름 매칭)으로 조인. 시트가 비면 빈 배열.
   let playerStats: DataBundle["playerStats"] = [];
   try {
-    playerStats = psTxt ? joinPlayerStats(parsePlayerStatsCSV(psTxt), sets, d.playerNames) : [];
+    playerStats = psTxt ? joinPlayerStats(parsePlayerStatsCSV(psTxt), sets, d.playerNames, TEAM_NAME_FIX) : [];
   } catch (e) {
     console.warn("선수 스탯 파싱 실패:", (e as Error).message);
   }

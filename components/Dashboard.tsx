@@ -156,6 +156,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "goto": setMod("owcs"); setTab(val as TabId); toTop(); break;
       case "goplayer": setPlayerA(val); setPlayerB(""); setHeroExpand(""); setHeroMapSel(""); setPickTeam(D.players[val]?.team || pickTeam); go("players"); break;
       case "gomap": setMapsSel(val); setMapsMode("all"); go("maps"); break;
+      case "gomapmode": setMapsMode(val); setMapsSel(""); go("maps"); break;
       case "goteam": if (val === D.us) { goZ("team"); } else { setScoutTeam(val); go("scout"); } break;
       case "logz": setLogF((f) => ({ ...f, z: val as LogFilter["z"] })); break;
       case "player": // 검색 결과 클릭 → 선수 선택 + 드롭다운 자동 맞춤 + 검색 비움
@@ -172,6 +173,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "log-expand": setLogExpand((arr) => (arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val])); break;
       case "load-sim": { const inp = setToEstInput(D, val); if (inp) { setEst(inp); go("estimator"); } break; }
       case "est-comp": { const p = setToEstUs(D, val); if (p) setEst((s) => ({ ...s, usPlayers: p.usPlayers ?? s.usPlayers, usHeroes: p.usHeroes ?? s.usHeroes, srcKey: "" })); break; }
+      case "est-map": setEst((s) => ({ ...s, map: val, srcKey: "" })); break; // 추천 맵 칩 클릭(div) — onChange select와 동일 동작
       case "copy":
         navigator.clipboard?.writeText(val).then(() => {
           el.classList.add("done");
@@ -276,6 +278,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       </header>
 
       <div className="modnav">
+        <span className="modnav-label" aria-hidden>데이터 범위</span>
         <button className={`modbtn ${mod === "owcs" ? "on" : ""}`} data-mod="owcs" onClick={() => setMod("owcs")}>OWCS 데이터</button>
         <button className={`modbtn ${mod === "scrim" ? "on" : ""}`} data-mod="scrim" onClick={() => setMod("scrim")}>스크림 데이터</button>
         <button className={`modbtn ${mod === "zanside" ? "on" : ""}`} data-mod="zanside" onClick={() => { setMod("zanside"); toTop(); }}>ZANSIDE 데이터</button>

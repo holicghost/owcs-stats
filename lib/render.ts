@@ -258,26 +258,69 @@ export function renderMatchday(D: DataBundle, weakExpand: string): string {
   const mv = matchVerdict(est.pct);
   const stOpp = standOf(D, opp);
 
-  // ① 매치업 전망 (확정 예측처럼 보이지 않게 판단 문구 우선)
-  const outlookCard = `<div class="mdcard outlook ${mv.cls}">
-    <div class="mdc-k">매치업 전망</div>
-    <div class="outlook-word ${mv.cls}">${mv.word}</div>
-    <div class="outlook-meta"><span>추정치 <b>${est.pct}%</b></span><span>범위 ${est.lo}~${est.hi}%</span><span>신뢰도 ${est.conf}</span><span>${est.minSample}시리즈</span></div>
-  </div>`;
+  // ── 승리 플랜 (모드별 우선 공략 / 조건부 / 회피) — 표시 승률 그대로, 소수 1자리 ──
+  const fmtP = (w: number, t: number) => { if (!t) return "—"; const v = (w / t) * 100; return (Number.isInteger(v) ? v : +v.toFixed(1)) + "%"; };
+  const fmtDiff = (d: number) => { const r = Math.round(d * 10) / 10; return `${r >= 0 ? "+" : ""}${Number.isInteger(r) ? r : r.toFixed(1)}%p`; };
+  const usM = us ? us.modes : {}, opM = op ? op.modes : {};
+  const PLAN_ORDER: Record<string, number> = { "우선 공략": 0, "조건부 공략": 1, "회피": 2, "대등": 3, "정보 부족": 4 };
+  const PLAN_CLS: Record<string, string> = { "우선 공략": "attack", "조건부 공략": "cond", "회피": "avoid", "대등": "even", "정보 부족": "info" };
+  const plans = MODE_ORDER.filter((m) => (usM[m]?.t || 0) > 0 || (opM[m]?.t || 0) > 0).map((m) => {
+    const uw = usM[m]?.w || 0, ut = usM[m]?.t || 0, ow = opM[m]?.w || 0, ot = opM[m]?.t || 0;
+    const uPct = ut ? (uw / ut) * 100 : null, oPct = ot ? (ow / ot) * 100 : null;
+    let plan = "대등", note = "";
+    if (uPct == null) { plan = "정보 부족"; note = "우리 표본 없음"; }
+    else if (oPct == null) { plan = "조건부 공략"; note = "상대 표본 없음"; }
+    else {
+      const d = uPct - oPct;
+      // 우선 공략 = 우리가 실제로 강하고(자체 ≥50%) 상대보다 확실히 우위 + 양 팀 표본 충분
+      if (d >= 10 && uPct >= 50 && ut >= 3 && ot >= 3) plan = "우선 공략";
+      else if (d >= 10) { // 상대보다 낫지만 자체 승률이 낮거나 표본이 부족 → 조건부
+        plan = "조건부 공략";
+        note = ot < 3 ? `상대 표본 ${ot}맵` : ut < 3 ? `우리 표본 ${ut}맵` : `자체 ${fmtP(uw, ut)} · 낮음`;
+      }
+      else if (d <= -10) { plan = "회피"; if (ut < 3 || ot < 3) note = `표본 ${Math.min(ut, ot)}맵`; }
+      else plan = "대등";
+    }
+    return { mode: m, uw, ut, ow, ot, diff: (uPct != null && oPct != null) ? uPct - oPct : null, plan, note };
+  }).sort((a, b) => PLAN_ORDER[a.plan] - PLAN_ORDER[b.plan] || ((b.diff ?? -999) - (a.diff ?? -999)));
+  // TOP 3 = 각 분류(우선 공략·조건부·회피)의 대표 1개씩 우선 노출 → 부족하면 우선순위로 채움
+  const byPlan = (k: string, worst = false) => plans.filter((p) => p.plan === k).sort((a, b) => worst ? (a.diff ?? 0) - (b.diff ?? 0) : (b.diff ?? -999) - (a.diff ?? -999));
+  const picked = [byPlan("우선 공략")[0], byPlan("조건부 공략")[0], byPlan("회피", true)[0]].filter(Boolean);
+  const usedModes = new Set(picked.map((p) => p!.mode));
+  for (const p of plans) { if (picked.length >= 3) break; if (!usedModes.has(p.mode)) { picked.push(p); usedModes.add(p.mode); } }
+  const top3 = picked.slice(0, 3).sort((a, b) => PLAN_ORDER[a!.plan] - PLAN_ORDER[b!.plan] || ((b!.diff ?? -999) - (a!.diff ?? -999))) as typeof plans;
+  const top3Modes = new Set(top3.map((p) => p.mode));
+  const restPlans = plans.filter((p) => !top3Modes.has(p.mode));
+  const planRow = (r: typeof plans[number]) => `<li class="plan-row ${PLAN_CLS[r.plan]}" data-act="gomapmode" data-val="${esc(r.mode)}">
+    <span class="plan-badge ${PLAN_CLS[r.plan]}">${r.plan}</span>
+    <span class="plan-mode">${esc(MODE_KO[r.mode] || r.mode)} <span class="plan-go">→</span></span>
+    <span class="plan-nums"><span class="zan">ZANSIDE ${fmtP(r.uw, r.ut)}</span><span class="mini">vs</span><span>${esc(opp)} ${fmtP(r.ow, r.ot)}</span>${r.diff != null ? `<span class="plan-diff">${fmtDiff(r.diff)}</span>` : ""}</span>
+    ${r.note ? `<span class="plan-note">${esc(r.note)}</span>` : ""}
+  </li>`;
+  const winPlan = top3.length
+    ? `<ol class="planlist">${top3.map(planRow).join("")}</ol>${restPlans.length ? `<details class="planmore"><summary>나머지 모드 ${restPlans.length}개 보기</summary><ol class="planlist">${restPlans.map(planRow).join("")}</ol></details>` : ""}`
+    : nod("모드별 표본이 아직 없음.");
 
-  // ② 추천 첫 밴 (조사 제거 · 상대 핵심 픽)
-  const oppPicks = op ? oppOpeningPicks(D, opp) : [];
-  const banPick = oppPicks[0];
-  const recBan = banPick
-    ? mdCard("추천 첫 밴", heroChip(banPick.hero), `상대 핵심 픽 · ${banPick.n}회`)
-    : mdCard("추천 첫 밴", "데이터 부족", "상대 선픽이 입력되면 표시");
-
-  // ③ 상대 선밴 예상
+  // ── 밴 추천: 상대 의존 핵심 픽(표본 충분) / 표본 적지만 위험 픽(표본<3) 분리 ──
+  const picks = op ? oppOpeningPicks(D, opp) : [];
+  const keyPicks = picks.filter((p) => p.n >= 3).slice(0, 5);
+  const riskPicks = picks.filter((p) => p.n < 3 && p.n >= 1).slice(0, 6);
+  const pickChip = (p: { hero: string; n: number; w: number }) => `<span class="bp-chip">${heroChip(p.hero)}<span class="mini">${p.n}회 · ${Math.round((p.w / Math.max(1, p.n)) * 100)}%</span></span>`;
   const oppMaps = op ? op.mapW + op.mapL : 0;
   const oppFb = op ? Object.entries(op.firstBan).sort((a, b) => b[1] - a[1])[0] : null;
-  const expBan = oppFb
-    ? mdCard("상대 선밴 예상", heroChip(oppFb[0]), `선밴 빈도 ${Math.round((oppFb[1] / Math.max(1, oppMaps)) * 100)}% · 최근 ${oppMaps}맵 기준`)
-    : mdCard("상대 선밴 예상", "데이터 부족", "상대 밴 기록이 입력되면 표시");
+  const banPlan = `<div class="banplan-grid">
+    <div class="bp-col"><div class="bp-h key">상대 의존 핵심 픽</div><div class="bp-sub">상대가 자주 의존 — 첫 밴 1순위로 검토</div><div class="bp-chips">${keyPicks.length ? keyPicks.map(pickChip).join("") : nod("표본 충분한 핵심 픽 없음")}</div></div>
+    <div class="bp-col"><div class="bp-h risk">표본 적지만 위험 픽</div><div class="bp-sub">표본은 적지만 나오면 위협 — 상황 보고 대응</div><div class="bp-chips">${riskPicks.length ? riskPicks.map(pickChip).join("") : nod("해당 픽 없음")}</div></div>
+  </div>
+  <div class="bp-foot"><span class="mini">상대 선밴 예상</span> ${oppFb ? `${heroChip(oppFb[0])} <span class="mini">선밴 빈도 ${Math.round((oppFb[1] / Math.max(1, oppMaps)) * 100)}% · ${oppMaps}맵</span>` : '<span class="mini">데이터 부족</span>'}</div>`;
+
+  // ── 매치업 전망(추정 승률): 보조 정보로 내림 ──
+  const outlookSecondary = `<div class="outlook-sec ${mv.cls}">
+    <span class="os-lab">참고 · 추정 승률</span>
+    <span class="os-word ${mv.cls}">${mv.word}</span>
+    <span class="os-pct">${est.pct}%</span>
+    <span class="os-meta mini">범위 ${est.lo}~${est.hi}% · 신뢰도 ${est.conf} · ${est.minSample}시리즈</span>
+  </div>`;
 
   // 상대 핵심 성향 (행동 지침 · 조사 없음)
   const tendRows: string[] = [];
@@ -322,9 +365,11 @@ export function renderMatchday(D: DataBundle, weakExpand: string): string {
       <a class="linkbtn" role="button" data-act="goscout" data-val="${esc(opp)}" tabindex="0">상대 자세히 보기 ↗</a>
     </section>
     ${banner}
-    <h2 class="sectit">핵심 요약</h2>
-    <div class="mdcards">${outlookCard}${recBan}${expBan}</div>
+    <h2 class="sectit">승리 플랜 <span class="sectit-sub">이 경기 핵심 요약</span></h2>
+    <section class="panel winplan"><h2>승리 플랜 TOP 3 <span class="count">모드별 우선순위 · ZANSIDE vs ${esc(opp)}</span></h2>${winPlan}</section>
+    <section class="panel banplan"><h2>밴 추천 <span class="count">핵심 픽 우선 · 위험 픽 분리</span></h2>${banPlan}</section>
     <section class="panel"><h2>상대 핵심 성향</h2><div class="tendlist">${tendHtml}</div></section>
+    ${outlookSecondary}
     <section class="panel"><h2>근거 경기 <span class="count">${useH2h ? "최근 맞대결" : `${esc(opp)} 최근 경기`}</span></h2>${evidence}</section>
     <section class="panel"><details class="calc"><summary><span class="calc-sum">예상 승률 산출 기준</span><span class="mini">학습 모델이 아닌 가중 합산 방식 · 자세히 보기</span></summary>
       <div class="calc-body">
