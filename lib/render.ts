@@ -779,9 +779,6 @@ function teamSummary(D: DataBundle, team: string, isUs: boolean, weakExpand: str
         return `<button class="rcard rcard-btn" data-act="goplayer" data-val="${esc(p.name)}"><div class="rn">${esc(p.name)} <span class="rgo">→</span></div><div class="rr">${esc(roleOfR(p.roles))} · ${p.n}맵${th ? ` · ${esc(heroKo(th.hero))}` : ""}</div></button>`;
       }).join("")
     : nod("로스터 데이터가 없음.");
-  const ms = modeWinrate(T);
-  const mmx = Math.max(1, ...ms.map((m) => m[1].t));
-  const modesHtml = ms.length ? ms.map(([m, d]) => barWR(MODE_KO[m] || m, d.w, d.t, mmx)).join("") : nod();
   const made: Record<string, number> = { ...T.firstBan };
   Object.entries(T.secondBan).forEach(([h, n]) => (made[h] = (made[h] || 0) + n));
   // 밴 순서별 승률 (선밴권 / 후밴권) + 맵별 승률
@@ -825,10 +822,7 @@ function teamSummary(D: DataBundle, team: string, isUs: boolean, weakExpand: str
     : nod("밴 기록 없음");
   return `
     <div class="panel"><h2>최근 폼 <span class="count">최근 ${last.length}경기</span></h2><div class="form">${form}</div></div>
-    <div class="grid2">
-      <div class="panel"><h2>로스터 <span class="count">${players.length}명 · 누르면 선수 분석</span></h2><div class="roster">${rosterHtml}</div></div>
-      <div class="panel"><h2>모드별 성적 <span class="count">맵 단위</span></h2><div class="bars">${modesHtml}</div></div>
-    </div>
+    <div class="panel"><h2>로스터 <span class="count">${players.length}명 · 누르면 선수 분석</span></h2><div class="roster">${rosterHtml}</div></div>
     <div class="grid2">
       <div class="panel"><h2>맵별 성적 <span class="count">출전·승률</span></h2>${teamMapSummary(T)}</div>
       <div class="panel"><h2>영웅별 요약 <span class="count">자주 쓴 영웅 · 픽·교체 포함</span></h2><div class="bars">${heroPickBars(teamHeroPicks(D, team), 8)}</div></div>
