@@ -336,6 +336,11 @@ select:focus{outline:2px solid var(--accent-dim);outline-offset:1px}
 .logtable .zan{color:var(--accent);font-weight:600}
 .linkbtn{font-family:inherit;font-size:13.5px;font-weight:600;color:var(--accent);background:transparent;border:none;cursor:pointer;padding:0}
 .linkbtn:hover{text-decoration:underline}
+/* 교차 링크(맵/선수/팀 이름 클릭 → 분석 페이지). 점선 밑줄=클릭 가능 형태 신호 */
+.xlink{font:inherit;color:inherit;background:none;border:none;padding:0;margin:0;cursor:pointer;border-bottom:1px dotted color-mix(in srgb,currentColor 45%,transparent);transition:.12s}
+.xlink:hover{color:var(--accent);border-bottom-color:var(--accent)}
+.xlink:focus-visible{outline:2px solid var(--accent);outline-offset:1px;border-radius:2px}
+.xlink.zan{color:var(--accent);font-weight:700}
 .diffrow.gap{border-color:var(--accent-dim)}
 
 /* ===== 영웅×맵 히트맵 (13.3) ===== */

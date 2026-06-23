@@ -8,6 +8,11 @@ import { dimensions, crossEdge, WEAK_MARGIN, WEAK_SAMPLE_MIN, type Weak } from "
 import { esc, wrCls, nod, hk, mk, heroChip, heroIcon, setIcons } from "./ui";
 export { esc, setIcons };
 
+// 교차 링크: 맵/선수/팀 이름을 누르면 해당 분석 페이지로 이동 (전 화면 공용)
+const mapLink = (m: string) => m ? `<button class="xlink" data-act="gomap" data-val="${esc(m)}">${mk(m)}</button>` : '<span class="mini">-</span>';
+const playerLink = (p: string) => p ? `<button class="xlink" data-act="goplayer" data-val="${esc(p)}">${esc(p)}</button>` : '<span class="mini">?</span>';
+const teamLink = (t: string, us = false) => t ? `<button class="xlink ${us ? "zan" : ""}" data-act="goteam" data-val="${esc(t)}">${esc(t)}</button>` : '<span class="mini">-</span>';
+
 const rankOf = (D: DataBundle, name: string) => {
   const s = D.standings.find((x) => x.team === name);
   return s ? s.rank : null;
