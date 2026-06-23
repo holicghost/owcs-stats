@@ -1558,11 +1558,11 @@ export function renderLog(D: DataBundle, f: LogFilter, logExpand: string[], logS
     const rep = s.replay ? `<span class="repcode">${esc(s.replay)}</span><button class="copyb copyicon" data-act="copy" data-val="${esc(s.replay)}" title="복사"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button>` : '<span class="mini">-</span>';
     const row = `<tr class="logrow ${open ? "open" : ""}" data-act="log-expand" data-val="${esc(setKey(s))}">
       <td class="mini">${fmtDate(s.date)}</td>
-      <td class="${s.top === D.us ? "zan" : ""}">${esc(s.top)}</td>
-      <td class="${s.bottom === D.us ? "zan" : ""}">${esc(s.bottom)}</td>
+      <td>${teamLink(s.top, s.top === D.us)}</td>
+      <td>${teamLink(s.bottom, s.bottom === D.us)}</td>
       <td class="mini">${picker}</td>
       <td class="mini">${esc(MODE_KO[s.mode] || s.mode)}</td>
-      <td>${mk(s.map)}</td>
+      <td>${mapLink(s.map)}</td>
       <td class="num mono">${topSc}-${botSc}</td>
       <td>${winCell}</td>
       <td>${rep}</td>
