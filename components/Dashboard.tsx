@@ -153,6 +153,8 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "goscout": setScoutTeam(val); go("scout"); break;
       case "goto": setMod("owcs"); setTab(val as TabId); toTop(); break;
       case "goplayer": setPlayerA(val); setPlayerB(""); setHeroExpand(""); setHeroMapSel(""); setPickTeam(D.players[val]?.team || pickTeam); go("players"); break;
+      case "gomap": setMapsSel(val); setMapsMode("all"); go("maps"); break;
+      case "goteam": if (val === D.us) { goZ("team"); } else { setScoutTeam(val); go("scout"); } break;
       case "logz": setLogF((f) => ({ ...f, z: val as LogFilter["z"] })); break;
       case "player": // 검색 결과 클릭 → 선수 선택 + 드롭다운 자동 맞춤 + 검색 비움
         setPlayerA(val); setPlayerB(""); setHeroExpand(""); setHeroMapSel(""); setPickTeam(D.players[val]?.team || pickTeam); setPlayerSearch("");

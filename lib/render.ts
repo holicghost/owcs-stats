@@ -1185,24 +1185,43 @@ export function renderHeroBan(D: DataBundle, ui: HeroBanUI): string {
       });
     });
     const banTr = (w: number, max: number) => `<div class="tr mini-tr"><div class="fl ban" style="width:${Math.round((w / max) * 100)}%"></div></div>`;
-    // 자주 플레이하는 맵 (모드별 성적 양식)
-    const pmRows = Object.entries(pickMap).map(([m, v]) => ({ m, ...v })).sort((a, b) => b.n - a.n);
-    const pmMax = Math.max(1, ...pmRows.map((r) => r.n));
-    const playMapTable = pmRows.length
-      ? `<table class="hbtable"><thead><tr><th>맵</th><th class="num">픽</th><th class="num">승률</th><th>빈도</th></tr></thead><tbody>${pmRows.map((r) => { const wr = r.n ? Math.round((r.w / r.n) * 100) : 0; return `<tr><td class="hname">${mk(r.m)}</td><td class="num">${r.n}</td><td class="num"><span class="wr ${wrCls(wr)}">${wr}%</span></td><td>${banTr(r.n, pmMax)}</td></tr>`; }).join("")}</tbody></table>`
-      : nod("픽 기록 없음");
-    // 자주 플레이하는 선수
-    const ppRows = Object.entries(pickPl).map(([p, v]) => ({ p, ...v })).sort((a, b) => b.n - a.n);
+    // 자주 플레이하는 선수 — 픽 대비 승률 높은 순(동률은 픽 수)
+    const ppRows = Object.entries(pickPl).map(([p, v]) => ({ p, ...v })).sort((a, b) => (b.w / b.n) - (a.w / a.n) || b.n - a.n);
     const playPlayerTable = ppRows.length
       ? `<table class="hbtable"><thead><tr><th>선수</th><th>팀</th><th class="num">픽</th><th class="num">승률</th></tr></thead><tbody>${ppRows.map((r) => { const wr = r.n ? Math.round((r.w / r.n) * 100) : 0; return `<tr class="${r.team === D.us ? "zanrow" : ""}"><td class="${r.team === D.us ? "zan" : ""}">${esc(r.p)}</td><td class="mini">${esc(r.team)}</td><td class="num">${r.n}</td><td class="num"><span class="wr ${wrCls(wr)}">${wr}%</span></td></tr>`; }).join("")}</tbody></table>`
       : nod("픽 기록 없음");
+    // 자주 플레이하는 맵 — 팀 선택 시 그 팀이 이 영웅을 언제·어느 맵에서 플레이했고 승률은 어땠는지
+    const heroTeams = [...new Set(Object.values(pickPl).map((p) => p.team))].sort((a, b) => (a === D.us ? -1 : b === D.us ? 1 : a.localeCompare(b)));
+    const mapTeamSel = `<select data-act="hb-team"><option value="all" ${ui.team === "all" ? "selected" : ""}>전체 팀(집계)</option>${heroTeams.map((t) => `<option value="${esc(t)}" ${t === ui.team ? "selected" : ""}>${esc(t)}</option>`).join("")}</select>`;
+    let mapPanelBody: string;
+    if (ui.team !== "all" && heroTeams.includes(ui.team)) {
+      const games = D.sets.filter((s) => {
+        const side = s.top === ui.team ? s.picks.top : s.bottom === ui.team ? s.picks.bottom : null;
+        if (!side) return false;
+        const sw = swapsByPlayer(s.memo);
+        return side.some((p) => p.hero === H || (sw[p.player] || []).includes(H));
+      }).slice().reverse();
+      let gw = 0, gl = 0;
+      games.forEach((s) => { const w = setWinner(s); if (w === ui.team) gw++; else if (w) gl++; });
+      mapPanelBody = games.length
+        ? `<div class="sub-note">${esc(ui.team)} · ${esc(heroKo(H))} ${gw}승 ${gl}패 (${gw + gl ? Math.round(gw / (gw + gl) * 100) : 0}%)</div>
+          <table class="hbtable"><thead><tr><th>날짜</th><th>맵</th><th>상대</th><th class="num">결과</th></tr></thead><tbody>${games.map((s) => { const w = setWinner(s); const won = w === ui.team; const opp = s.top === ui.team ? s.bottom : s.top; return `<tr><td class="mini">${fmtDate(s.date)}</td><td class="hname">${mk(s.map)}</td><td>${esc(opp)}</td><td class="num"><span class="reslabel ${won ? "win" : "loss"}">${won ? "승" : w ? "패" : "·"}</span></td></tr>`; }).join("")}</tbody></table>`
+        : nod("이 팀의 해당 영웅 경기 없음");
+    } else {
+      const pmRows = Object.entries(pickMap).map(([m, v]) => ({ m, ...v })).sort((a, b) => b.n - a.n);
+      const pmMax = Math.max(1, ...pmRows.map((r) => r.n));
+      mapPanelBody = pmRows.length
+        ? `<table class="hbtable"><thead><tr><th>맵</th><th class="num">픽</th><th class="num">승률</th><th>빈도</th></tr></thead><tbody>${pmRows.map((r) => { const wr = r.n ? Math.round((r.w / r.n) * 100) : 0; return `<tr><td class="hname">${mk(r.m)}</td><td class="num">${r.n}</td><td class="num"><span class="wr ${wrCls(wr)}">${wr}%</span></td><td>${banTr(r.n, pmMax)}</td></tr>`; }).join("")}</tbody></table>`
+        : nod("픽 기록 없음");
+    }
     const mapLabel = (m: string) => mk(m);
     const teamLabel = (t: string) => `<span class="${t === D.us ? "zan" : ""}">${esc(t)}</span>`;
     detail = `
       <div class="panel hbsel"><div class="hbsel-head">${heroIcon(H)}<div><div class="hbsel-name">${esc(heroKo(H))} <span class="mini">${esc(ROLE_KO[HERO_ROLE[H] || ""] || "")}</span></div><div class="mini">픽 ${totalPick}회 · 총 밴 ${tf + ts}회 (선밴 ${tf} · 후밴 ${ts})</div></div></div></div>
       <div class="grid2">
-        <div class="panel"><h2>자주 플레이하는 맵 <span class="count">픽 기준</span></h2>${playMapTable}</div>
-        <div class="panel"><h2>자주 플레이하는 선수 <span class="count">픽 기준</span></h2>${playPlayerTable}</div>
+        <div class="panel"><h2>자주 플레이하는 맵 <span class="count">팀 선택 시 경기별</span></h2>
+          <div class="fbar"><span class="flabel">팀</span>${mapTeamSel}</div>${mapPanelBody}</div>
+        <div class="panel"><h2>자주 플레이하는 선수 <span class="count">픽 대비 승률 순</span></h2>${playPlayerTable}</div>
       </div>
       <div class="grid2">
         <div class="panel"><h2>선밴 순위 <span class="count">맵 · 팀 (상위 10)</span></h2>
@@ -1813,7 +1832,7 @@ export function renderPlayers(D: DataBundle, ui: PlayerUI): string {
   return `
     <div class="panel">
       <h2>선수 선택</h2>
-      <div class="sub-note">맨 위 검색창은 전체 선수에서 이름으로 찾아요. 또는 아래에서 팀 → 선수 순으로 골라도 돼요. 숫자는 출전 맵 수, ⚠는 경기 수가 적다는 뜻이에요.</div>
+      <div class="sub-note">맨 위 검색창은 전체 선수에서 이름으로 검색. 또는 아래에서 팀 → 선수 순으로 선택. 숫자는 출전 맵 수.</div>
       ${searchResults}
       ${playerSelect2(D, { pickTeam, selName: a.name, teamAct: "pick-team", playerAct: "pick-player" })}
     </div>
