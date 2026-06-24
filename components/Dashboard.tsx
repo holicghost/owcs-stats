@@ -142,6 +142,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
   function onClick(ev: Event) {
     const el = (ev.target as HTMLElement).closest?.<HTMLElement>("[data-act]");
     if (!el) return;
+    if (el instanceof HTMLSelectElement) return; // <select>는 onChange가 처리 — 클릭 시 onClick 무시(드롭다운 정상 오픈)
     const act = el.dataset.act;
     const val = el.dataset.val ?? "";
     switch (act) {
@@ -174,7 +175,7 @@ export default function Dashboard({ data }: { data: DataBundle }) {
       case "log-expand": setLogExpand((arr) => (arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val])); break;
       case "load-sim": { const inp = setToEstInput(D, val); if (inp) { setEst(inp); go("estimator"); } break; }
       case "est-comp": { const p = setToEstUs(D, val); if (p) setEst((s) => ({ ...s, usPlayers: p.usPlayers ?? s.usPlayers, usHeroes: p.usHeroes ?? s.usHeroes, srcKey: "" })); break; }
-      case "est-map": setEst((s) => ({ ...s, map: val, srcKey: "" })); break; // 추천 맵 칩 클릭(div) — onChange select와 동일 동작
+      case "est-pickmap": setEst((s) => ({ ...s, map: val, srcKey: "" })); break; // 추천 맵 칩 클릭(div). select(data-act=est-map)와 충돌 방지로 별도 act
       case "copy":
         navigator.clipboard?.writeText(val).then(() => {
           el.classList.add("done");

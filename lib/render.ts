@@ -2101,7 +2101,7 @@ export function renderEstimator(D: DataBundle, e: EstInput): string {
     // 맵 추천 (이 조합에 유리한 맵)
     const recMaps = recommendMaps(D, e).slice(0, 5);
     const mapHtml = recMaps.length
-      ? recMaps.map((m, idx) => `<div class="recmapitem ${m.map === e.map ? "cur" : ""}" data-act="est-map" data-val="${esc(m.map)}">${idx === 0 ? "<b>👍</b> " : ""}${esc(mapKo(m.map))} <span class="mini">${MODE_KO[m.mode] || m.mode}</span> <span class="wr ${wrCls(m.pct!)}">예상 ${m.pct}%</span>${m.wr != null ? ` <span class="mini">실적 ${m.wr}%(${m.n})</span>` : ' <span class="mini">실적 없음</span>'}</div>`).join("")
+      ? recMaps.map((m, idx) => `<div class="recmapitem ${m.map === e.map ? "cur" : ""}" data-act="est-pickmap" data-val="${esc(m.map)}">${idx === 0 ? "<b>👍</b> " : ""}${esc(mapKo(m.map))} <span class="mini">${MODE_KO[m.mode] || m.mode}</span> <span class="wr ${wrCls(m.pct!)}">예상 ${m.pct}%</span>${m.wr != null ? ` <span class="mini">실적 ${m.wr}%(${m.n})</span>` : ' <span class="mini">실적 없음</span>'}</div>`).join("")
       : nod("맵 추천 표본이 부족해요.");
     recPanel = `<div class="panel"><h2>조합 추천 <span class="count">${e.oppTeam ? `vs ${esc(e.oppTeam)} · ` : ""}${esc(mapKo(e.map))} 고승률 조합</span></h2>
       <div class="sub-note">ZANSIDE가 <b>실제로 굴린 5인 조합</b>을 이 매치업에 대입해 예상 승률 높은 순으로 보여줘요. <b>이 조합 적용</b>은 현재 맵·상대를 유지한 채 우리 라인업만 채웁니다.</div>
